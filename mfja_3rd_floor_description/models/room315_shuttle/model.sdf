@@ -3,27 +3,25 @@
   <model name="room315_shuttle">
     <static>false</static>
     <link name="room315_shuttle_link">
-      <pose>0.171583 0.100000 0.078500 0 0 0</pose>
+      <kinematic>true</kinematic>
+      <gravity>false</gravity>
+      <pose>0 0 0 0 0 0</pose>
       <inertial>
-        <pose>0 0 0 0 0 0</pose>
-        <mass>5.0</mass>
+        <mass>0.1</mass>
         <inertia>
-          <ixx>0.02695</ixx>
-          <ixy>0</ixy>
-          <ixz>0</ixz>
-          <iyy>0.05935</iyy>
-          <iyz>0</iyz>
-          <izz>0.06575</izz>
+          <ixx>0.001</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>0.001</iyy>
+          <iyz>0.0</iyz>
+          <izz>0.001</izz>
         </inertia>
       </inertial>
-      <linear_damping>0.2</linear_damping>
-      <angular_damping>0.2</angular_damping>
       <visual name="room315_shuttle_visual">
-        <pose>-0.171583 -0.100000 -0.078500 0 0 0</pose>
+        <pose>-0.25 -0.100000024 -0.078499973 0 0 0</pose>
         <geometry>
           <mesh>
             <uri>model://room315_shuttle/meshes/shuttle.STL</uri>
-            <convex>true</convex>
           </mesh>
         </geometry>
         <material>
@@ -33,39 +31,6 @@
           <emissive>0 0 0 1</emissive>
         </material>
       </visual>
-      <collision name="room315_shuttle_collision">
-        <pose>-0.171583 -0.100000 -0.078500 0 0 0</pose>
-        <geometry>
-          <mesh>
-            <uri>model://room315_shuttle/meshes/shuttle.STL</uri>
-          </mesh>
-        </geometry>
-        <surface>
-          <friction>
-            <ode>
-              <mu>0.45</mu>
-              <mu2>0.45</mu2>
-            </ode>
-            <bullet>
-              <friction>0.45</friction>
-              <friction2>0.45</friction2>
-              <rolling_friction>0.02</rolling_friction>
-            </bullet>
-          </friction>
-          <contact>
-            <ode>
-              <kp>2000000</kp>
-              <kd>50</kd>
-              <max_vel>0.1</max_vel>
-              <min_depth>0.001</min_depth>
-            </ode>
-            <bullet>
-              <kp>2000000</kp>
-              <kd>50</kd>
-            </bullet>
-          </contact>
-        </surface>
-      </collision>
     </link>
     <plugin
         filename="gz-sim-pose-publisher-system"

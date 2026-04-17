@@ -1,0 +1,442 @@
+phase: 1
+description: CSV preprocessing and normalization for room 315 shuttle segments
+input_dir: /home/tiago/ALI_ros2_ws/src/mfja_3rd_floor_gz/CSV
+output_dir: /home/tiago/ALI_ros2_ws/src/mfja_3rd_floor_gz/mfja_robot_control_config/config/room_315_kinematics/normalized_segments
+input_stage: raw
+duplicate_tolerance: 1.0e-06
+segment_order:
+- A1G
+- A1S
+- A2G
+- A2S
+- A3G
+- A3S
+- A4G
+- A4S
+- A12E
+- A12I
+- A14
+- A23
+- A34E
+- A34I
+segments:
+  A1G:
+    source_csv: CSV/A1G.csv
+    normalized_csv: mfja_robot_control_config/config/room_315_kinematics/normalized_segments/A1G.csv
+    raw_point_count: 13
+    normalized_point_count: 13
+    consecutive_duplicates_removed: 0
+    start_point:
+    - -12.535653747625
+    - -4.253212984657
+    - 0.789346
+    end_point:
+    - -12.535653747625
+    - -4.472587268359
+    - 0.789346
+    approx_length: 0.2290224737343916
+    bbox:
+      min_x: -12.564947872224
+      max_x: -12.535653747625
+      min_y: -4.472587268359
+      max_y: -4.253212984657
+      min_z: 0.789346
+      max_z: 0.789346
+    z_stats:
+      min: 0.789346
+      max: 0.789346
+      mean: 0.789346
+    extra_header_fields: []
+    max_heading_jump_deg: 8.27062830460823
+    sharp_turn_indices: []
+    warning_flags: []
+  A1S:
+    source_csv: CSV/A1S.csv
+    normalized_csv: mfja_robot_control_config/config/room_315_kinematics/normalized_segments/A1S.csv
+    raw_point_count: 8
+    normalized_point_count: 8
+    consecutive_duplicates_removed: 0
+    start_point:
+    - -12.535653747625
+    - -4.253212984657
+    - 0.789346
+    end_point:
+    - -12.726712544435
+    - -4.364141741144
+    - 0.789346
+    approx_length: 0.23120460684124958
+    bbox:
+      min_x: -12.726712544435
+      max_x: -12.535653747625
+      min_y: -4.364141741144
+      max_y: -4.253212984657
+      min_z: 0.789346
+      max_z: 0.789346
+    z_stats:
+      min: 0.789346
+      max: 0.789346
+      mean: 0.789346
+    extra_header_fields: []
+    max_heading_jump_deg: 10.908424850429826
+    sharp_turn_indices: []
+    warning_flags: []
+  A2G:
+    source_csv: CSV/A2G.csv
+    normalized_csv: mfja_robot_control_config/config/room_315_kinematics/normalized_segments/A2G.csv
+    raw_point_count: 10
+    normalized_point_count: 10
+    consecutive_duplicates_removed: 0
+    start_point:
+    - -14.06612772623
+    - -4.583300376059
+    - 0.789346
+    end_point:
+    - -14.17640235614
+    - -4.391411739602
+    - 0.789346
+    approx_length: 0.23121206891836762
+    bbox:
+      min_x: -14.17640235614
+      max_x: -14.06612772623
+      min_y: -4.583300376059
+      max_y: -4.391411739602
+      min_z: 0.789346
+      max_z: 0.789346
+    z_stats:
+      min: 0.789346
+      max: 0.789346
+      mean: 0.789346
+    extra_header_fields: []
+    max_heading_jump_deg: 12.162217981908316
+    sharp_turn_indices: []
+    warning_flags: []
+  A2S:
+    source_csv: CSV/A2S.csv
+    normalized_csv: mfja_robot_control_config/config/room_315_kinematics/normalized_segments/A2S.csv
+    raw_point_count: 11
+    normalized_point_count: 11
+    consecutive_duplicates_removed: 0
+    start_point:
+    - -13.95498279862
+    - -4.394846898661
+    - 0.789346
+    end_point:
+    - -14.17640235614
+    - -4.391411739602
+    - 0.789346
+    approx_length: 0.2319211800913243
+    bbox:
+      min_x: -14.17640235614
+      max_x: -13.95498279862
+      min_y: -4.42302981408
+      max_y: -4.391411739602
+      min_z: 0.789346
+      max_z: 0.789346
+    z_stats:
+      min: 0.789346
+      max: 0.789346
+      mean: 0.789346
+    extra_header_fields: []
+    max_heading_jump_deg: 8.544842826176053
+    sharp_turn_indices: []
+    warning_flags: []
+  A3G:
+    source_csv: CSV/A3G.csv
+    normalized_csv: mfja_robot_control_config/config/room_315_kinematics/normalized_segments/A3G.csv
+    raw_point_count: 13
+    normalized_point_count: 13
+    consecutive_duplicates_removed: 0
+    start_point:
+    - -14.173498386817
+    - -3.773045485755
+    - 0.789346
+    end_point:
+    - -14.063233008482
+    - -3.582796722829
+    - 0.789346
+    approx_length: 0.2300766174144533
+    bbox:
+      min_x: -14.173498386817
+      max_x: -14.063233008482
+      min_y: -3.773045485755
+      max_y: -3.582796722829
+      min_z: 0.789346
+      max_z: 0.789346
+    z_stats:
+      min: 0.789346
+      max: 0.789346
+      mean: 0.789346
+    extra_header_fields: []
+    max_heading_jump_deg: 7.831094883097167
+    sharp_turn_indices: []
+    warning_flags: []
+  A3S:
+    source_csv: CSV/A3S.csv
+    normalized_csv: mfja_robot_control_config/config/room_315_kinematics/normalized_segments/A3S.csv
+    raw_point_count: 10
+    normalized_point_count: 10
+    consecutive_duplicates_removed: 0
+    start_point:
+    - -14.173498386817
+    - -3.773045485755
+    - 0.789346
+    end_point:
+    - -13.952718810736
+    - -3.771319109967
+    - 0.789346
+    approx_length: 0.23112896909128888
+    bbox:
+      min_x: -14.173498386817
+      max_x: -13.952718810736
+      min_y: -3.773045485755
+      max_y: -3.74273005247
+      min_z: 0.789346
+      max_z: 0.789346
+    z_stats:
+      min: 0.789346
+      max: 0.789346
+      mean: 0.789346
+    extra_header_fields: []
+    max_heading_jump_deg: 8.745113302651292
+    sharp_turn_indices: []
+    warning_flags: []
+  A4G:
+    source_csv: CSV/A4G.csv
+    normalized_csv: mfja_robot_control_config/config/room_315_kinematics/normalized_segments/A4G.csv
+    raw_point_count: 13
+    normalized_point_count: 13
+    consecutive_duplicates_removed: 0
+    start_point:
+    - -12.539374059861
+    - -3.690222582912
+    - 0.789346
+    end_point:
+    - -12.537466567062
+    - -3.913101672134
+    - 0.789346
+    approx_length: 0.23303563119574933
+    bbox:
+      min_x: -12.56867249934
+      max_x: -12.537466567062
+      min_y: -3.913101672134
+      max_y: -3.690222582912
+      min_z: 0.789346
+      max_z: 0.789346
+    z_stats:
+      min: 0.789346
+      max: 0.789346
+      mean: 0.789346
+    extra_header_fields: []
+    max_heading_jump_deg: 8.588243194822535
+    sharp_turn_indices: []
+    warning_flags: []
+  A4S:
+    source_csv: CSV/A4S.csv
+    normalized_csv: mfja_robot_control_config/config/room_315_kinematics/normalized_segments/A4S.csv
+    raw_point_count: 6
+    normalized_point_count: 6
+    consecutive_duplicates_removed: 0
+    start_point:
+    - -12.728619971722
+    - -3.802007025019
+    - 0.789346
+    end_point:
+    - -12.537466567062
+    - -3.913101672134
+    - 0.789346
+    approx_length: 0.2311866308460345
+    bbox:
+      min_x: -12.728619971722
+      max_x: -12.537466567062
+      min_y: -3.913101672134
+      max_y: -3.802007025019
+      min_z: 0.789346
+      max_z: 0.789346
+    z_stats:
+      min: 0.789346
+      max: 0.789346
+      mean: 0.789346
+    extra_header_fields: []
+    max_heading_jump_deg: 13.797184495260758
+    sharp_turn_indices: []
+    warning_flags: []
+  A12E:
+    source_csv: CSV/A12E.csv
+    normalized_csv: mfja_robot_control_config/config/room_315_kinematics/normalized_segments/A12E.csv
+    raw_point_count: 34
+    normalized_point_count: 34
+    consecutive_duplicates_removed: 0
+    start_point:
+    - -12.535653747625
+    - -4.472587268359
+    - 0.789346
+    end_point:
+    - -14.06612772623
+    - -4.583300376059
+    - 0.789346
+    approx_length: 2.1582054979743264
+    bbox:
+      min_x: -14.06612772623
+      max_x: -12.50625640572
+      min_y: -4.921396930188
+      max_y: -4.472587268359
+      min_z: 0.789346
+      max_z: 0.789346
+    z_stats:
+      min: 0.789346
+      max: 0.789346
+      mean: 0.789346
+    extra_header_fields: []
+    max_heading_jump_deg: 15.199810101832488
+    sharp_turn_indices: []
+    warning_flags: []
+  A12I:
+    source_csv: CSV/A12I.csv
+    normalized_csv: mfja_robot_control_config/config/room_315_kinematics/normalized_segments/A12I.csv
+    raw_point_count: 20
+    normalized_point_count: 20
+    consecutive_duplicates_removed: 0
+    start_point:
+    - -12.725662942266
+    - -4.363108955675
+    - 0.789346
+    end_point:
+    - -13.95498279862
+    - -4.394846898661
+    - 0.789346
+    approx_length: 1.2351847760584376
+    bbox:
+      min_x: -13.95498279862
+      max_x: -12.725662942266
+      min_y: -4.394846898661
+      max_y: -4.363108955675
+      min_z: 0.789346
+      max_z: 0.789346
+    z_stats:
+      min: 0.789346
+      max: 0.789346
+      mean: 0.789346
+    extra_header_fields: []
+    max_heading_jump_deg: 13.164501537533774
+    sharp_turn_indices: []
+    warning_flags: []
+  A14:
+    source_csv: CSV/A14.csv
+    normalized_csv: mfja_robot_control_config/config/room_315_kinematics/normalized_segments/A14.csv
+    raw_point_count: 10
+    normalized_point_count: 10
+    consecutive_duplicates_removed: 0
+    start_point:
+    - -12.537466567062
+    - -3.913101672134
+    - 0.789346
+    end_point:
+    - -12.535653747625
+    - -4.253212984657
+    - 0.789346
+    approx_length: 0.35004261953193844
+    bbox:
+      min_x: -12.537466567062
+      max_x: -12.507788845142
+      min_y: -4.253212984657
+      max_y: -3.913101672134
+      min_z: 0.789346
+      max_z: 0.789346
+    z_stats:
+      min: 0.789346
+      max: 0.789346
+      mean: 0.789346
+    extra_header_fields: []
+    max_heading_jump_deg: 13.14431677644177
+    sharp_turn_indices: []
+    warning_flags: []
+  A23:
+    source_csv: CSV/A23.csv
+    normalized_csv: mfja_robot_control_config/config/room_315_kinematics/normalized_segments/A23.csv
+    raw_point_count: 39
+    normalized_point_count: 39
+    consecutive_duplicates_removed: 0
+    start_point:
+    - -14.17640235614
+    - -4.391411739602
+    - 0.789346
+    end_point:
+    - -14.173498386817
+    - -3.773045485755
+    - 0.789346
+    approx_length: 1.2736445709066817
+    bbox:
+      min_x: -14.623881246038
+      max_x: -14.173498386817
+      min_y: -4.391411739602
+      max_y: -3.773045485755
+      min_z: 0.789346
+      max_z: 0.789346
+    z_stats:
+      min: 0.789346
+      max: 0.789346
+      mean: 0.789346
+    extra_header_fields: []
+    max_heading_jump_deg: 16.726371205807126
+    sharp_turn_indices: []
+    warning_flags: []
+  A34E:
+    source_csv: CSV/A34E.csv
+    normalized_csv: mfja_robot_control_config/config/room_315_kinematics/normalized_segments/A34E.csv
+    raw_point_count: 69
+    normalized_point_count: 69
+    consecutive_duplicates_removed: 0
+    start_point:
+    - -14.063233008482
+    - -3.582796722829
+    - 0.789346
+    end_point:
+    - -12.539374059861
+    - -3.690222582912
+    - 0.789346
+    approx_length: 2.160110124140574
+    bbox:
+      min_x: -14.063816573652
+      max_x: -12.50625640572
+      min_y: -3.690222582912
+      max_y: -3.242843948588
+      min_z: 0.789346
+      max_z: 0.789346
+    z_stats:
+      min: 0.789346
+      max: 0.789346
+      mean: 0.789346
+    extra_header_fields: []
+    max_heading_jump_deg: 21.10206998269097
+    sharp_turn_indices: []
+    warning_flags: []
+  A34I:
+    source_csv: CSV/A34I.csv
+    normalized_csv: mfja_robot_control_config/config/room_315_kinematics/normalized_segments/A34I.csv
+    raw_point_count: 20
+    normalized_point_count: 20
+    consecutive_duplicates_removed: 0
+    start_point:
+    - -13.952718810736
+    - -3.771319109967
+    - 0.789346
+    end_point:
+    - -12.728619971722
+    - -3.802007025019
+    - 0.789346
+    approx_length: 1.2290076134070411
+    bbox:
+      min_x: -13.952718810736
+      max_x: -12.728619971722
+      min_y: -3.802169062474
+      max_y: -3.771319109967
+      min_z: 0.789346
+      max_z: 0.789346
+    z_stats:
+      min: 0.789346
+      max: 0.789346
+      mean: 0.789346
+    extra_header_fields: []
+    max_heading_jump_deg: 11.894153695389852
+    sharp_turn_indices: []
+    warning_flags: []

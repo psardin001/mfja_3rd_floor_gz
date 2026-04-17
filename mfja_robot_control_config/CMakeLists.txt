@@ -13,6 +13,11 @@ install(
 install(
   PROGRAMS
     scripts/conveyor_loop_mode_controller.py
+    scripts/room_315_csv_preprocessor.py
+    scripts/room_315_segment_plot.py
+    scripts/room_315_network_validator.py
+    scripts/room_315_kinematic_shuttle.py
+    scripts/room_315_kinematic_shuttle_node.py
     scripts/multi_robot_sync_demo.py
   DESTINATION lib/${PROJECT_NAME}
 )
