@@ -348,6 +348,16 @@ def _launch_setup(context, *args, **kwargs):
             name='clock_bridge',
             output='screen',
             arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'],
+        ),
+        Node(
+            package='ros_gz_bridge',
+            executable='parameter_bridge',
+            name='room315_world_service_bridge',
+            output='screen',
+            arguments=[
+                f'/world/{world_entity_name}/set_pose@ros_gz_interfaces/srv/SetEntityPose',
+                f'/world/{world_entity_name}/create@ros_gz_interfaces/srv/SpawnEntity',
+            ],
         )
     ]
 

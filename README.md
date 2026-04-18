@@ -24,4 +24,10 @@ colcon build --symlink-install
 ros2 launch mfja_3rd_floor_gz mfja_3rdf.launch.py world_name:=mfja_3rd_floor
 ```
 
+## Room 315 kinematic shuttle
 
+The detailed usage guide for the Room 315 kinematic shuttle, including room-only
+and full-floor launch commands, multi-shuttle control, switch commands, runtime
+shuttle spawning, collision avoidance, and validation tools is here:
+
+`mfja_robot_control_config/config/room_315_kinematics/README.md`

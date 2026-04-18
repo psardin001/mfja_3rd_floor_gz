@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <sdf version="1.4">
-  <world name="default">
+  <world name="mfja_3rd_floor">
     <physics name="5ms" type="ignored">
       <max_step_size>0.005</max_step_size>
       <real_time_factor>1.0</real_time_factor>
@@ -117,7 +117,28 @@
     <include>
       <uri>model://room315_shuttle</uri>
       <name>room315_shuttle_1</name>
-      <pose>-15.855195431322 -4.525523413467 0.839346 0 0 -2.043462003462</pose>
+      <pose>-15.43 -3.86 0.84 0 0 3.14</pose>
+    </include>
+
+    <!-- Extra shuttle instances for multi-shuttle kinematic tests.
+         They start hidden below the floor and are moved to allowed start slots by
+         room_315_kinematic_shuttle_node.py when shuttle_count > 1. -->
+    <include>
+      <uri>model://room315_shuttle</uri>
+      <name>room315_shuttle_2</name>
+      <pose>0 0 -10 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://room315_shuttle</uri>
+      <name>room315_shuttle_3</name>
+      <pose>0 0 -10 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://room315_shuttle</uri>
+      <name>room315_shuttle_4</name>
+      <pose>0 0 -10 0 0 0</pose>
     </include>
 
     <!-- Placeholder static switch instances using the cell_static-colored switch model. -->

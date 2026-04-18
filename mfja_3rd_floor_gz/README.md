@@ -16,3 +16,7 @@ Compatibility launch examples:
 
 - `ros2 launch mfja_3rd_floor_gz full_floor.launch.py`
 - `ros2 launch mfja_3rd_floor_gz room_315_only.launch.py`
+
+Room 315 kinematic shuttle guide:
+
+- `mfja_robot_control_config/config/room_315_kinematics/README.md`

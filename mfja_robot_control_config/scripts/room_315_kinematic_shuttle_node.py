@@ -3,7 +3,7 @@
 import json
 import math
 import re
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict
 
@@ -14,7 +14,9 @@ from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from ros_gz_interfaces.msg import Entity
+from ros_gz_interfaces.msg import EntityFactory
 from ros_gz_interfaces.srv import SetEntityPose
+from ros_gz_interfaces.srv import SpawnEntity
 from std_msgs.msg import String
 
 from room_315_kinematic_shuttle import (
@@ -24,6 +26,7 @@ from room_315_kinematic_shuttle import (
     RailNetwork,
     ShuttlePose,
     ShuttleState,
+    WAITING,
 )
 
 
@@ -47,9 +50,65 @@ def _default_network_path() -> Path:
         )
 
 
+def _default_shuttle_model_sdf_path() -> Path:
+    try:
+        from ament_index_python.packages import get_package_share_directory
+
+        return (
+            Path(get_package_share_directory('mfja_3rd_floor_description'))
+            / 'models'
+            / 'room315_shuttle'
+            / 'model.sdf'
+        )
+    except Exception:
+        return (
+            Path(__file__).resolve().parents[2]
+            / 'mfja_3rd_floor_description'
+            / 'models'
+            / 'room315_shuttle'
+            / 'model.sdf'
+        )
+
+
 def _yaw_to_quaternion(yaw: float) -> tuple[float, float, float, float]:
     half_yaw = 0.5 * yaw
     return 0.0, 0.0, math.sin(half_yaw), math.cos(half_yaw)
+
+
+@dataclass(frozen=True)
+class AllowedStartPose:
+    x: float
+    y: float
+    z: float
+    roll: float
+    pitch: float
+    yaw: float
+
+
+ALLOWED_START_POSES = {
+    '1': AllowedStartPose(-14.95, -3.86, 0.84, 0.0, 0.0, 3.14),
+    '2': AllowedStartPose(-15.43, -3.86, 0.84, 0.0, 0.0, 3.14),
+    '3': AllowedStartPose(-15.24, -5.54, 0.84, 0.0, 0.0, 0.0),
+    '4': AllowedStartPose(-14.77, -5.54, 0.84, 0.0, 0.0, 0.0),
+}
+
+
+@dataclass
+class ManagedShuttle:
+    entity_name: str
+    start_slot: str
+    start_pose: AllowedStartPose
+    start_snap_distance_m: float
+    core: KinematicShuttleCore
+    pose_publisher: object
+    pending_set_pose: object | None = None
+    pending_spawn: object | None = None
+    last_gazebo_set_pose_time: object | None = None
+    gazebo_spawned: bool = False
+    blocked_by: str | None = None
+    collision_distance_m: float | None = None
+    set_pose_warning_logged: bool = False
+    spawn_failure_logged: bool = False
 
 
 class Room315KinematicShuttleNode(Node):
@@ -57,12 +116,21 @@ class Room315KinematicShuttleNode(Node):
         super().__init__('room_315_kinematic_shuttle')
 
         self.declare_parameter('network_yaml', str(_default_network_path()))
+        self.declare_parameter('shuttle_count', 1)
+        self.declare_parameter('start_slot', 2)
+        self.declare_parameter('start_slots', '')
+        self.declare_parameter('start_snap_tolerance_m', 0.25)
         self.declare_parameter('initial_segment', 'A14')
         self.declare_parameter('initial_s', 0.0)
         self.declare_parameter('speed', 0.25)
         self.declare_parameter('update_rate_hz', 30.0)
+        self.declare_parameter('enable_collision_avoidance', True)
+        self.declare_parameter('shuttle_collision_distance_m', 0.33)
+        self.declare_parameter('collision_search_iterations', 12)
         self.declare_parameter('pose_topic', '/room_315/shuttle/pose_cmd')
+        self.declare_parameter('pose_topic_prefix', '/room_315/shuttles')
         self.declare_parameter('state_topic', '/room_315/shuttle/state')
+        self.declare_parameter('add_shuttle_command_topic', '/room_315/shuttle/add_cmd')
         self.declare_parameter('switch_command_topic', '/room_315/switch_states')
         self.declare_parameter('pose_offset_command_topic', '/room_315/shuttle/pose_offset_cmd')
         self.declare_parameter('visual_switch_command_topic', '/mfja/conveyor/switch_cmd')
@@ -70,8 +138,14 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('sync_from_visual_switch_states', True)
         self.declare_parameter('frame_id', 'world')
         self.declare_parameter('enable_gazebo_set_pose', False)
-        self.declare_parameter('gazebo_set_pose_service', '/world/room_315_only/set_pose')
+        self.declare_parameter('gazebo_world_name', 'room_315_only')
+        self.declare_parameter('gazebo_set_pose_service', '')
+        self.declare_parameter('enable_gazebo_spawn', True)
+        self.declare_parameter('gazebo_spawn_service', '')
+        self.declare_parameter('shuttle_model_sdf', str(_default_shuttle_model_sdf_path()))
+        self.declare_parameter('preloaded_shuttle_count', 4)
         self.declare_parameter('gazebo_entity_name', 'room315_shuttle_1')
+        self.declare_parameter('gazebo_entity_names', '')
         self.declare_parameter('gazebo_set_pose_rate_hz', 10.0)
         self.declare_parameter('publish_visual_switch_commands', True)
         self.declare_parameter('enable_gazebo_pose_transform', True)
@@ -92,12 +166,33 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('pose_offset_z', 0.0)
 
         network_path = Path(str(self.get_parameter('network_yaml').value))
+        shuttle_count = int(self.get_parameter('shuttle_count').value)
+        start_slot = self.get_parameter('start_slot').value
+        start_slots = str(self.get_parameter('start_slots').value)
+        start_snap_tolerance_m = float(
+            self.get_parameter('start_snap_tolerance_m').value
+        )
         initial_segment = str(self.get_parameter('initial_segment').value)
         initial_s = float(self.get_parameter('initial_s').value)
         speed = float(self.get_parameter('speed').value)
         update_rate_hz = float(self.get_parameter('update_rate_hz').value)
+        self.enable_collision_avoidance = bool(
+            self.get_parameter('enable_collision_avoidance').value
+        )
+        self.shuttle_collision_distance_m = float(
+            self.get_parameter('shuttle_collision_distance_m').value
+        )
+        self.collision_search_iterations = int(
+            self.get_parameter('collision_search_iterations').value
+        )
         pose_topic = str(self.get_parameter('pose_topic').value)
+        self.pose_topic_prefix = str(
+            self.get_parameter('pose_topic_prefix').value
+        ).rstrip('/')
         state_topic = str(self.get_parameter('state_topic').value)
+        add_shuttle_command_topic = str(
+            self.get_parameter('add_shuttle_command_topic').value
+        )
         switch_command_topic = str(self.get_parameter('switch_command_topic').value)
         pose_offset_command_topic = str(
             self.get_parameter('pose_offset_command_topic').value
@@ -113,8 +208,20 @@ class Room315KinematicShuttleNode(Node):
         )
         self.frame_id = str(self.get_parameter('frame_id').value)
         self.enable_gazebo_set_pose = bool(self.get_parameter('enable_gazebo_set_pose').value)
-        gazebo_set_pose_service = str(self.get_parameter('gazebo_set_pose_service').value)
+        self.gazebo_world_name = str(self.get_parameter('gazebo_world_name').value)
+        gazebo_set_pose_service = self._resolve_world_service(
+            raw_service=str(self.get_parameter('gazebo_set_pose_service').value),
+            suffix='set_pose',
+        )
+        self.enable_gazebo_spawn = bool(self.get_parameter('enable_gazebo_spawn').value)
+        gazebo_spawn_service = self._resolve_world_service(
+            raw_service=str(self.get_parameter('gazebo_spawn_service').value),
+            suffix='create',
+        )
+        self.shuttle_model_sdf = Path(str(self.get_parameter('shuttle_model_sdf').value))
+        self.preloaded_shuttle_count = int(self.get_parameter('preloaded_shuttle_count').value)
         self.gazebo_entity_name = str(self.get_parameter('gazebo_entity_name').value)
+        gazebo_entity_names = str(self.get_parameter('gazebo_entity_names').value)
         gazebo_set_pose_rate_hz = float(self.get_parameter('gazebo_set_pose_rate_hz').value)
         self.gazebo_set_pose_period = 1.0 / max(gazebo_set_pose_rate_hz, 1.0)
         self.publish_visual_switch_commands = bool(
@@ -142,20 +249,35 @@ class Room315KinematicShuttleNode(Node):
         self.pose_offset_x = float(self.get_parameter('pose_offset_x').value)
         self.pose_offset_y = float(self.get_parameter('pose_offset_y').value)
         self.pose_offset_z = float(self.get_parameter('pose_offset_z').value)
+        self.start_snap_tolerance_m = start_snap_tolerance_m
+        self.default_shuttle_speed = speed
+        self.spawn_warning_logged = False
 
         self.network = RailNetwork.from_yaml(network_path)
         self.switch_states: Dict[str, str] = self.network.default_switch_states()
-        self.core = KinematicShuttleCore(
-            network=self.network,
-            initial_state=ShuttleState(
-                current_segment=initial_segment,
-                s=initial_s,
-                speed=speed,
-                mode=MOVING,
-            ),
+        shuttle_specs = self._resolve_shuttle_specs(
+            shuttle_count=shuttle_count,
+            raw_start_slot=start_slot,
+            raw_start_slots=start_slots,
+            default_entity_name=self.gazebo_entity_name,
+            raw_entity_names=gazebo_entity_names,
         )
+        self.shuttles: list[ManagedShuttle] = []
+        for shuttle_index, (entity_name, slot) in enumerate(shuttle_specs):
+            self.shuttles.append(
+                self._create_managed_shuttle(
+                    entity_name=entity_name,
+                    slot=slot,
+                    speed=speed,
+                    pose_topic_override=pose_topic if shuttle_index == 0 else None,
+                )
+            )
 
-        self.pose_publisher = self.create_publisher(PoseStamped, pose_topic, 10)
+        self.core = self.shuttles[0].core
+        self.start_slot = self.shuttles[0].start_slot
+        self.start_pose = self.shuttles[0].start_pose
+        self.start_snap_distance_m = self.shuttles[0].start_snap_distance_m
+
         self.state_publisher = self.create_publisher(String, state_topic, 10)
         self.visual_switch_publisher = self.create_publisher(
             String,
@@ -166,6 +288,12 @@ class Room315KinematicShuttleNode(Node):
             String,
             switch_command_topic,
             self._on_switch_command,
+            10,
+        )
+        self.add_shuttle_subscription = self.create_subscription(
+            String,
+            add_shuttle_command_topic,
+            self._on_add_shuttle_command,
             10,
         )
         self.visual_switch_state_subscription = None
@@ -186,11 +314,14 @@ class Room315KinematicShuttleNode(Node):
             10,
         )
         self.set_pose_client = None
-        self.pending_set_pose = None
-        self.set_pose_warning_logged = False
-        self.last_gazebo_set_pose_time = self.get_clock().now()
         if self.enable_gazebo_set_pose:
             self.set_pose_client = self.create_client(SetEntityPose, gazebo_set_pose_service)
+        self.spawn_client = None
+        if self.enable_gazebo_spawn:
+            self.spawn_client = self.create_client(SpawnEntity, gazebo_spawn_service)
+
+        for shuttle in self.shuttles:
+            self._request_spawn_if_needed(shuttle)
 
         self.last_tick = self.get_clock().now()
         timer_period = 1.0 / max(update_rate_hz, 1.0)
@@ -200,10 +331,393 @@ class Room315KinematicShuttleNode(Node):
         self.get_logger().info(
             'Room 315 kinematic shuttle started with '
             f'network={network_path}, pose_topic={pose_topic}, '
+            f'gazebo_world={self.gazebo_world_name}, '
+            f'add_shuttle_topic={add_shuttle_command_topic}, '
             f'switch_topic={switch_command_topic}, '
             f'offset_topic={pose_offset_command_topic}, '
             f'visual_switch_topic={visual_switch_command_topic}, '
-            f'visual_switch_state_topic={visual_switch_state_topic}'
+            f'visual_switch_state_topic={visual_switch_state_topic}, '
+            f'spawn_service={gazebo_spawn_service}, '
+            f'shuttles={self._shuttle_summary()}'
+        )
+
+    @staticmethod
+    def _split_list_parameter(raw_value: str) -> list[str]:
+        return [
+            token.strip()
+            for token in re.split(r'[\s,;]+', raw_value)
+            if token.strip()
+        ]
+
+    def _resolve_world_service(self, raw_service: str, suffix: str) -> str:
+        service = raw_service.strip()
+        if service:
+            return service
+
+        world_name = self.gazebo_world_name.strip().strip('/')
+        if not world_name:
+            raise ValueError(
+                'gazebo_world_name cannot be empty when Gazebo service names are auto-derived.'
+            )
+        return f'/world/{world_name}/{suffix}'
+
+    def _resolve_shuttle_specs(
+        self,
+        shuttle_count: int,
+        raw_start_slot,
+        raw_start_slots: str,
+        default_entity_name: str,
+        raw_entity_names: str,
+    ) -> list[tuple[str, str]]:
+        if shuttle_count < 1:
+            raise ValueError('shuttle_count must be at least 1.')
+
+        start_slots = self._split_list_parameter(raw_start_slots)
+        if not start_slots:
+            start_slots = [str(raw_start_slot)] if shuttle_count == 1 else sorted(ALLOWED_START_POSES)
+        start_slots = [self._normalize_start_slot(slot) for slot in start_slots]
+        if len(start_slots) < shuttle_count:
+            start_slots = [
+                start_slots[index % len(start_slots)]
+                for index in range(shuttle_count)
+            ]
+        elif len(start_slots) > shuttle_count:
+            raise ValueError(
+                f'shuttle_count={shuttle_count} but start_slots has '
+                f'{len(start_slots)} value(s): {start_slots}.'
+            )
+
+        entity_names = self._split_list_parameter(raw_entity_names)
+        if not entity_names:
+            entity_names = (
+                [default_entity_name]
+                if shuttle_count == 1
+                else [f'room315_shuttle_{index}' for index in range(1, shuttle_count + 1)]
+            )
+        if len(entity_names) != shuttle_count:
+            raise ValueError(
+                f'shuttle_count={shuttle_count} but gazebo_entity_names has '
+                f'{len(entity_names)} value(s): {entity_names}.'
+            )
+        if len(set(entity_names)) != len(entity_names):
+            raise ValueError(
+                f'Duplicate gazebo entity names are not allowed: {entity_names}.'
+            )
+
+        return list(zip(entity_names, start_slots))
+
+    @staticmethod
+    def _topic_safe_name(entity_name: str) -> str:
+        return re.sub(r'[^A-Za-z0-9_]+', '_', entity_name).strip('_') or 'shuttle'
+
+    def _shuttle_summary(self) -> str:
+        return ', '.join(
+            f'{shuttle.entity_name}:slot{shuttle.start_slot}:'
+            f'{shuttle.core.state.current_segment}@{shuttle.core.state.s:.3f}:'
+            f'snap={shuttle.start_snap_distance_m:.3f}m'
+            for shuttle in self.shuttles
+        )
+
+    def _create_managed_shuttle(
+        self,
+        entity_name: str,
+        slot,
+        speed: float,
+        pose_topic_override: str | None = None,
+    ) -> ManagedShuttle:
+        (
+            resolved_slot,
+            start_pose,
+            start_snap_distance_m,
+            initial_segment,
+            initial_s,
+        ) = self._resolve_allowed_start_slot(slot, self.start_snap_tolerance_m)
+        pose_topic = (
+            pose_topic_override
+            if pose_topic_override is not None
+            else f'{self.pose_topic_prefix}/{self._topic_safe_name(entity_name)}/pose_cmd'
+        )
+        return ManagedShuttle(
+            entity_name=entity_name,
+            start_slot=resolved_slot,
+            start_pose=start_pose,
+            start_snap_distance_m=start_snap_distance_m,
+            core=KinematicShuttleCore(
+                network=self.network,
+                initial_state=ShuttleState(
+                    current_segment=initial_segment,
+                    s=initial_s,
+                    speed=speed,
+                    mode=MOVING,
+                ),
+            ),
+            pose_publisher=self.create_publisher(PoseStamped, pose_topic, 10),
+            last_gazebo_set_pose_time=self.get_clock().now(),
+            gazebo_spawned=(
+                not self.enable_gazebo_spawn
+                or self._is_preloaded_shuttle_entity(entity_name)
+            ),
+        )
+
+    def _on_add_shuttle_command(self, message: String) -> None:
+        try:
+            entity_name, slot, speed = self._parse_add_shuttle_command(message.data)
+            shuttle = self._create_managed_shuttle(
+                entity_name=entity_name,
+                slot=slot,
+                speed=speed,
+            )
+        except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+            self.get_logger().error(f'Failed to add shuttle: {error}')
+            return
+
+        self.shuttles.append(shuttle)
+        self._request_spawn_if_needed(shuttle)
+        self.get_logger().info(
+            f'Added shuttle {shuttle.entity_name} at slot {shuttle.start_slot}; '
+            f'shuttles={self._shuttle_summary()}'
+        )
+
+    def _parse_add_shuttle_command(self, raw_command: str) -> tuple[str, str, float]:
+        command = raw_command.strip()
+        if not command:
+            raise ValueError('Empty add shuttle command')
+
+        if command.startswith('{'):
+            payload = json.loads(command)
+            assignments = [(str(key), str(value)) for key, value in payload.items()]
+        elif '=' not in command and ':' not in command:
+            assignments = [('slot', command)]
+        else:
+            assignments = []
+            for token in re.split(r'[\s,;]+', command.replace(':', '=')):
+                if not token:
+                    continue
+                if '=' not in token:
+                    raise ValueError(
+                        f'Add shuttle command must look like slot=3, got {token!r}'
+                    )
+                key, raw_value = token.split('=', 1)
+                assignments.append((key, raw_value))
+
+        slot = ''
+        entity_name = ''
+        speed = self.default_shuttle_speed
+        for raw_key, raw_value in assignments:
+            key = raw_key.strip().lower()
+            value = raw_value.strip()
+            if key in {'slot', 'start_slot', 'start'}:
+                slot = self._normalize_start_slot(value)
+            elif key in {'entity', 'entity_name', 'gazebo_entity_name', 'name'}:
+                entity_name = value
+            elif key == 'speed':
+                speed = float(value)
+            else:
+                raise ValueError(
+                    f'Unknown add shuttle key {raw_key!r}; use slot, entity, or speed.'
+                )
+
+        if not slot:
+            slot = self._next_unused_start_slot()
+        if any(shuttle.start_slot == slot for shuttle in self.shuttles):
+            self.get_logger().warn(
+                f'Adding another shuttle at already occupied start slot {slot}. '
+                'Block occupancy is not implemented yet, so avoid collisions manually.'
+            )
+
+        if not entity_name:
+            entity_name = self._next_unused_entity_name()
+        if any(shuttle.entity_name == entity_name for shuttle in self.shuttles):
+            raise ValueError(
+                f'Gazebo entity {entity_name!r} is already controlled by this node.'
+            )
+
+        return entity_name, slot, speed
+
+    def _next_unused_start_slot(self) -> str:
+        slots = sorted(ALLOWED_START_POSES)
+        return slots[len(self.shuttles) % len(slots)]
+
+    def _next_unused_entity_name(self) -> str:
+        used_entities = {shuttle.entity_name for shuttle in self.shuttles}
+        index = 1
+        while True:
+            entity_name = f'room315_shuttle_{index}'
+            if entity_name not in used_entities:
+                return entity_name
+            index += 1
+
+    def _request_spawn_if_needed(self, shuttle: ManagedShuttle) -> None:
+        if not self.enable_gazebo_spawn:
+            return
+        if self.spawn_client is None:
+            return
+        if shuttle.gazebo_spawned:
+            return
+        if self._is_preloaded_shuttle_entity(shuttle.entity_name):
+            shuttle.gazebo_spawned = True
+            return
+        if shuttle.pending_spawn is not None:
+            return
+
+        if not self.spawn_client.service_is_ready():
+            if not self.spawn_warning_logged:
+                self.get_logger().warn(
+                    'Gazebo spawn service is not ready yet. New shuttles beyond '
+                    f'preloaded_shuttle_count={self.preloaded_shuttle_count} will be '
+                    'controlled only after the spawn service becomes available.'
+                )
+                self.spawn_warning_logged = True
+            return
+
+        request = SpawnEntity.Request()
+        request.entity_factory = self._make_spawn_entity_factory(shuttle)
+        shuttle.pending_spawn = self.spawn_client.call_async(request)
+        self.get_logger().info(f'Requested Gazebo spawn for {shuttle.entity_name}')
+
+    def _is_preloaded_shuttle_entity(self, entity_name: str) -> bool:
+        match = re.match(r'^room315_shuttle_(\d+)$', entity_name)
+        return bool(match and int(match.group(1)) <= self.preloaded_shuttle_count)
+
+    def _make_spawn_entity_factory(self, shuttle: ManagedShuttle) -> EntityFactory:
+        pose = self._to_gazebo_pose(shuttle.core.pose())
+        factory = EntityFactory()
+        factory.name = shuttle.entity_name
+        factory.allow_renaming = False
+        factory.sdf_filename = str(self.shuttle_model_sdf)
+        factory.relative_to = 'world'
+        factory.pose.position.x = pose.x
+        factory.pose.position.y = pose.y
+        factory.pose.position.z = pose.z
+        qx, qy, qz, qw = _yaw_to_quaternion(pose.yaw)
+        factory.pose.orientation.x = qx
+        factory.pose.orientation.y = qy
+        factory.pose.orientation.z = qz
+        factory.pose.orientation.w = qw
+        return factory
+
+    def _spawn_ready_for_motion(self, shuttle: ManagedShuttle) -> bool:
+        if shuttle.pending_spawn is None:
+            needs_spawn = self.enable_gazebo_spawn and not shuttle.gazebo_spawned
+            self._request_spawn_if_needed(shuttle)
+            if needs_spawn and shuttle.pending_spawn is None:
+                return False
+            return not needs_spawn
+
+        if not shuttle.pending_spawn.done():
+            return False
+
+        try:
+            response = shuttle.pending_spawn.result()
+        except Exception as error:
+            if not shuttle.spawn_failure_logged:
+                self.get_logger().error(
+                    f'Gazebo spawn request for {shuttle.entity_name} failed: {error}'
+                )
+                shuttle.spawn_failure_logged = True
+            return False
+
+        if not response.success:
+            if not shuttle.spawn_failure_logged:
+                self.get_logger().error(
+                    f'Gazebo spawn service rejected {shuttle.entity_name}.'
+                )
+                shuttle.spawn_failure_logged = True
+            return False
+
+        shuttle.pending_spawn = None
+        shuttle.gazebo_spawned = True
+        self.get_logger().info(f'Gazebo spawned {shuttle.entity_name}')
+        return True
+
+    def _resolve_allowed_start_slot(
+        self,
+        raw_slot: str,
+        tolerance_m: float,
+    ) -> tuple[str, AllowedStartPose, float, str, float]:
+        slot = self._normalize_start_slot(raw_slot)
+        start_pose = ALLOWED_START_POSES[slot]
+        segment_name, s, distance_m = self._closest_network_position(start_pose)
+        if distance_m > tolerance_m:
+            allowed = ', '.join(sorted(ALLOWED_START_POSES))
+            raise RuntimeError(
+                f'start_slot={slot} is {distance_m:.3f} m away from the current '
+                f'rail network, which is above start_snap_tolerance_m={tolerance_m:.3f}. '
+                f'Allowed start slots are: {allowed}. Correct the slot pose or add the '
+                'missing rail segment; the shuttle will not silently auto-correct.'
+            )
+        return slot, start_pose, distance_m, segment_name, s
+
+    @staticmethod
+    def _normalize_start_slot(raw_slot) -> str:
+        slot = str(raw_slot).strip().lower().replace('-', '_')
+        slot = re.sub(r'^(slot|start|start_slot)_?', '', slot)
+        if slot in ALLOWED_START_POSES:
+            return slot
+        allowed = ', '.join(sorted(ALLOWED_START_POSES))
+        raise ValueError(
+            f'Unsupported start_slot={raw_slot!r}. Use one of: {allowed}.'
+        )
+
+    def _closest_network_position(
+        self,
+        start_pose: AllowedStartPose,
+    ) -> tuple[str, float, float]:
+        best_segment = ''
+        best_s = 0.0
+        best_distance = math.inf
+
+        for segment_name, segment in self.network.segments.items():
+            for index, (previous, current) in enumerate(
+                zip(segment.points, segment.points[1:])
+            ):
+                p0 = self._to_gazebo_point(previous.x, previous.y, previous.z)
+                p1 = self._to_gazebo_point(current.x, current.y, current.z)
+                vx = p1[0] - p0[0]
+                vy = p1[1] - p0[1]
+                vz = p1[2] - p0[2]
+                edge_length_sq = vx * vx + vy * vy + vz * vz
+                if edge_length_sq <= 1e-12:
+                    continue
+
+                wx = start_pose.x - p0[0]
+                wy = start_pose.y - p0[1]
+                wz = start_pose.z - p0[2]
+                ratio = max(0.0, min(1.0, (wx * vx + wy * vy + wz * vz) / edge_length_sq))
+                projected = (
+                    p0[0] + ratio * vx,
+                    p0[1] + ratio * vy,
+                    p0[2] + ratio * vz,
+                )
+                distance = math.dist(
+                    (start_pose.x, start_pose.y, start_pose.z),
+                    projected,
+                )
+                if distance < best_distance:
+                    best_distance = distance
+                    best_segment = segment_name
+                    previous_s = segment.arc_lengths[index]
+                    current_s = segment.arc_lengths[index + 1]
+                    best_s = previous_s + ratio * (current_s - previous_s)
+
+        if not best_segment:
+            raise RuntimeError('Could not snap allowed start pose to the rail network.')
+        return best_segment, best_s, best_distance
+
+    def _to_gazebo_point(self, x: float, y: float, z: float) -> tuple[float, float, float]:
+        if not self.enable_gazebo_pose_transform:
+            return x, y, z
+
+        base_x = self.pose_transform_a * x + self.pose_transform_b * y + self.pose_transform_tx
+        base_y = self.pose_transform_c * x + self.pose_transform_d * y + self.pose_transform_ty
+        return (
+            self.pose_scale_origin_x
+            + (base_x - self.pose_scale_origin_x) * self.pose_scale_x
+            + self.pose_offset_x,
+            self.pose_scale_origin_y
+            + (base_y - self.pose_scale_origin_y) * self.pose_scale_y
+            + self.pose_offset_y,
+            z + self.pose_transform_z_offset + self.pose_offset_z,
         )
 
     def _on_pose_offset_command(self, message: String) -> None:
@@ -487,8 +1001,11 @@ class Room315KinematicShuttleNode(Node):
             'pose_offset_y',
             'pose_offset_z',
             'gazebo_set_pose_rate_hz',
+            'shuttle_collision_distance_m',
+            'collision_search_iterations',
         }
         boolean_parameters = {
+            'enable_collision_avoidance',
             'enable_gazebo_pose_transform',
             'publish_visual_switch_commands',
         }
@@ -499,6 +1016,8 @@ class Room315KinematicShuttleNode(Node):
                     if parameter.name == 'gazebo_set_pose_rate_hz':
                         rate = float(parameter.value)
                         self.gazebo_set_pose_period = 1.0 / max(rate, 1.0)
+                    elif parameter.name == 'collision_search_iterations':
+                        self.collision_search_iterations = max(1, int(parameter.value))
                     else:
                         setattr(self, parameter.name, float(parameter.value))
                 elif parameter.name in boolean_parameters:
@@ -513,17 +1032,136 @@ class Room315KinematicShuttleNode(Node):
         dt = max(0.0, (now - self.last_tick).nanoseconds / 1e9)
         self.last_tick = now
 
-        pose = self.core.step(dt, switch_states=self.switch_states)
-        gazebo_pose = self._to_gazebo_pose(pose)
-        pose_message = self._publish_pose(gazebo_pose)
-        self._send_gazebo_pose(pose_message)
-        self._publish_state(pose, gazebo_pose)
+        raw_poses = []
+        gazebo_poses = []
+        occupied_poses = {
+            shuttle.entity_name: self._to_gazebo_pose(shuttle.core.pose())
+            for shuttle in self.shuttles
+        }
+        for shuttle in self.shuttles:
+            if not self._spawn_ready_for_motion(shuttle):
+                pose = shuttle.core.pose()
+                gazebo_pose = self._to_gazebo_pose(pose)
+                occupied_poses[shuttle.entity_name] = gazebo_pose
+                raw_poses.append(pose)
+                gazebo_poses.append(gazebo_pose)
+                continue
 
-        if pose.mode == FALLING:
-            self.get_logger().error(
-                'Shuttle entered FALLING mode at '
-                f'segment={pose.current_segment}, s={pose.s:.3f}'
+            pose = self._step_with_collision_avoidance(
+                shuttle=shuttle,
+                dt=dt,
+                occupied_poses=occupied_poses,
             )
+            gazebo_pose = self._to_gazebo_pose(pose)
+            pose_message = self._publish_pose(shuttle, gazebo_pose)
+            self._send_gazebo_pose(shuttle, pose_message)
+            occupied_poses[shuttle.entity_name] = gazebo_pose
+            raw_poses.append(pose)
+            gazebo_poses.append(gazebo_pose)
+
+            if pose.mode == FALLING:
+                self.get_logger().error(
+                    f'Shuttle {shuttle.entity_name} entered FALLING mode at '
+                    f'segment={pose.current_segment}, s={pose.s:.3f}'
+                )
+
+        self._publish_state(raw_poses, gazebo_poses)
+
+    def _step_with_collision_avoidance(
+        self,
+        shuttle: ManagedShuttle,
+        dt: float,
+        occupied_poses: Dict[str, ShuttlePose],
+    ) -> ShuttlePose:
+        if not self.enable_collision_avoidance or dt <= 0.0:
+            shuttle.blocked_by = None
+            shuttle.collision_distance_m = None
+            return shuttle.core.step(dt, switch_states=self.switch_states)
+
+        start_state = self._snapshot_shuttle_state(shuttle)
+        start_pose = shuttle.core.pose()
+        start_gazebo_pose = self._to_gazebo_pose(start_pose)
+        blockers = self._collision_blockers(shuttle.entity_name, start_gazebo_pose, occupied_poses)
+        if blockers:
+            blocker_name, distance = blockers[0]
+            self._restore_shuttle_state(shuttle, start_state)
+            shuttle.core.state.mode = WAITING
+            shuttle.blocked_by = blocker_name
+            shuttle.collision_distance_m = distance
+            return shuttle.core.pose()
+
+        self._restore_shuttle_state(shuttle, start_state)
+        proposed_pose = shuttle.core.step(dt, switch_states=self.switch_states)
+        proposed_gazebo_pose = self._to_gazebo_pose(proposed_pose)
+        blockers = self._collision_blockers(
+            shuttle.entity_name,
+            proposed_gazebo_pose,
+            occupied_poses,
+        )
+        if not blockers:
+            shuttle.blocked_by = None
+            shuttle.collision_distance_m = None
+            return proposed_pose
+
+        high = dt
+        low = 0.0
+        blocker_name, distance = blockers[0]
+        for _ in range(max(1, self.collision_search_iterations)):
+            mid = 0.5 * (low + high)
+            self._restore_shuttle_state(shuttle, start_state)
+            mid_pose = shuttle.core.step(mid, switch_states=self.switch_states)
+            mid_gazebo_pose = self._to_gazebo_pose(mid_pose)
+            mid_blockers = self._collision_blockers(
+                shuttle.entity_name,
+                mid_gazebo_pose,
+                occupied_poses,
+            )
+            if mid_blockers:
+                high = mid
+                blocker_name, distance = mid_blockers[0]
+            else:
+                low = mid
+
+        self._restore_shuttle_state(shuttle, start_state)
+        shuttle.core.step(low, switch_states=self.switch_states)
+        shuttle.core.state.mode = WAITING
+        shuttle.blocked_by = blocker_name
+        shuttle.collision_distance_m = distance
+        return shuttle.core.pose()
+
+    @staticmethod
+    def _snapshot_shuttle_state(shuttle: ManagedShuttle) -> ShuttleState:
+        state = shuttle.core.state
+        return ShuttleState(
+            current_segment=state.current_segment,
+            s=state.s,
+            speed=state.speed,
+            mode=state.mode,
+        )
+
+    @staticmethod
+    def _restore_shuttle_state(shuttle: ManagedShuttle, state: ShuttleState) -> None:
+        shuttle.core.state = ShuttleState(
+            current_segment=state.current_segment,
+            s=state.s,
+            speed=state.speed,
+            mode=state.mode,
+        )
+
+    def _collision_blockers(
+        self,
+        entity_name: str,
+        pose: ShuttlePose,
+        occupied_poses: Dict[str, ShuttlePose],
+    ) -> list[tuple[str, float]]:
+        blockers = []
+        for other_name, other_pose in occupied_poses.items():
+            if other_name == entity_name:
+                continue
+            distance = math.hypot(pose.x - other_pose.x, pose.y - other_pose.y)
+            if distance < self.shuttle_collision_distance_m:
+                blockers.append((other_name, distance))
+        return sorted(blockers, key=lambda item: item[1])
 
     def _to_gazebo_pose(self, pose: ShuttlePose) -> ShuttlePose:
         if not self.enable_gazebo_pose_transform:
@@ -576,7 +1214,7 @@ class Room315KinematicShuttleNode(Node):
             mode=pose.mode,
         )
 
-    def _publish_pose(self, pose: ShuttlePose) -> PoseStamped:
+    def _publish_pose(self, shuttle: ManagedShuttle, pose: ShuttlePose) -> PoseStamped:
         message = PoseStamped()
         message.header.stamp = self.get_clock().now().to_msg()
         message.header.frame_id = self.frame_id
@@ -588,39 +1226,66 @@ class Room315KinematicShuttleNode(Node):
         message.pose.orientation.y = qy
         message.pose.orientation.z = qz
         message.pose.orientation.w = qw
-        self.pose_publisher.publish(message)
+        shuttle.pose_publisher.publish(message)
         return message
 
-    def _send_gazebo_pose(self, pose_message: PoseStamped) -> None:
+    def _send_gazebo_pose(
+        self,
+        shuttle: ManagedShuttle,
+        pose_message: PoseStamped,
+    ) -> None:
         if not self.enable_gazebo_set_pose or self.set_pose_client is None:
             return
         now = self.get_clock().now()
-        elapsed = (now - self.last_gazebo_set_pose_time).nanoseconds / 1e9
+        last_sent = shuttle.last_gazebo_set_pose_time or now
+        elapsed = (now - last_sent).nanoseconds / 1e9
         if elapsed < self.gazebo_set_pose_period:
             return
-        if self.pending_set_pose is not None and not self.pending_set_pose.done():
+        if shuttle.pending_set_pose is not None and not shuttle.pending_set_pose.done():
             return
         if not self.set_pose_client.service_is_ready():
-            if not self.set_pose_warning_logged:
+            if not shuttle.set_pose_warning_logged:
                 self.get_logger().warn(
                     'Gazebo set_pose service is not ready yet; still publishing pose topic.'
                 )
-                self.set_pose_warning_logged = True
+                shuttle.set_pose_warning_logged = True
             return
 
         request = SetEntityPose.Request()
-        request.entity.name = self.gazebo_entity_name
+        request.entity.name = shuttle.entity_name
         request.entity.type = Entity.MODEL
         request.pose = pose_message.pose
-        self.pending_set_pose = self.set_pose_client.call_async(request)
-        self.last_gazebo_set_pose_time = now
+        shuttle.pending_set_pose = self.set_pose_client.call_async(request)
+        shuttle.last_gazebo_set_pose_time = now
 
-    def _publish_state(self, pose: ShuttlePose, gazebo_pose: ShuttlePose) -> None:
+    def _publish_state(
+        self,
+        raw_poses: list[ShuttlePose],
+        gazebo_poses: list[ShuttlePose],
+    ) -> None:
+        shuttles_payload = []
+        for shuttle, pose, gazebo_pose in zip(self.shuttles, raw_poses, gazebo_poses):
+            shuttles_payload.append(
+                {
+                    **asdict(pose),
+                    'entity_name': shuttle.entity_name,
+                    'blocked_by': shuttle.blocked_by,
+                    'collision_distance_m': shuttle.collision_distance_m,
+                    'gazebo_pose': asdict(gazebo_pose),
+                    'start_slot': shuttle.start_slot,
+                    'start_snap_distance_m': shuttle.start_snap_distance_m,
+                    'speed': shuttle.core.state.speed,
+                }
+            )
+
+        first_pose = raw_poses[0]
+        first_gazebo_pose = gazebo_poses[0]
         message = String()
         message.data = json.dumps(
             {
-                **asdict(pose),
-                'gazebo_pose': asdict(gazebo_pose),
+                **asdict(first_pose),
+                'entity_name': self.shuttles[0].entity_name,
+                'gazebo_pose': asdict(first_gazebo_pose),
                 'pose_offset': {
                     'x': self.pose_offset_x,
                     'y': self.pose_offset_y,
@@ -633,6 +1298,14 @@ class Room315KinematicShuttleNode(Node):
                     'origin_y': self.pose_scale_origin_y,
                 },
                 'speed': self.core.state.speed,
+                'start_slot': self.start_slot,
+                'start_snap_distance_m': self.start_snap_distance_m,
+                'shuttle_count': len(self.shuttles),
+                'collision_avoidance': {
+                    'enabled': self.enable_collision_avoidance,
+                    'distance_m': self.shuttle_collision_distance_m,
+                },
+                'shuttles': shuttles_payload,
                 'switch_states': self.switch_states,
             },
             sort_keys=True,
