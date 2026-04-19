@@ -10,7 +10,8 @@ then updates the Gazebo model pose through `/world/<world_name>/set_pose`.
 
 Dynamic shuttle work is intentionally not used in the current main version. The
 current version focuses on kinematic shuttle motion, switch routing,
-multi-shuttle operation, runtime spawning, and simple collision avoidance.
+independent stoppers before switches, multi-shuttle operation, runtime spawning,
+explicit shuttle enable/disable commands, and simple collision avoidance.
 
 ## Repository Layout
 
@@ -434,8 +435,9 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle_node.py --ros-args
   -p gazebo_set_pose_rate_hz:=10.0
 ```
 
-There is no hard software limit on shuttle count. The practical limit is Gazebo
-performance and manual collision management.
+There is no hard software limit on shuttle count during runtime. At startup,
+each initial shuttle must use a unique, unoccupied start slot. Additional
+shuttles can be added later after a start slot becomes free.
 
 ## Add Shuttles During Runtime
 
@@ -467,7 +469,174 @@ Notes:
 
 - `room315_shuttle_1` to `room315_shuttle_4` are preloaded in the worlds.
 - Shuttles beyond the preloaded count are spawned through `/world/<world_name>/create`.
-- Reusing the same start slot is allowed, but collision avoidance may stop the new shuttle if the slot is still occupied.
+- If the requested start slot is occupied, the node rejects the add command and does not create a new shuttle.
+- A slot is considered occupied when an existing shuttle is within `start_slot_occupancy_radius_m` of that start pose.
+
+## Shuttle ON/OFF Control
+
+Each shuttle can be independently enabled or disabled through:
+
+```text
+/room_315/shuttle/control_cmd
+```
+
+Disabling a shuttle keeps the model in place and stops its kinematic motion.
+Enabling it again lets it continue from its current segment and arc-length
+position.
+
+Turn one shuttle off:
+
+```bash
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_2=OFF'}"
+```
+
+Turn it back on:
+
+```bash
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_2=ON'}"
+```
+
+Control all shuttles at once:
+
+```bash
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'ALL=OFF'}"
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'ALL=ON'}"
+```
+
+JSON form:
+
+```bash
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: '{\"entity\":\"room315_shuttle_3\",\"enabled\":\"OFF\"}'}"
+```
+
+## Stopper Control and Sensor Workflow
+
+Stopper logic is independent from switch logic. A stopper is a binary primitive:
+
+- `0`, `OPEN`, `RELEASE`, `OFF`: the stopper is open and shuttles may pass.
+- `1`, `STOP`, `CLOSED`, `ON`: the stopper stops a shuttle before the switch.
+
+The current network defines four logical stoppers before the four switch
+stations:
+
+| Stopper | Before switch | Stop segments |
+| --- | --- | --- |
+| `A1` | `A1` | `A14` |
+| `A2` | `A2` | `A12E`, `A12I` |
+| `A3` | `A3` | `A23` |
+| `A4` | `A4` | `A34E`, `A34I` |
+
+Stopper commands use:
+
+```text
+/room_315/stopper_states
+```
+
+Close one stopper:
+
+```bash
+ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'A1=1'}"
+```
+
+Open one stopper:
+
+```bash
+ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'A1=0'}"
+```
+
+Close or open all stoppers:
+
+```bash
+ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'ALL=1'}"
+ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'ALL=0'}"
+```
+
+The educational sensor workflow is exposed on:
+
+```text
+/room_315/sensors/switch_approach
+```
+
+Echo the sensor events:
+
+```bash
+ros2 topic echo /room_315/sensors/switch_approach
+```
+
+Each message is JSON text. The `sensors` field is a list because multiple
+shuttles can trigger approach sensors at the same time. To know which shuttle an
+event belongs to, read the `entity_name` field in that event.
+
+Example single-shuttle event:
+
+```json
+{
+  "sensors": [
+    {
+      "before_switch": "A3",
+      "distance_m": 0.247,
+      "entity_name": "room315_shuttle_4",
+      "segment": "A23",
+      "sensor": "A3_APPROACH",
+      "stopper": "A3",
+      "stopper_state": "0",
+      "workflow": "sensor -> stop shuttle -> move switch -> unstop shuttle"
+    }
+  ],
+  "stopper_states": {
+    "A1": "0",
+    "A2": "0",
+    "A3": "0",
+    "A4": "0"
+  }
+}
+```
+
+This means `room315_shuttle_4` is on segment `A23`, approaching switch `A3`,
+and is about `0.247 m` before the A3 stop point. If the printed distance keeps
+decreasing, the shuttle is moving toward that stopper.
+
+Example with two simultaneous sensor events:
+
+```json
+{
+  "sensors": [
+    {
+      "before_switch": "A1",
+      "distance_m": 0.18,
+      "entity_name": "room315_shuttle_2",
+      "segment": "A14",
+      "stopper": "A1"
+    },
+    {
+      "before_switch": "A3",
+      "distance_m": 0.24,
+      "entity_name": "room315_shuttle_4",
+      "segment": "A23",
+      "stopper": "A3"
+    }
+  ]
+}
+```
+
+In that case, handle each event by its own `entity_name` and matching
+`stopper`.
+
+The intended manual workflow is:
+
+1. Watch the sensor event for a shuttle approaching a switch.
+2. Close the matching stopper, for example `A1=1`.
+3. Move the switch, for example `A1=S`.
+4. Open the stopper again, for example `A1=0`.
+
+Example sequence:
+
+```bash
+ros2 topic echo /room_315/sensors/switch_approach
+ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'A1=1'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=S'}"
+ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'A1=0'}"
+```
 
 ## Collision Avoidance
 
@@ -589,6 +758,12 @@ State topic:
 ros2 topic echo /room_315/shuttle/state --once
 ```
 
+Approach sensor events:
+
+```bash
+ros2 topic echo /room_315/sensors/switch_approach --once
+```
+
 First shuttle pose:
 
 ```bash
@@ -658,13 +833,18 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
 | `gazebo_entity_name` | `room315_shuttle_1` | Gazebo entity name for a single shuttle. |
 | `gazebo_entity_names` | empty | Comma-separated names for multiple shuttles. |
 | `preloaded_shuttle_count` | `4` | Number of shuttle models already present in the world. |
+| `reject_occupied_start_slots` | `true` | Reject runtime add commands when the requested start slot is occupied. |
+| `start_slot_occupancy_radius_m` | `0.33` | Radius used to decide if a start slot is occupied. |
 | `speed` | `0.25` | Shuttle speed in m/s. |
 | `update_rate_hz` | `30.0` | Internal kinematic update rate. |
 | `gazebo_set_pose_rate_hz` | `10.0` | Rate for Gazebo `set_pose` calls. |
 | `enable_collision_avoidance` | `true` | Stop before center-distance collision. |
 | `shuttle_collision_distance_m` | `0.33` | Minimum allowed center distance between shuttles. |
 | `switch_command_topic` | `/room_315/switch_states` | Route and visual switch command topic. |
+| `stopper_command_topic` | `/room_315/stopper_states` | Independent binary stopper command topic. |
+| `sensor_state_topic` | `/room_315/sensors/switch_approach` | Sensor-style approach event topic for switch workflow testing. |
 | `add_shuttle_command_topic` | `/room_315/shuttle/add_cmd` | Runtime shuttle add command topic. |
+| `shuttle_control_command_topic` | `/room_315/shuttle/control_cmd` | Per-shuttle ON/OFF control topic. |
 | `state_topic` | `/room_315/shuttle/state` | Combined shuttle state topic. |
 | `pose_offset_command_topic` | `/room_315/shuttle/pose_offset_cmd` | Runtime pose calibration topic. |
 | `publish_visual_switch_commands` | `true` | Also move the visible Gazebo switch models. |
@@ -676,6 +856,8 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
 - If `Gazebo set_pose service is not ready yet`, check `gazebo_world_name` and `ros2 service list`.
 - If full-floor services appear as `/world/default/...`, restart Gazebo after ensuring the world contains `<world name="mfja_3rd_floor">`.
 - If runtime-spawned shuttles do not appear, check `/world/<world_name>/create`.
+- If an add command is rejected, check whether another shuttle is still inside `start_slot_occupancy_radius_m` of that slot.
+- If a shuttle stops with `stopped_by` set to a stopper name, open that stopper with `/room_315/stopper_states`.
 - If a shuttle stops in `WAITING`, it is likely blocked by another shuttle within `shuttle_collision_distance_m`.
 - If a shuttle enters `FALLING`, the graph has no valid successor for the current switch configuration.
 - If a switch moves visually but the shuttle route does not change, send commands to `/room_315/switch_states`, not directly to `/mfja/conveyor/switch_cmd`.

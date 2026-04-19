@@ -21,6 +21,78 @@ switch_state_space:
     the S branch. A later command layer may expose LEFT/RIGHT aliases if desired.
 
     '
+stopper_state_space:
+  values:
+  - '0'
+  - '1'
+  note: 'Stopper states are independent from switch states. 0 means open/released,
+    and 1 means stop/closed.
+
+    '
+stoppers:
+  A1:
+    before_switch: A1
+    default_state: '0'
+    stop_offset_m: 0.08
+    sensor_distance_m: 0.25
+    segments:
+    - A14
+  A2:
+    before_switch: A2
+    default_state: '0'
+    stop_offset_m: 0.08
+    sensor_distance_m: 0.25
+    segments:
+    - A12E
+    - A12I
+  A3:
+    before_switch: A3
+    default_state: '0'
+    stop_offset_m: 0.08
+    sensor_distance_m: 0.25
+    segments:
+    - A23
+  A4:
+    before_switch: A4
+    default_state: '0'
+    stop_offset_m: 0.08
+    sensor_distance_m: 0.25
+    segments:
+    - A34E
+    - A34I
+start_slots:
+  '1':
+    pose:
+    - -14.95
+    - -3.86
+    - 0.84
+    - 0.0
+    - 0.0
+    - 3.14
+  '2':
+    pose:
+    - -15.43
+    - -3.86
+    - 0.84
+    - 0.0
+    - 0.0
+    - 3.14
+  '3':
+    pose:
+    - -15.24
+    - -5.54
+    - 0.84
+    - 0.0
+    - 0.0
+    - 0.0
+  '4':
+    pose:
+    - -14.77
+    - -5.54
+    - 0.84
+    - 0.0
+    - 0.0
+    - 0.0
 nodes:
   A1_C:
     xyz:

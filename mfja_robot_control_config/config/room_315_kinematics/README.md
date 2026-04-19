@@ -15,7 +15,7 @@ switch states, and controlling the robots.
 - `normalized_segments/`: preprocessed CSV files with duplicate points removed,
   arc length, tangent, and yaw columns.
 - `rail_network.yaml`: explicit graph topology, nodes, segments, switches,
-  fixed transitions, start slots, and block placeholders.
+  independent stoppers, fixed transitions, start slots, and block placeholders.
 - `segment_summary.yaml`: preprocessing summary generated from the raw CSVs.
 - `validation_report.yaml`: validation results for lengths, snap distances,
   endpoint gaps, and tangent mismatches.
@@ -118,17 +118,71 @@ name:
 ## Switch Commands
 
 Switch states are controlled through `/room_315/switch_states`. The accepted
-states are `LEFT` and `RIGHT`.
+logical states are `G` for the big-loop branch and `S` for the small-loop
+branch. The command layer also accepts aliases such as `BIG`, `LARGE`, and
+`SMALL`.
 
 Example:
 
 ```bash
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=LEFT A2=RIGHT A3=LEFT A4=RIGHT'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=G A2=S A3=G A4=S'}"
 ```
 
 The node also republishes visual switch commands on
 `/mfja/conveyor/switch_cmd` so the Gazebo switch visuals rotate with the logical
 state.
+
+## Stopper and Sensor Workflow
+
+Stoppers are independent from switches. Each stopper has a binary state:
+
+- `0`: open/released.
+- `1`: stop/closed.
+
+The current stopper set is `A1`, `A2`, `A3`, and `A4`, one logical stopper
+before each switch station. The approach sensor topic is:
+
+```text
+/room_315/sensors/switch_approach
+```
+
+The manual teaching workflow is:
+
+```text
+sensor -> stop shuttle -> move switch -> unstop shuttle
+```
+
+Sensor messages are JSON strings. The `sensors` field is a list, so the same
+message can report several shuttles at once. Use `entity_name` to identify the
+shuttle associated with each event.
+
+Example:
+
+```json
+{
+  "sensors": [
+    {
+      "before_switch": "A3",
+      "distance_m": 0.247,
+      "entity_name": "room315_shuttle_4",
+      "segment": "A23",
+      "stopper": "A3"
+    }
+  ]
+}
+```
+
+This means `room315_shuttle_4` is approaching the A3 stopper on segment `A23`,
+and the distance to the stop point is about `0.247 m`.
+
+Example:
+
+```bash
+ros2 topic echo /room_315/sensors/switch_approach
+ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'A1=1'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=S'}"
+ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'A1=0'}"
+```
 
 ## Start Slots
 
@@ -143,6 +197,23 @@ slot 4: -14.77 -5.54 0.84 0 0 0
 
 Multiple shuttles can be started with `shuttle_count` and `start_slots`, or
 added while the node is running through `/room_315/shuttle/add_cmd`.
+
+Runtime add commands are rejected when the selected start slot is occupied.
+
+## Shuttle ON/OFF Control
+
+Per-shuttle motion control is available through:
+
+```text
+/room_315/shuttle/control_cmd
+```
+
+Examples:
+
+```bash
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_2=OFF'}"
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_2=ON'}"
+```
 
 ## Collision Avoidance
 

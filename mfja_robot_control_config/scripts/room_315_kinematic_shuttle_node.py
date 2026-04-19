@@ -10,6 +10,7 @@ from typing import Dict
 import rclpy
 from geometry_msgs.msg import PoseStamped
 from rcl_interfaces.msg import SetParametersResult
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
@@ -93,6 +94,21 @@ ALLOWED_START_POSES = {
 }
 
 
+@dataclass(frozen=True)
+class StopPoint:
+    segment: str
+    stop_s: float
+    sensor_distance_m: float
+
+
+@dataclass(frozen=True)
+class StopperConfig:
+    name: str
+    before_switch: str
+    default_state: str
+    stop_points: tuple[StopPoint, ...]
+
+
 @dataclass
 class ManagedShuttle:
     entity_name: str
@@ -107,6 +123,9 @@ class ManagedShuttle:
     gazebo_spawned: bool = False
     blocked_by: str | None = None
     collision_distance_m: float | None = None
+    enabled: bool = True
+    stopped_by: str | None = None
+    stopper_distance_m: float | None = None
     set_pose_warning_logged: bool = False
     spawn_failure_logged: bool = False
 
@@ -131,7 +150,10 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('pose_topic_prefix', '/room_315/shuttles')
         self.declare_parameter('state_topic', '/room_315/shuttle/state')
         self.declare_parameter('add_shuttle_command_topic', '/room_315/shuttle/add_cmd')
+        self.declare_parameter('shuttle_control_command_topic', '/room_315/shuttle/control_cmd')
         self.declare_parameter('switch_command_topic', '/room_315/switch_states')
+        self.declare_parameter('stopper_command_topic', '/room_315/stopper_states')
+        self.declare_parameter('sensor_state_topic', '/room_315/sensors/switch_approach')
         self.declare_parameter('pose_offset_command_topic', '/room_315/shuttle/pose_offset_cmd')
         self.declare_parameter('visual_switch_command_topic', '/mfja/conveyor/switch_cmd')
         self.declare_parameter('visual_switch_state_topic', '/mfja/conveyor/switch_states')
@@ -144,6 +166,8 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('gazebo_spawn_service', '')
         self.declare_parameter('shuttle_model_sdf', str(_default_shuttle_model_sdf_path()))
         self.declare_parameter('preloaded_shuttle_count', 4)
+        self.declare_parameter('reject_occupied_start_slots', True)
+        self.declare_parameter('start_slot_occupancy_radius_m', 0.33)
         self.declare_parameter('gazebo_entity_name', 'room315_shuttle_1')
         self.declare_parameter('gazebo_entity_names', '')
         self.declare_parameter('gazebo_set_pose_rate_hz', 10.0)
@@ -193,7 +217,12 @@ class Room315KinematicShuttleNode(Node):
         add_shuttle_command_topic = str(
             self.get_parameter('add_shuttle_command_topic').value
         )
+        shuttle_control_command_topic = str(
+            self.get_parameter('shuttle_control_command_topic').value
+        )
         switch_command_topic = str(self.get_parameter('switch_command_topic').value)
+        stopper_command_topic = str(self.get_parameter('stopper_command_topic').value)
+        sensor_state_topic = str(self.get_parameter('sensor_state_topic').value)
         pose_offset_command_topic = str(
             self.get_parameter('pose_offset_command_topic').value
         )
@@ -220,6 +249,12 @@ class Room315KinematicShuttleNode(Node):
         )
         self.shuttle_model_sdf = Path(str(self.get_parameter('shuttle_model_sdf').value))
         self.preloaded_shuttle_count = int(self.get_parameter('preloaded_shuttle_count').value)
+        self.reject_occupied_start_slots = bool(
+            self.get_parameter('reject_occupied_start_slots').value
+        )
+        self.start_slot_occupancy_radius_m = float(
+            self.get_parameter('start_slot_occupancy_radius_m').value
+        )
         self.gazebo_entity_name = str(self.get_parameter('gazebo_entity_name').value)
         gazebo_entity_names = str(self.get_parameter('gazebo_entity_names').value)
         gazebo_set_pose_rate_hz = float(self.get_parameter('gazebo_set_pose_rate_hz').value)
@@ -254,7 +289,13 @@ class Room315KinematicShuttleNode(Node):
         self.spawn_warning_logged = False
 
         self.network = RailNetwork.from_yaml(network_path)
+        self.allowed_start_poses = self._load_allowed_start_poses()
         self.switch_states: Dict[str, str] = self.network.default_switch_states()
+        self.stopper_configs = self._load_stopper_configs()
+        self.stopper_states: Dict[str, str] = {
+            name: config.default_state
+            for name, config in self.stopper_configs.items()
+        }
         shuttle_specs = self._resolve_shuttle_specs(
             shuttle_count=shuttle_count,
             raw_start_slot=start_slot,
@@ -279,6 +320,7 @@ class Room315KinematicShuttleNode(Node):
         self.start_snap_distance_m = self.shuttles[0].start_snap_distance_m
 
         self.state_publisher = self.create_publisher(String, state_topic, 10)
+        self.sensor_state_publisher = self.create_publisher(String, sensor_state_topic, 10)
         self.visual_switch_publisher = self.create_publisher(
             String,
             visual_switch_command_topic,
@@ -290,10 +332,22 @@ class Room315KinematicShuttleNode(Node):
             self._on_switch_command,
             10,
         )
+        self.stopper_subscription = self.create_subscription(
+            String,
+            stopper_command_topic,
+            self._on_stopper_command,
+            10,
+        )
         self.add_shuttle_subscription = self.create_subscription(
             String,
             add_shuttle_command_topic,
             self._on_add_shuttle_command,
+            10,
+        )
+        self.shuttle_control_subscription = self.create_subscription(
+            String,
+            shuttle_control_command_topic,
+            self._on_shuttle_control_command,
             10,
         )
         self.visual_switch_state_subscription = None
@@ -333,7 +387,10 @@ class Room315KinematicShuttleNode(Node):
             f'network={network_path}, pose_topic={pose_topic}, '
             f'gazebo_world={self.gazebo_world_name}, '
             f'add_shuttle_topic={add_shuttle_command_topic}, '
+            f'shuttle_control_topic={shuttle_control_command_topic}, '
             f'switch_topic={switch_command_topic}, '
+            f'stopper_topic={stopper_command_topic}, '
+            f'sensor_topic={sensor_state_topic}, '
             f'offset_topic={pose_offset_command_topic}, '
             f'visual_switch_topic={visual_switch_command_topic}, '
             f'visual_switch_state_topic={visual_switch_state_topic}, '
@@ -361,6 +418,82 @@ class Room315KinematicShuttleNode(Node):
             )
         return f'/world/{world_name}/{suffix}'
 
+    def _load_allowed_start_poses(self) -> Dict[str, AllowedStartPose]:
+        raw_slots = self.network.config.get('start_slots') or {}
+        if not raw_slots:
+            return dict(ALLOWED_START_POSES)
+
+        allowed: Dict[str, AllowedStartPose] = {}
+        for raw_slot, raw_config in raw_slots.items():
+            slot = str(raw_slot).strip()
+            pose_values = raw_config.get('pose') if isinstance(raw_config, dict) else raw_config
+            if pose_values is None or len(pose_values) != 6:
+                raise ValueError(
+                    f'start_slots.{slot} must define pose: [x, y, z, roll, pitch, yaw].'
+                )
+            allowed[slot] = AllowedStartPose(*[float(value) for value in pose_values])
+
+        if not allowed:
+            raise ValueError('rail_network.yaml start_slots must not be empty.')
+        return allowed
+
+    def _load_stopper_configs(self) -> Dict[str, StopperConfig]:
+        configs: Dict[str, StopperConfig] = {}
+        raw_configs = self.network.config.get('stoppers', {}) or {}
+        for raw_name, raw_config in raw_configs.items():
+            name = str(raw_name).strip().upper()
+            before_switch = str(raw_config.get('before_switch', name)).strip().upper()
+            default_state = self._normalize_stopper_state(
+                str(raw_config.get('default_state', '0'))
+            )
+            default_sensor_distance_m = float(raw_config.get('sensor_distance_m', 0.25))
+            default_stop_offset_m = float(raw_config.get('stop_offset_m', 0.08))
+            stop_points: list[StopPoint] = []
+
+            raw_stop_points = raw_config.get('stop_points')
+            if raw_stop_points is None:
+                raw_stop_points = [
+                    {'segment': segment_name}
+                    for segment_name in raw_config.get('segments', [])
+                ]
+
+            for raw_stop_point in raw_stop_points:
+                segment_name = str(raw_stop_point['segment']).strip()
+                if segment_name not in self.network.segments:
+                    raise ValueError(
+                        f'Stopper {name} references unknown segment {segment_name!r}.'
+                    )
+
+                segment = self.network.segments[segment_name]
+                if 's' in raw_stop_point:
+                    stop_s = float(raw_stop_point['s'])
+                else:
+                    stop_offset_m = float(
+                        raw_stop_point.get('stop_offset_m', default_stop_offset_m)
+                    )
+                    stop_s = segment.length - stop_offset_m
+                stop_s = max(0.0, min(stop_s, segment.length))
+                sensor_distance_m = float(
+                    raw_stop_point.get('sensor_distance_m', default_sensor_distance_m)
+                )
+                stop_points.append(
+                    StopPoint(
+                        segment=segment_name,
+                        stop_s=stop_s,
+                        sensor_distance_m=max(0.0, sensor_distance_m),
+                    )
+                )
+
+            if not stop_points:
+                raise ValueError(f'Stopper {name} must define at least one stop point.')
+            configs[name] = StopperConfig(
+                name=name,
+                before_switch=before_switch,
+                default_state=default_state,
+                stop_points=tuple(stop_points),
+            )
+        return configs
+
     def _resolve_shuttle_specs(
         self,
         shuttle_count: int,
@@ -374,9 +507,18 @@ class Room315KinematicShuttleNode(Node):
 
         start_slots = self._split_list_parameter(raw_start_slots)
         if not start_slots:
-            start_slots = [str(raw_start_slot)] if shuttle_count == 1 else sorted(ALLOWED_START_POSES)
+            start_slots = (
+                [str(raw_start_slot)]
+                if shuttle_count == 1
+                else sorted(self.allowed_start_poses)[:shuttle_count]
+            )
         start_slots = [self._normalize_start_slot(slot) for slot in start_slots]
         if len(start_slots) < shuttle_count:
+            if self.reject_occupied_start_slots:
+                raise ValueError(
+                    f'shuttle_count={shuttle_count} requires {shuttle_count} explicit '
+                    f'unique start slots, but only {len(start_slots)} were provided.'
+                )
             start_slots = [
                 start_slots[index % len(start_slots)]
                 for index in range(shuttle_count)
@@ -385,6 +527,10 @@ class Room315KinematicShuttleNode(Node):
             raise ValueError(
                 f'shuttle_count={shuttle_count} but start_slots has '
                 f'{len(start_slots)} value(s): {start_slots}.'
+            )
+        if self.reject_occupied_start_slots and len(set(start_slots)) != len(start_slots):
+            raise ValueError(
+                f'Duplicate start slots are not allowed at startup: {start_slots}.'
             )
 
         entity_names = self._split_list_parameter(raw_entity_names)
@@ -519,11 +665,14 @@ class Room315KinematicShuttleNode(Node):
 
         if not slot:
             slot = self._next_unused_start_slot()
-        if any(shuttle.start_slot == slot for shuttle in self.shuttles):
-            self.get_logger().warn(
-                f'Adding another shuttle at already occupied start slot {slot}. '
-                'Block occupancy is not implemented yet, so avoid collisions manually.'
-            )
+        if self.reject_occupied_start_slots:
+            occupied_by = self._start_slot_occupancy_blocker(slot)
+            if occupied_by is not None:
+                entity_name_at_slot, distance_m = occupied_by
+                raise ValueError(
+                    f'start slot {slot} is occupied by {entity_name_at_slot} '
+                    f'at distance {distance_m:.3f} m; add command rejected.'
+                )
 
         if not entity_name:
             entity_name = self._next_unused_entity_name()
@@ -535,8 +684,26 @@ class Room315KinematicShuttleNode(Node):
         return entity_name, slot, speed
 
     def _next_unused_start_slot(self) -> str:
-        slots = sorted(ALLOWED_START_POSES)
-        return slots[len(self.shuttles) % len(slots)]
+        slots = sorted(self.allowed_start_poses)
+        if not self.reject_occupied_start_slots:
+            return slots[len(self.shuttles) % len(slots)]
+
+        for slot in slots:
+            if self._start_slot_occupancy_blocker(slot) is None:
+                return slot
+        raise ValueError('All allowed start slots are currently occupied.')
+
+    def _start_slot_occupancy_blocker(self, slot: str) -> tuple[str, float] | None:
+        start_pose = self.allowed_start_poses[slot]
+        blockers = []
+        for shuttle in self.shuttles:
+            pose = self._to_gazebo_pose(shuttle.core.pose())
+            distance_m = math.hypot(start_pose.x - pose.x, start_pose.y - pose.y)
+            if distance_m < self.start_slot_occupancy_radius_m:
+                blockers.append((shuttle.entity_name, distance_m))
+        if not blockers:
+            return None
+        return sorted(blockers, key=lambda item: item[1])[0]
 
     def _next_unused_entity_name(self) -> str:
         used_entities = {shuttle.entity_name for shuttle in self.shuttles}
@@ -636,10 +803,10 @@ class Room315KinematicShuttleNode(Node):
         tolerance_m: float,
     ) -> tuple[str, AllowedStartPose, float, str, float]:
         slot = self._normalize_start_slot(raw_slot)
-        start_pose = ALLOWED_START_POSES[slot]
+        start_pose = self.allowed_start_poses[slot]
         segment_name, s, distance_m = self._closest_network_position(start_pose)
         if distance_m > tolerance_m:
-            allowed = ', '.join(sorted(ALLOWED_START_POSES))
+            allowed = ', '.join(sorted(self.allowed_start_poses))
             raise RuntimeError(
                 f'start_slot={slot} is {distance_m:.3f} m away from the current '
                 f'rail network, which is above start_snap_tolerance_m={tolerance_m:.3f}. '
@@ -648,13 +815,12 @@ class Room315KinematicShuttleNode(Node):
             )
         return slot, start_pose, distance_m, segment_name, s
 
-    @staticmethod
-    def _normalize_start_slot(raw_slot) -> str:
+    def _normalize_start_slot(self, raw_slot) -> str:
         slot = str(raw_slot).strip().lower().replace('-', '_')
         slot = re.sub(r'^(slot|start|start_slot)_?', '', slot)
-        if slot in ALLOWED_START_POSES:
+        if slot in self.allowed_start_poses:
             return slot
-        allowed = ', '.join(sorted(ALLOWED_START_POSES))
+        allowed = ', '.join(sorted(self.allowed_start_poses))
         raise ValueError(
             f'Unsupported start_slot={raw_slot!r}. Use one of: {allowed}.'
         )
@@ -825,6 +991,149 @@ class Room315KinematicShuttleNode(Node):
             'pose_offset_y': next_y,
             'pose_offset_z': next_z,
         }
+
+    def _on_stopper_command(self, message: String) -> None:
+        try:
+            updates = self._parse_stopper_command(message.data)
+        except (ValueError, json.JSONDecodeError) as error:
+            self.get_logger().error(str(error))
+            return
+
+        self.stopper_states.update(updates)
+        self.get_logger().info(f'Updated stopper states: {self.stopper_states}')
+
+    def _parse_stopper_command(self, raw_command: str) -> Dict[str, str]:
+        assignments = self._parse_assignments(raw_command, 'Stopper')
+        updates: Dict[str, str] = {}
+        for raw_selector, raw_state in assignments:
+            selector = raw_selector.strip().upper()
+            state = self._normalize_stopper_state(raw_state)
+            if selector == 'ALL':
+                for stopper_name in self.stopper_configs:
+                    updates[stopper_name] = state
+                continue
+            if selector not in self.stopper_configs:
+                allowed = ', '.join(['ALL', *sorted(self.stopper_configs)])
+                raise ValueError(
+                    f'Unknown stopper selector {selector!r}; use one of: {allowed}.'
+                )
+            updates[selector] = state
+        return updates
+
+    @staticmethod
+    def _normalize_stopper_state(raw_state: str) -> str:
+        state = str(raw_state).strip().upper()
+        if state in {'1', 'ON', 'STOP', 'STOPPED', 'CLOSED', 'BLOCK', 'BLOCKED', 'TRUE'}:
+            return '1'
+        if state in {'0', 'OFF', 'OPEN', 'RELEASE', 'UNSTOP', 'UNBLOCK', 'FALSE'}:
+            return '0'
+        raise ValueError(
+            f'Unknown stopper state {raw_state!r}; use 1/STOP/CLOSED or 0/OPEN/RELEASE.'
+        )
+
+    def _on_shuttle_control_command(self, message: String) -> None:
+        try:
+            updates = self._parse_shuttle_control_command(message.data)
+        except (ValueError, json.JSONDecodeError) as error:
+            self.get_logger().error(str(error))
+            return
+
+        for entity_name, enabled in updates.items():
+            shuttle = self._find_shuttle(entity_name)
+            if shuttle is None:
+                self.get_logger().error(
+                    f'Unknown shuttle {entity_name!r}; command ignored.'
+                )
+                continue
+            shuttle.enabled = enabled
+            if not enabled:
+                shuttle.core.state.mode = WAITING
+                shuttle.stopped_by = 'DISABLED'
+                shuttle.stopper_distance_m = 0.0
+            else:
+                if shuttle.stopped_by == 'DISABLED':
+                    shuttle.stopped_by = None
+                    shuttle.stopper_distance_m = None
+                if shuttle.core.state.mode == WAITING and shuttle.core.state.speed > 0.0:
+                    shuttle.core.state.mode = MOVING
+        self.get_logger().info(
+            'Updated shuttle enable states: '
+            f'{ {shuttle.entity_name: shuttle.enabled for shuttle in self.shuttles} }'
+        )
+
+    def _parse_shuttle_control_command(self, raw_command: str) -> Dict[str, bool]:
+        assignments = self._parse_assignments(raw_command, 'Shuttle control')
+        keyed_payload = {key.strip().lower(): value for key, value in assignments}
+        if {'entity', 'entity_name', 'name', 'shuttle'} & set(keyed_payload):
+            entity_name = (
+                keyed_payload.get('entity')
+                or keyed_payload.get('entity_name')
+                or keyed_payload.get('name')
+                or keyed_payload.get('shuttle')
+            )
+            raw_state = (
+                keyed_payload.get('enabled')
+                or keyed_payload.get('state')
+                or keyed_payload.get('mode')
+                or keyed_payload.get('power')
+            )
+            if entity_name is None or raw_state is None:
+                raise ValueError(
+                    'Shuttle control command with entity=... must also include enabled=ON/OFF.'
+                )
+            return {entity_name: self._normalize_enabled_state(raw_state)}
+
+        updates: Dict[str, bool] = {}
+        for raw_selector, raw_state in assignments:
+            selector = raw_selector.strip()
+            enabled = self._normalize_enabled_state(raw_state)
+            if selector.upper() == 'ALL':
+                for shuttle in self.shuttles:
+                    updates[shuttle.entity_name] = enabled
+            else:
+                updates[selector] = enabled
+        return updates
+
+    @staticmethod
+    def _normalize_enabled_state(raw_state: str) -> bool:
+        state = str(raw_state).strip().upper()
+        if state in {'1', 'ON', 'ENABLE', 'ENABLED', 'START', 'RUN', 'TRUE'}:
+            return True
+        if state in {'0', 'OFF', 'DISABLE', 'DISABLED', 'STOP', 'PAUSE', 'FALSE'}:
+            return False
+        raise ValueError(
+            f'Unknown shuttle control state {raw_state!r}; use ON/OFF or ENABLE/DISABLE.'
+        )
+
+    def _find_shuttle(self, entity_name: str) -> ManagedShuttle | None:
+        for shuttle in self.shuttles:
+            if shuttle.entity_name == entity_name:
+                return shuttle
+        return None
+
+    @staticmethod
+    def _parse_assignments(raw_command: str, command_name: str) -> list[tuple[str, str]]:
+        command = raw_command.strip()
+        if not command:
+            raise ValueError(f'Empty {command_name.lower()} command')
+
+        if command.startswith('{'):
+            payload = json.loads(command)
+            if not isinstance(payload, dict):
+                raise ValueError(f'{command_name} JSON command must be an object.')
+            return [(str(key), str(value)) for key, value in payload.items()]
+
+        assignments = []
+        for token in re.split(r'[\s,;]+', command.replace(':', '=')):
+            if not token:
+                continue
+            if '=' not in token:
+                raise ValueError(
+                    f'{command_name} command must look like NAME=VALUE, got {token!r}'
+                )
+            key, value = token.split('=', 1)
+            assignments.append((key, value))
+        return assignments
 
     def _on_switch_command(self, message: String) -> None:
         try:
@@ -1003,11 +1312,13 @@ class Room315KinematicShuttleNode(Node):
             'gazebo_set_pose_rate_hz',
             'shuttle_collision_distance_m',
             'collision_search_iterations',
+            'start_slot_occupancy_radius_m',
         }
         boolean_parameters = {
             'enable_collision_avoidance',
             'enable_gazebo_pose_transform',
             'publish_visual_switch_commands',
+            'reject_occupied_start_slots',
         }
 
         try:
@@ -1047,7 +1358,7 @@ class Room315KinematicShuttleNode(Node):
                 gazebo_poses.append(gazebo_pose)
                 continue
 
-            pose = self._step_with_collision_avoidance(
+            pose = self._step_with_motion_guards(
                 shuttle=shuttle,
                 dt=dt,
                 occupied_poses=occupied_poses,
@@ -1066,6 +1377,82 @@ class Room315KinematicShuttleNode(Node):
                 )
 
         self._publish_state(raw_poses, gazebo_poses)
+        self._publish_sensor_state()
+
+    def _step_with_motion_guards(
+        self,
+        shuttle: ManagedShuttle,
+        dt: float,
+        occupied_poses: Dict[str, ShuttlePose],
+    ) -> ShuttlePose:
+        if not shuttle.enabled:
+            shuttle.core.state.mode = WAITING
+            shuttle.blocked_by = None
+            shuttle.collision_distance_m = None
+            shuttle.stopped_by = 'DISABLED'
+            shuttle.stopper_distance_m = 0.0
+            return shuttle.core.pose()
+
+        shuttle.stopped_by = None
+        shuttle.stopper_distance_m = None
+        active_stop = self._active_stopper_ahead(shuttle)
+        effective_dt = dt
+        stop_reached = False
+        if active_stop is not None and shuttle.core.state.speed > 0.0:
+            stopper_name, stop_point, distance_m = active_stop
+            if distance_m <= 1e-6:
+                shuttle.core.state.s = stop_point.stop_s
+                shuttle.core.state.mode = WAITING
+                shuttle.blocked_by = None
+                shuttle.collision_distance_m = None
+                shuttle.stopped_by = stopper_name
+                shuttle.stopper_distance_m = 0.0
+                return shuttle.core.pose()
+
+            time_to_stop = distance_m / shuttle.core.state.speed
+            if time_to_stop <= dt:
+                effective_dt = time_to_stop
+                stop_reached = True
+
+        pose = self._step_with_collision_avoidance(
+            shuttle=shuttle,
+            dt=effective_dt,
+            occupied_poses=occupied_poses,
+        )
+        if shuttle.blocked_by is not None or pose.mode == FALLING:
+            return pose
+
+        if stop_reached and active_stop is not None:
+            stopper_name, stop_point, _distance_m = active_stop
+            if shuttle.core.state.current_segment == stop_point.segment:
+                shuttle.core.state.s = stop_point.stop_s
+            shuttle.core.state.mode = WAITING
+            shuttle.stopped_by = stopper_name
+            shuttle.stopper_distance_m = 0.0
+            return shuttle.core.pose()
+
+        shuttle.stopped_by = None
+        shuttle.stopper_distance_m = None
+        return pose
+
+    def _active_stopper_ahead(
+        self,
+        shuttle: ManagedShuttle,
+    ) -> tuple[str, StopPoint, float] | None:
+        state = shuttle.core.state
+        candidates: list[tuple[str, StopPoint, float]] = []
+        for stopper_name, stopper_config in self.stopper_configs.items():
+            if self.stopper_states.get(stopper_name, '0') != '1':
+                continue
+            for stop_point in stopper_config.stop_points:
+                if stop_point.segment != state.current_segment:
+                    continue
+                distance_m = stop_point.stop_s - state.s
+                if distance_m >= -1e-6:
+                    candidates.append((stopper_name, stop_point, max(0.0, distance_m)))
+        if not candidates:
+            return None
+        return sorted(candidates, key=lambda item: item[2])[0]
 
     def _step_with_collision_avoidance(
         self,
@@ -1258,6 +1645,41 @@ class Room315KinematicShuttleNode(Node):
         shuttle.pending_set_pose = self.set_pose_client.call_async(request)
         shuttle.last_gazebo_set_pose_time = now
 
+    def _sensor_events(self) -> list[dict]:
+        events = []
+        for shuttle in self.shuttles:
+            state = shuttle.core.state
+            for stopper_name, stopper_config in self.stopper_configs.items():
+                for stop_point in stopper_config.stop_points:
+                    if stop_point.segment != state.current_segment:
+                        continue
+                    distance_m = stop_point.stop_s - state.s
+                    if 0.0 <= distance_m <= stop_point.sensor_distance_m:
+                        events.append(
+                            {
+                                'sensor': f'{stopper_name}_APPROACH',
+                                'stopper': stopper_name,
+                                'before_switch': stopper_config.before_switch,
+                                'entity_name': shuttle.entity_name,
+                                'segment': state.current_segment,
+                                'distance_m': distance_m,
+                                'stopper_state': self.stopper_states.get(stopper_name, '0'),
+                                'workflow': 'sensor -> stop shuttle -> move switch -> unstop shuttle',
+                            }
+                        )
+        return events
+
+    def _publish_sensor_state(self) -> None:
+        message = String()
+        message.data = json.dumps(
+            {
+                'sensors': self._sensor_events(),
+                'stopper_states': self.stopper_states,
+            },
+            sort_keys=True,
+        )
+        self.sensor_state_publisher.publish(message)
+
     def _publish_state(
         self,
         raw_poses: list[ShuttlePose],
@@ -1271,6 +1693,9 @@ class Room315KinematicShuttleNode(Node):
                     'entity_name': shuttle.entity_name,
                     'blocked_by': shuttle.blocked_by,
                     'collision_distance_m': shuttle.collision_distance_m,
+                    'enabled': shuttle.enabled,
+                    'stopped_by': shuttle.stopped_by,
+                    'stopper_distance_m': shuttle.stopper_distance_m,
                     'gazebo_pose': asdict(gazebo_pose),
                     'start_slot': shuttle.start_slot,
                     'start_snap_distance_m': shuttle.start_snap_distance_m,
@@ -1307,6 +1732,8 @@ class Room315KinematicShuttleNode(Node):
                 },
                 'shuttles': shuttles_payload,
                 'switch_states': self.switch_states,
+                'stopper_states': self.stopper_states,
+                'sensor_events': self._sensor_events(),
             },
             sort_keys=True,
         )
@@ -1318,9 +1745,12 @@ def main() -> None:
     node = Room315KinematicShuttleNode()
     try:
         rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':
