@@ -3,13 +3,14 @@
 This repository contains the Gazebo Harmonic / ROS 2 Jazzy simulation assets for
 the MFJA 3rd floor, with the current focus on the Room 315 flexible rail system.
 
-الحالة الحالية للمشروع: **kinematic-first shuttle simulation**. يعني الشاتل لا
-يعتمد حاليًا على contact dynamics أو wheel physics، بل يتحرك على مسار محسوب من
-ملفات CSV وشبكة explicit graph، ثم يتم تحديث pose داخل Gazebo باستخدام
-`/world/<world_name>/set_pose`.
+The current project state is a **kinematic-first shuttle simulation**. The
+shuttle does not currently use contact dynamics or wheel physics. Instead, it
+moves along a path computed from CSV rail geometry and an explicit rail graph,
+then updates the Gazebo model pose through `/world/<world_name>/set_pose`.
 
-مهم: شغل الداينمك غير مستخدم حاليًا. النسخة الحالية موجهة للـ kinematic shuttle،
-السويتشات، تعدد الشاتلات، وتجنب التصادم البسيط.
+Dynamic shuttle work is intentionally not used in the current main version. The
+current version focuses on kinematic shuttle motion, switch routing,
+multi-shuttle operation, runtime spawning, and simple collision avoidance.
 
 ## Repository Layout
 
