@@ -21,6 +21,7 @@ from ros_gz_interfaces.srv import SpawnEntity
 from std_msgs.msg import String
 
 from room_315_kinematic_shuttle import (
+    CUBIC_HERMITE_PATH_BACKEND,
     FALLING,
     KinematicShuttleCore,
     MOVING,
@@ -135,6 +136,8 @@ class Room315KinematicShuttleNode(Node):
         super().__init__('room_315_kinematic_shuttle')
 
         self.declare_parameter('network_yaml', str(_default_network_path()))
+        self.declare_parameter('path_backend', CUBIC_HERMITE_PATH_BACKEND)
+        self.declare_parameter('arc_length_samples_per_edge', 16)
         self.declare_parameter('shuttle_count', 1)
         self.declare_parameter('start_slot', 2)
         self.declare_parameter('start_slots', '')
@@ -190,6 +193,10 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('pose_offset_z', 0.0)
 
         network_path = Path(str(self.get_parameter('network_yaml').value))
+        path_backend = str(self.get_parameter('path_backend').value)
+        arc_length_samples_per_edge = int(
+            self.get_parameter('arc_length_samples_per_edge').value
+        )
         shuttle_count = int(self.get_parameter('shuttle_count').value)
         start_slot = self.get_parameter('start_slot').value
         start_slots = str(self.get_parameter('start_slots').value)
@@ -288,7 +295,11 @@ class Room315KinematicShuttleNode(Node):
         self.default_shuttle_speed = speed
         self.spawn_warning_logged = False
 
-        self.network = RailNetwork.from_yaml(network_path)
+        self.network = RailNetwork.from_yaml(
+            network_path,
+            path_backend=path_backend,
+            arc_length_samples_per_edge=arc_length_samples_per_edge,
+        )
         self.allowed_start_poses = self._load_allowed_start_poses()
         self.switch_states: Dict[str, str] = self.network.default_switch_states()
         self.stopper_configs = self._load_stopper_configs()
@@ -384,7 +395,8 @@ class Room315KinematicShuttleNode(Node):
 
         self.get_logger().info(
             'Room 315 kinematic shuttle started with '
-            f'network={network_path}, pose_topic={pose_topic}, '
+            f'network={network_path}, path_backend={path_backend}, '
+            f'pose_topic={pose_topic}, '
             f'gazebo_world={self.gazebo_world_name}, '
             f'add_shuttle_topic={add_shuttle_command_topic}, '
             f'shuttle_control_topic={shuttle_control_command_topic}, '

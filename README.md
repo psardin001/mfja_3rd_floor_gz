@@ -5,13 +5,15 @@ the MFJA 3rd floor, with the current focus on the Room 315 flexible rail system.
 
 The current project state is a **kinematic-first shuttle simulation**. The
 shuttle does not currently use contact dynamics or wheel physics. Instead, it
-moves along a path computed from CSV rail geometry and an explicit rail graph,
-then updates the Gazebo model pose through `/world/<world_name>/set_pose`.
+moves along an arc-length path backend generated from calibrated CSV rail
+geometry and an explicit rail graph, then updates the Gazebo model pose through
+`/world/<world_name>/set_pose`.
 
 Dynamic shuttle work is intentionally not used in the current main version. The
 current version focuses on kinematic shuttle motion, switch routing,
 independent stoppers before switches, multi-shuttle operation, runtime spawning,
-explicit shuttle enable/disable commands, and simple collision avoidance.
+explicit shuttle enable/disable commands, simple collision avoidance, and
+continuous cubic Hermite path sampling for smoother generalized motion.
 
 ## Repository Layout
 
@@ -62,6 +64,50 @@ source install/setup.bash
 
 If you only edit README files, no rebuild is required.
 
+## Room 315 Continuous Path Backend
+
+The Room 315 rail geometry still starts from measured CSV segment files. The
+runtime no longer has to treat those CSV rows as isolated pose steps. It can
+sample each segment through a path backend:
+
+- `cubic_hermite`: recommended default. It builds a continuous arc-length
+  parameterized path from the CSV points and tangents.
+- `polyline`: direct CSV polyline interpolation. Keep this for debugging and
+  comparing against the measured source data.
+
+Normal demos should use:
+
+```bash
+-p path_backend:=cubic_hermite
+```
+
+To compare against the direct CSV interpolation, use:
+
+```bash
+-p path_backend:=polyline
+```
+
+Validate the continuous path backend after changing rail geometry:
+
+```bash
+cd /home/tiago/ALI_ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 run mfja_robot_control_config room_315_continuous_path_validator.py
+```
+
+Expected result:
+
+```text
+Status: PASS (0 warnings)
+```
+
+Generated outputs:
+
+- `mfja_robot_control_config/config/room_315_kinematics/continuous_path_report.yaml`
+- `mfja_robot_control_config/config/room_315_kinematics/debug_plots/continuous_path_validation.png`
+
 ## Room 315 Only
 
 Terminal 1 - start Gazebo:
@@ -87,6 +133,7 @@ source install/setup.bash
 ros2 run mfja_robot_control_config room_315_kinematic_shuttle_node.py --ros-args \
   -p gazebo_world_name:=room_315_only \
   -p start_slot:=2 \
+  -p path_backend:=cubic_hermite \
   -p enable_gazebo_set_pose:=true \
   -p enable_gazebo_spawn:=true \
   -p speed:=0.2 \
@@ -131,6 +178,7 @@ source install/setup.bash
 ros2 run mfja_robot_control_config room_315_kinematic_shuttle_node.py --ros-args \
   -p gazebo_world_name:=mfja_3rd_floor \
   -p start_slot:=2 \
+  -p path_backend:=cubic_hermite \
   -p enable_gazebo_set_pose:=true \
   -p enable_gazebo_spawn:=true \
   -p speed:=0.2 \
@@ -395,6 +443,7 @@ Example:
 ros2 run mfja_robot_control_config room_315_kinematic_shuttle_node.py --ros-args \
   -p gazebo_world_name:=room_315_only \
   -p start_slot:=3 \
+  -p path_backend:=cubic_hermite \
   -p enable_gazebo_set_pose:=true \
   -p enable_gazebo_spawn:=true \
   -p speed:=0.2 \
@@ -416,6 +465,7 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle_node.py --ros-args
   -p gazebo_world_name:=room_315_only \
   -p shuttle_count:=4 \
   -p start_slots:=1,2,3,4 \
+  -p path_backend:=cubic_hermite \
   -p enable_gazebo_set_pose:=true \
   -p enable_gazebo_spawn:=true \
   -p speed:=0.2 \
@@ -429,6 +479,7 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle_node.py --ros-args
   -p gazebo_world_name:=mfja_3rd_floor \
   -p shuttle_count:=4 \
   -p start_slots:=1,2,3,4 \
+  -p path_backend:=cubic_hermite \
   -p enable_gazebo_set_pose:=true \
   -p enable_gazebo_spawn:=true \
   -p speed:=0.2 \
@@ -799,6 +850,7 @@ source install/setup.bash
 
 ros2 run mfja_robot_control_config room_315_csv_preprocessor.py
 ros2 run mfja_robot_control_config room_315_network_validator.py
+ros2 run mfja_robot_control_config room_315_continuous_path_validator.py
 ros2 run mfja_robot_control_config room_315_segment_plot.py
 ```
 
@@ -807,13 +859,16 @@ Generated outputs:
 - `mfja_robot_control_config/config/room_315_kinematics/raw_segments/`
 - `mfja_robot_control_config/config/room_315_kinematics/segment_summary.yaml`
 - `mfja_robot_control_config/config/room_315_kinematics/validation_report.yaml`
+- `mfja_robot_control_config/config/room_315_kinematics/continuous_path_report.yaml`
 - `mfja_robot_control_config/config/room_315_kinematics/debug_plots/network_validation.png`
+- `mfja_robot_control_config/config/room_315_kinematics/debug_plots/continuous_path_validation.png`
 - `mfja_robot_control_config/config/room_315_kinematics/debug_plots/room_315_segments_overview.png`
 
 Offline kinematic core test:
 
 ```bash
 ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
+  --path-backend cubic_hermite \
   --switch A1=G \
   --switch A2=G \
   --switch A3=G \
@@ -838,6 +893,8 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
 | `speed` | `0.25` | Shuttle speed in m/s. |
 | `update_rate_hz` | `30.0` | Internal kinematic update rate. |
 | `gazebo_set_pose_rate_hz` | `10.0` | Rate for Gazebo `set_pose` calls. |
+| `path_backend` | `cubic_hermite` | Geometry sampler used by the shuttle core. Use `cubic_hermite` for normal continuous motion or `polyline` for direct CSV comparison. |
+| `arc_length_samples_per_edge` | `16` | Sub-samples per CSV edge used to parameterize the continuous path by arc length. |
 | `enable_collision_avoidance` | `true` | Stop before center-distance collision. |
 | `shuttle_collision_distance_m` | `0.33` | Minimum allowed center distance between shuttles. |
 | `switch_command_topic` | `/room_315/switch_states` | Route and visual switch command topic. |
@@ -857,6 +914,8 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
 - If full-floor services appear as `/world/default/...`, restart Gazebo after ensuring the world contains `<world name="mfja_3rd_floor">`.
 - If runtime-spawned shuttles do not appear, check `/world/<world_name>/create`.
 - If an add command is rejected, check whether another shuttle is still inside `start_slot_occupancy_radius_m` of that slot.
+- If the rail path was edited, run `room_315_csv_preprocessor.py`, `room_315_network_validator.py`, and `room_315_continuous_path_validator.py` before testing in Gazebo.
+- If you need to compare the continuous path against the measured CSV path, rerun the shuttle node with `-p path_backend:=polyline`.
 - If a shuttle stops with `stopped_by` set to a stopper name, open that stopper with `/room_315/stopper_states`.
 - If a shuttle stops in `WAITING`, it is likely blocked by another shuttle within `shuttle_collision_distance_m`.
 - If a shuttle enters `FALLING`, the graph has no valid successor for the current switch configuration.
