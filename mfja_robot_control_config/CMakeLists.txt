@@ -14,6 +14,7 @@ install(
   PROGRAMS
     scripts/conveyor_loop_mode_controller.py
     scripts/room_315_csv_preprocessor.py
+    scripts/room_315_continuous_path_validator.py
     scripts/room_315_segment_plot.py
     scripts/room_315_network_validator.py
     scripts/room_315_kinematic_shuttle.py

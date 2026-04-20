@@ -14,6 +14,9 @@ import yaml
 MOVING = 'MOVING'
 WAITING = 'WAITING'
 FALLING = 'FALLING'
+POLYLINE_PATH_BACKEND = 'polyline'
+CUBIC_HERMITE_PATH_BACKEND = 'cubic_hermite'
+PATH_BACKENDS = {POLYLINE_PATH_BACKEND, CUBIC_HERMITE_PATH_BACKEND}
 
 
 @dataclass(frozen=True)
@@ -46,12 +49,26 @@ class ShuttlePose:
 
 
 class SegmentGeometry:
-    def __init__(self, name: str, points: Sequence[Point3D]) -> None:
+    def __init__(
+        self,
+        name: str,
+        points: Sequence[Point3D],
+        path_backend: str = POLYLINE_PATH_BACKEND,
+        arc_length_samples_per_edge: int = 16,
+    ) -> None:
         if len(points) < 2:
             raise ValueError(f'{name} must contain at least two points')
         self.name = name
         self.points = list(points)
-        self.arc_lengths = self._compute_arc_lengths(self.points)
+        self.path_backend = _normalize_path_backend(path_backend)
+        self.arc_length_samples_per_edge = max(4, int(arc_length_samples_per_edge))
+        self.chord_arc_lengths = self._compute_arc_lengths(self.points)
+        self._tangents = self._compute_tangents()
+        self._arc_map: List[tuple[float, int, float]] = []
+        self.arc_lengths = list(self.chord_arc_lengths)
+        self._length = self.chord_arc_lengths[-1]
+        if self.path_backend == CUBIC_HERMITE_PATH_BACKEND:
+            self.arc_lengths, self._arc_map, self._length = self._build_cubic_arc_map()
         if self.length <= 0.0:
             raise ValueError(f'{name} has zero total length')
 
@@ -66,9 +83,14 @@ class SegmentGeometry:
 
     @property
     def length(self) -> float:
-        return self.arc_lengths[-1]
+        return self._length
 
     def sample(self, s: float) -> tuple[Point3D, float]:
+        if self.path_backend == CUBIC_HERMITE_PATH_BACKEND:
+            return self._sample_cubic_by_arc_length(s)
+        return self._sample_polyline(s)
+
+    def _sample_polyline(self, s: float) -> tuple[Point3D, float]:
         clamped_s = max(0.0, min(s, self.length))
         for index in range(1, len(self.arc_lengths)):
             previous_s = self.arc_lengths[index - 1]
@@ -91,6 +113,121 @@ class SegmentGeometry:
         yaw = math.atan2(current.y - previous.y, current.x - previous.x)
         return current, yaw
 
+    def _compute_tangents(self) -> List[Point3D]:
+        tangents: List[Point3D] = []
+        for index, point in enumerate(self.points):
+            if index == 0:
+                previous = point
+                current = self.points[index + 1]
+                previous_s = self.chord_arc_lengths[index]
+                current_s = self.chord_arc_lengths[index + 1]
+            elif index == len(self.points) - 1:
+                previous = self.points[index - 1]
+                current = point
+                previous_s = self.chord_arc_lengths[index - 1]
+                current_s = self.chord_arc_lengths[index]
+            else:
+                previous = self.points[index - 1]
+                current = self.points[index + 1]
+                previous_s = self.chord_arc_lengths[index - 1]
+                current_s = self.chord_arc_lengths[index + 1]
+
+            ds = max(current_s - previous_s, 1e-12)
+            tangents.append(
+                Point3D(
+                    x=(current.x - previous.x) / ds,
+                    y=(current.y - previous.y) / ds,
+                    z=(current.z - previous.z) / ds,
+                )
+            )
+        return tangents
+
+    def _build_cubic_arc_map(self) -> tuple[List[float], List[tuple[float, int, float]], float]:
+        point_arc_lengths = [0.0]
+        arc_map: List[tuple[float, int, float]] = [(0.0, 0, 0.0)]
+        total = 0.0
+
+        for index in range(len(self.points) - 1):
+            previous_point, _ = self._evaluate_cubic_interval(index, 0.0)
+            for sample_index in range(1, self.arc_length_samples_per_edge + 1):
+                u = sample_index / self.arc_length_samples_per_edge
+                current_point, _ = self._evaluate_cubic_interval(index, u)
+                total += previous_point.distance_to(current_point)
+                arc_map.append((total, index, u))
+                previous_point = current_point
+            point_arc_lengths.append(total)
+
+        return point_arc_lengths, arc_map, total
+
+    def _evaluate_cubic_interval(self, index: int, u: float) -> tuple[Point3D, Point3D]:
+        p0 = self.points[index]
+        p1 = self.points[index + 1]
+        m0 = self._tangents[index]
+        m1 = self._tangents[index + 1]
+        h = max(self.chord_arc_lengths[index + 1] - self.chord_arc_lengths[index], 1e-12)
+
+        u2 = u * u
+        u3 = u2 * u
+        h00 = 2.0 * u3 - 3.0 * u2 + 1.0
+        h10 = u3 - 2.0 * u2 + u
+        h01 = -2.0 * u3 + 3.0 * u2
+        h11 = u3 - u2
+
+        dh00 = 6.0 * u2 - 6.0 * u
+        dh10 = 3.0 * u2 - 4.0 * u + 1.0
+        dh01 = -6.0 * u2 + 6.0 * u
+        dh11 = 3.0 * u2 - 2.0 * u
+
+        point = Point3D(
+            x=h00 * p0.x + h10 * h * m0.x + h01 * p1.x + h11 * h * m1.x,
+            y=h00 * p0.y + h10 * h * m0.y + h01 * p1.y + h11 * h * m1.y,
+            z=h00 * p0.z + h10 * h * m0.z + h01 * p1.z + h11 * h * m1.z,
+        )
+        tangent = Point3D(
+            x=(dh00 * p0.x + dh01 * p1.x) / h + dh10 * m0.x + dh11 * m1.x,
+            y=(dh00 * p0.y + dh01 * p1.y) / h + dh10 * m0.y + dh11 * m1.y,
+            z=(dh00 * p0.z + dh01 * p1.z) / h + dh10 * m0.z + dh11 * m1.z,
+        )
+        return point, tangent
+
+    def _sample_cubic_by_arc_length(self, s: float) -> tuple[Point3D, float]:
+        clamped_s = max(0.0, min(s, self.length))
+        if clamped_s <= 0.0:
+            point, tangent = self._evaluate_cubic_interval(0, 0.0)
+            return point, math.atan2(tangent.y, tangent.x)
+        if clamped_s >= self.length:
+            point, tangent = self._evaluate_cubic_interval(len(self.points) - 2, 1.0)
+            return point, math.atan2(tangent.y, tangent.x)
+
+        low = 0
+        high = len(self._arc_map) - 1
+        while low < high:
+            middle = (low + high) // 2
+            if self._arc_map[middle][0] < clamped_s:
+                low = middle + 1
+            else:
+                high = middle
+
+        upper = self._arc_map[low]
+        lower = self._arc_map[max(0, low - 1)]
+        lower_s, lower_interval, lower_u = lower
+        upper_s, upper_interval, upper_u = upper
+        if upper_s <= lower_s:
+            interval = upper_interval
+            u = upper_u
+        else:
+            ratio = (clamped_s - lower_s) / (upper_s - lower_s)
+            if lower_interval == upper_interval:
+                interval = upper_interval
+                u = lower_u + ratio * (upper_u - lower_u)
+            else:
+                interval = upper_interval
+                u = upper_u
+
+        point, tangent = self._evaluate_cubic_interval(interval, u)
+        yaw = math.atan2(tangent.y, tangent.x)
+        return point, yaw
+
 
 class RailNetwork:
     def __init__(self, network_path: Path, config: dict, segments: Dict[str, SegmentGeometry]) -> None:
@@ -102,15 +239,23 @@ class RailNetwork:
         self.valid_switch_states = set(config.get('switch_state_space', {}).get('values', []))
 
     @classmethod
-    def from_yaml(cls, network_path: Path) -> 'RailNetwork':
+    def from_yaml(
+        cls,
+        network_path: Path,
+        path_backend: str = POLYLINE_PATH_BACKEND,
+        arc_length_samples_per_edge: int = 16,
+    ) -> 'RailNetwork':
         network_path = network_path.resolve()
         with network_path.open() as handle:
             config = yaml.safe_load(handle)
 
+        normalized_backend = _normalize_path_backend(path_backend)
         segments = {
             name: SegmentGeometry(
                 name=name,
                 points=_read_csv_points(_resolve_path(segment_config['csv'], network_path)),
+                path_backend=normalized_backend,
+                arc_length_samples_per_edge=arc_length_samples_per_edge,
             )
             for name, segment_config in config['segments'].items()
         }
@@ -239,6 +384,25 @@ def _resolve_path(raw_path: str, network_path: Path) -> Path:
     return network_path.parent / path
 
 
+def _normalize_path_backend(raw_backend: str) -> str:
+    backend = str(raw_backend).strip().lower().replace('-', '_')
+    aliases = {
+        'csv': POLYLINE_PATH_BACKEND,
+        'linear': POLYLINE_PATH_BACKEND,
+        'points': POLYLINE_PATH_BACKEND,
+        'continuous': CUBIC_HERMITE_PATH_BACKEND,
+        'spline': CUBIC_HERMITE_PATH_BACKEND,
+        'hermite': CUBIC_HERMITE_PATH_BACKEND,
+        'cubic': CUBIC_HERMITE_PATH_BACKEND,
+    }
+    backend = aliases.get(backend, backend)
+    if backend not in PATH_BACKENDS:
+        raise ValueError(
+            f'Unknown path_backend {raw_backend!r}; expected one of {sorted(PATH_BACKENDS)}'
+        )
+    return backend
+
+
 def _read_csv_points(csv_path: Path) -> List[Point3D]:
     with csv_path.open(newline='') as handle:
         reader = csv.DictReader(handle)
@@ -313,6 +477,18 @@ def parse_args() -> argparse.Namespace:
         help='Switch assignment such as A1=G. Can be repeated or comma/space separated.',
     )
     parser.add_argument(
+        '--path-backend',
+        default=CUBIC_HERMITE_PATH_BACKEND,
+        choices=sorted(PATH_BACKENDS),
+        help='Geometry sampling backend. Use polyline for raw CSV interpolation or cubic_hermite for continuous paths.',
+    )
+    parser.add_argument(
+        '--arc-length-samples-per-edge',
+        type=int,
+        default=16,
+        help='Sub-samples per CSV edge used to arc-length parameterize the continuous path backend.',
+    )
+    parser.add_argument(
         '--trace-every',
         type=float,
         default=1.0,
@@ -323,7 +499,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    network = RailNetwork.from_yaml(args.network)
+    network = RailNetwork.from_yaml(
+        args.network,
+        path_backend=args.path_backend,
+        arc_length_samples_per_edge=args.arc_length_samples_per_edge,
+    )
     switch_states = _parse_switch_states(network, args.switch)
     core = KinematicShuttleCore(
         network=network,

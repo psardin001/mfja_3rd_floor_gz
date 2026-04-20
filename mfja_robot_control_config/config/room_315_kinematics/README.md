@@ -1,9 +1,10 @@
 # Room 315 Kinematic Rail Network
 
 This directory contains the Room 315 kinematic-first shuttle network. The
-shuttle is controlled by graph routing and CSV rail geometry, then pushed into
-Gazebo with `set_pose`. Contact dynamics, wheel physics, and rail contact are
-intentionally not part of this phase.
+shuttle is controlled by graph routing and an arc-length path backend generated
+from CSV rail geometry, then pushed into Gazebo with `set_pose`. Contact
+dynamics, wheel physics, and rail contact are intentionally not part of this
+phase.
 
 The repository root `README.md` contains the full operator guide for launching
 Gazebo, running one or more shuttles, adding shuttles at runtime, changing
@@ -19,6 +20,8 @@ switch states, and controlling the robots.
 - `segment_summary.yaml`: preprocessing summary generated from the raw CSVs.
 - `validation_report.yaml`: validation results for lengths, snap distances,
   endpoint gaps, and tangent mismatches.
+- `continuous_path_report.yaml`: validation results comparing the continuous
+  path backend against the direct CSV polyline reference.
 - `debug_plots/`: generated visual debug plots of the rail network.
 
 ## Segment Direction
@@ -32,6 +35,19 @@ If a shuttle reaches the end of a segment and the graph has no valid successor
 for the current switch state, the shuttle enters `FALLING` mode instead of
 silently correcting or teleporting.
 
+## Path Backends
+
+The calibrated CSV files remain the source of truth, but runtime motion can be
+sampled in two ways:
+
+- `cubic_hermite`: recommended default. It creates a continuous path from CSV
+  points and tangents, then reparameterizes it by arc length.
+- `polyline`: direct CSV polyline interpolation used as a reference and debug
+  backend.
+
+Use `cubic_hermite` for normal demos and `polyline` only when comparing the
+continuous path against the measured CSV points.
+
 ## Regenerate Preprocessed Data
 
 Run these commands from the repository root after editing any file in
@@ -42,6 +58,7 @@ cd /home/tiago/ALI_ros2_ws/src/mfja_3rd_floor_gz
 
 python3 mfja_robot_control_config/scripts/room_315_csv_preprocessor.py
 python3 mfja_robot_control_config/scripts/room_315_network_validator.py
+python3 mfja_robot_control_config/scripts/room_315_continuous_path_validator.py
 python3 mfja_robot_control_config/scripts/room_315_segment_plot.py
 ```
 
@@ -49,6 +66,13 @@ Expected validation result:
 
 ```text
 Validated 14 segments and 12 nodes.
+Status: PASS (0 warnings)
+```
+
+The continuous path validator also prints:
+
+```text
+Validated continuous paths for 14 segments.
 Status: PASS (0 warnings)
 ```
 
@@ -102,6 +126,7 @@ source install/setup.bash
 ros2 run mfja_robot_control_config room_315_kinematic_shuttle_node.py --ros-args \
   -p gazebo_world_name:=room_315_only \
   -p start_slot:=2 \
+  -p path_backend:=cubic_hermite \
   -p enable_gazebo_set_pose:=true \
   -p enable_gazebo_spawn:=true \
   -p speed:=0.2 \

@@ -806,6 +806,7 @@ source install/setup.bash
 
 ros2 run mfja_robot_control_config room_315_csv_preprocessor.py
 ros2 run mfja_robot_control_config room_315_network_validator.py
+ros2 run mfja_robot_control_config room_315_continuous_path_validator.py
 ros2 run mfja_robot_control_config room_315_segment_plot.py
 \end{lstlisting}
 
@@ -1141,7 +1142,7 @@ CSV point as a state machine. It interpolates along the polyline.
 \node[flowbox, fill=flowred] (falling) at (-6.2,-9.0) {Set mode\\\texttt{FALLING}};
 \node[flowio, fill=flowred] (fallout) at (-6.2,-12.3) {Publish\\FALLING state};
 \node[flowbox, fill=flowgreen] (next) at (0,-12.3) {Move to next segment\\reset \texttt{s=0}};
-\node[flowbox, fill=flowgreen] (pose) at (6.2,-12.3) {Sample CSV polyline\\compute \texttt{x,y,z,yaw}};
+\node[flowbox, fill=flowgreen] (pose) at (6.2,-12.3) {Sample path backend\\compute \texttt{x,y,z,yaw}};
 \node[flowbox, fill=flowgreen] (guards) at (6.2,-15.4) {ROS motion guards\\stoppers and collisions};
 \node[flowio, fill=flowred] (output) at (6.2,-18.5) {Publish Gazebo pose\\and JSON state};
 
@@ -1156,8 +1157,9 @@ CSV point as a state machine. It interpolates along the polyline.
 \draw[flowarrow] (pose.south) -- (guards.north);
 \draw[flowarrow] (guards.south) -- (output.north);
 \end{tikzpicture}}
-\caption{Runtime pose computation flow. The CSV file is sampled by arc length
-for geometry, while the routing table is consulted only when a segment ends.}
+\caption{Runtime pose computation flow. The selected path backend is sampled by
+arc length for geometry, while the routing table is consulted only when a
+segment ends.}
 \label{fig:runtime-pose-flow}
 \end{figure}
 
@@ -1287,7 +1289,9 @@ Room-only world and the full-floor world.
 The key parameter groups are:
 
 \begin{itemize}
-\item network parameters: \texttt{network\_yaml}, \texttt{start\_snap\_tolerance\_m};
+\item network and geometry parameters: \texttt{network\_yaml},
+\texttt{path\_backend}, \texttt{arc\_length\_samples\_per\_edge}, and
+\texttt{start\_snap\_tolerance\_m};
 \item shuttle initialization: \texttt{shuttle\_count}, \texttt{start\_slot},
 \texttt{start\_slots}, \texttt{gazebo\_entity\_name},
 \texttt{gazebo\_entity\_names};
@@ -1445,28 +1449,92 @@ The shuttle state is intentionally small:
 The pose returned by the core includes the interpolated \texttt{x},
 \texttt{y}, \texttt{z}, and yaw, plus the current segment and mode.
 
-\section{Arc-length interpolation}
+\section{Arc-length path backends}
 
-CSV rows are converted to a polyline. The core computes cumulative arc lengths
-along that polyline. During each update, it samples the point at distance
-\texttt{s}. This makes speed independent of CSV point spacing.
+CSV rows are still the measured input. They are not discarded. The important
+change is that the runtime geometry layer now has two path backends behind the
+same \texttt{SegmentGeometry.sample(s)} interface:
 
-\codenext{36}
+\begin{itemize}
+\item \texttt{polyline}: direct piecewise-linear interpolation between CSV
+points. This is the reference and debug backend because it follows the
+measurement data exactly.
+\item \texttt{cubic\_hermite}: continuous cubic Hermite interpolation with
+arc-length reparameterization. This is the recommended runtime backend because
+it gives smoother position and yaw along curves.
+\end{itemize}
+
+The runtime state is still parameterized by arc length \texttt{s}. During each
+update, the core asks the selected backend for the pose at distance \texttt{s}.
+This keeps the routing code independent from the geometric representation.
+
+\codenext{42}
 \lstinputlisting[
   style=reportcode,
   language=Python,
   firstline=48,
-  lastline=92,
+  lastline=132,
   firstnumber=48,
-  caption={Segment geometry, cumulative length, and pose sampling.}
+  caption={Segment geometry now supports polyline and continuous cubic Hermite backends.}
 ]{mfja_robot_control_config/scripts/room_315_kinematic_shuttle.py}
 
-The current geometry is still polyline-based, so it follows the CSV points.
+The accepted policy is:
+
+\begin{lstlisting}[style=terminalcode]
+Recommended runtime backend: cubic_hermite
+Reference/debug backend:    polyline
+\end{lstlisting}
+
+Keeping both backends is intentional. The continuous backend is better for
+normal operation, but the polyline backend remains the baseline for debugging.
+If a future path appears misaligned, the operator can immediately compare
+\texttt{cubic\_hermite} against \texttt{polyline} to determine whether the
+problem comes from the fitted path layer or from the original CSV geometry.
+
 The practical improvement already made was to use corrected CSV extraction and
 then bake the calibration scale and offset into the CSV coordinates. That is
 why normal node startup no longer needs \texttt{pose\_scale\_x},
 \texttt{pose\_scale\_y}, \texttt{pose\_offset\_x}, or
 \texttt{pose\_offset\_y} for the accepted path alignment.
+
+\section{Continuous path validation}
+
+The continuous backend is validated against the CSV polyline before it is used
+for demos. The validation tool loads the same \texttt{rail\_network.yaml} twice:
+once with \texttt{polyline} and once with \texttt{cubic\_hermite}. It then
+samples the continuous curve and reports:
+
+\begin{itemize}
+\item polyline length and continuous length;
+\item length difference in meters and percent;
+\item maximum and mean deviation from the CSV polyline;
+\item endpoint deltas;
+\item maximum yaw step between sampled continuous points;
+\item warnings if the continuous path deviates too far from the measured CSV.
+\end{itemize}
+
+\begin{lstlisting}[style=terminalcode]
+ros2 run mfja_robot_control_config room_315_continuous_path_validator.py
+\end{lstlisting}
+
+The current accepted result is:
+
+\begin{lstlisting}[style=terminalcode]
+Validated continuous paths for 14 segments.
+Status: PASS (0 warnings)
+\end{lstlisting}
+
+\begin{landscape}
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.94\linewidth]{mfja_robot_control_config/config/room_315_kinematics/debug_plots/continuous_path_validation.png}
+\caption{Continuous path validation plot. The left side shows the calibrated
+CSV polylines used as the reference measurement. The right side shows the
+continuous cubic Hermite backend sampled densely. The black dots on the right
+are the original CSV points, which makes it easy to detect overshoot.}
+\label{fig:continuous-path-validation}
+\end{figure}
+\end{landscape}
 
 \section{Successor resolution and explicit failure}
 
@@ -2411,6 +2479,13 @@ Expected validator result:
 Status: PASS (0 warnings)
 \end{lstlisting}
 
+For the continuous path validator, the expected result is:
+
+\begin{lstlisting}[style=terminalcode]
+Validated continuous paths for 14 segments.
+Status: PASS (0 warnings)
+\end{lstlisting}
+
 Generated files:
 
 \begin{itemize}
@@ -2420,9 +2495,32 @@ Generated files:
 \codepath{mfja_robot_control_config/config/room_315_kinematics/segment_summary.yaml};
 \item validation report:
 \codepath{mfja_robot_control_config/config/room_315_kinematics/validation_report.yaml};
+\item continuous path report:
+\codepath{mfja_robot_control_config/config/room_315_kinematics/continuous_path_report.yaml};
 \item network plot:
 \codepath{mfja_robot_control_config/config/room_315_kinematics/debug_plots/network_validation.png}.
+\item continuous path comparison plot:
+\codepath{mfja_robot_control_config/config/room_315_kinematics/debug_plots/continuous_path_validation.png}.
 \end{itemize}
+
+\section{Path backend selection}
+
+Normal demos should use the continuous path backend:
+
+\begin{lstlisting}[style=terminalcode]
+-p path_backend:=cubic_hermite
+\end{lstlisting}
+
+The old CSV polyline backend is still available for comparison and debugging:
+
+\begin{lstlisting}[style=terminalcode]
+-p path_backend:=polyline
+\end{lstlisting}
+
+The recommended policy is to run with \texttt{cubic\_hermite} and keep
+\texttt{polyline} as a reference. The validator compares these two backends, so
+removing \texttt{polyline} would remove the easiest way to prove that the
+continuous path did not drift away from the measured CSV data.
 
 \section{Troubleshooting table}
 
@@ -2532,6 +2630,29 @@ The validation tools produce:
 \end{itemize}
 
 The latest expected result is a clean pass with no warnings.
+
+\section{Continuous path backend added}
+
+The shuttle geometry layer now supports parametrized path backends. The current
+recommended runtime backend is \texttt{cubic\_hermite}. It turns calibrated CSV
+points into a continuous arc-length path so the shuttle pose and yaw change more
+smoothly through curves.
+
+The original \texttt{polyline} backend remains available on purpose. It is the
+reference backend used to compare against the measured CSV data. Keeping both
+backends gives a safe workflow:
+
+\begin{lstlisting}[style=terminalcode]
+normal demos:        path_backend:=cubic_hermite
+debug/reference use: path_backend:=polyline
+\end{lstlisting}
+
+The new validator produces
+\codepath{mfja_robot_control_config/config/room_315_kinematics/continuous_path_report.yaml}
+and
+\codepath{mfja_robot_control_config/config/room_315_kinematics/debug_plots/continuous_path_validation.png}.
+The current result is \texttt{PASS (0 warnings)}, with millimeter-level
+deviation from the CSV polyline reference.
 
 \section{Switches made independent and visible}
 
