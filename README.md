@@ -150,14 +150,14 @@ source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 ```
 
-Switch aliases now accept both the old `G` / `S` names and the new
-`EXTERIOR` / `INTERIOR` or `E` / `I` forms:
+Use `/room_315/switch_states` with `EXTERIOR` / `INTERIOR` or the short `E` / `I`
+forms:
 
 ```bash
 ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=EXTERIOR A2=INTERIOR A3=E A4=I'}"
 ```
 
-The current slot numbering was corrected to the real-world naming:
+Start slots are numbered as follows:
 
 - `slot 1`: upper indexing pair, left physical position.
 - `slot 2`: upper indexing pair, right physical position.
@@ -177,15 +177,14 @@ ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 
 ros2 topic pub --once /room_315/shuttle/add_cmd std_msgs/msg/String "{data: 'entity=room315_shuttle_1 slot=1 speed=0.2'}"
 ```
 
-Watch the new right-rail position detectors:
+Watch the right-rail position detectors:
 
 ```bash
 ros2 topic echo /room_315/sensors/position
 ```
 
-The canonical detector names now end with `R` because they belong to the right
-rail set. The published payload still includes aliases such as `DZI1`, `DA1G`,
-or `DA1P` for compatibility with older notes and diagrams.
+The published detector names belong to the right-rail set and are available on
+`/room_315/sensors/position`.
 
 ## Full Floor
 
@@ -267,7 +266,7 @@ For the full floor, expected services:
 ```
 
 If you see `/world/default/set_pose` while running the full floor, Gazebo is
-using an old world name. Stop Gazebo, rebuild if needed, and restart the launch.
+using the wrong world name. Stop Gazebo, rebuild if needed, and restart the launch.
 
 ## Robot Spawning and Control
 
@@ -572,7 +571,7 @@ Notes:
 - Shuttles beyond the preloaded count are spawned through `/world/<world_name>/create`.
 - If the requested start slot is occupied, the node rejects the add command and does not create a new shuttle.
 - A slot is considered occupied when an existing shuttle is within `start_slot_occupancy_radius_m` of that start pose.
-- The slot numbering now matches the real cell labels: `1 <-> old 2`, `2 <-> old 1`, `3 <-> old 4`, `4 <-> old 3`.
+- Start-slot labels in this README follow the current cell numbering.
 
 ## Shuttle ON/OFF Control
 
@@ -641,16 +640,14 @@ Stopper logic is independent from switch logic. A stopper is a binary primitive:
 - `0`, `OPEN`, `RELEASE`, `OFF`: the stopper is open and shuttles may pass.
 - `1`, `STOP`, `CLOSED`, `ON`: the stopper stops a shuttle before the switch.
 
-The public stopper labels now follow the real switch labels used in the cell,
-while the internal routing stays remapped under the hood so the motion does not
-change:
+Public stopper labels:
 
 | Stopper | Before switch | Stop segments |
 | --- | --- | --- |
-| `A1` | `A1` | `A23` |
-| `A2` | `A2` | `A34E`, `A34I` |
-| `A3` | `A3` | `A14` |
-| `A4` | `A4` | `A12E`, `A12I` |
+| `A1` | `A1` | `A14` |
+| `A2` | `A2` | `A12E`, `A12I` |
+| `A3` | `A3` | `A23` |
+| `A4` | `A4` | `A34E`, `A34I` |
 
 Stopper commands use:
 
@@ -702,7 +699,7 @@ Example single-shuttle event:
       "before_switch": "A1",
       "distance_m": 0.247,
       "entity_name": "room315_shuttle_4",
-      "segment": "A23",
+      "segment": "A14",
       "sensor": "A1_APPROACH",
       "stopper": "A1",
       "stopper_state": "0",
@@ -718,7 +715,7 @@ Example single-shuttle event:
 }
 ```
 
-This means `room315_shuttle_4` is on segment `A23`, approaching switch `A1`,
+This means `room315_shuttle_4` is on segment `A14`, approaching switch `A1`,
 and is about `0.247 m` before the A1 stop point. If the printed distance keeps
 decreasing, the shuttle is moving toward that stopper.
 
@@ -731,14 +728,14 @@ Example with two simultaneous sensor events:
       "before_switch": "A3",
       "distance_m": 0.18,
       "entity_name": "room315_shuttle_2",
-      "segment": "A14",
+      "segment": "A23",
       "stopper": "A3"
     },
     {
       "before_switch": "A1",
       "distance_m": 0.24,
       "entity_name": "room315_shuttle_4",
-      "segment": "A23",
+      "segment": "A14",
       "stopper": "A1"
     }
   ]
@@ -752,7 +749,7 @@ The intended manual workflow is:
 
 1. Watch the sensor event for a shuttle approaching a switch.
 2. Close the matching stopper, for example `A1=1`.
-3. Move the switch, for example `A1=S`.
+3. Move the switch, for example `A1=INTERIOR`.
 4. Open the stopper again, for example `A1=0`.
 
 Example sequence:
@@ -760,7 +757,7 @@ Example sequence:
 ```bash
 ros2 topic echo /room_315/sensors/switch_approach
 ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'A1=1'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=S'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=INTERIOR'}"
 ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'A1=0'}"
 ```
 
@@ -773,22 +770,14 @@ Virtual position detectors are published separately on:
 These detector names follow the same public `A1` to `A4` structure already used
 for switches and stoppers:
 
-- `DZI1R`, `DZI2R`, `DZI3R`, `DZI4R`: right-rail indexing-zone detectors. They
-  are tied to the four configured start slots so they stay aligned with the
-  current entry poses. After the slot renumbering, these are now direct:
-  `DZI1R -> slot 1`, `DZI2R -> slot 2`, `DZI3R -> slot 3`, `DZI4R -> slot 4`.
+- `DZI2R`, `DZI1R`, `DZI4R`, `DZI3R`: right-rail indexing-zone detectors for
+  `slot 1`, `slot 2`, `slot 3`, and `slot 4`.
 - `DA1R`, `DA2R`, `DA3R`, `DA4R`: right-rail detector on the single-track side
   of each switch.
-- `DA1GR`, `DA2GR`, `DA3GR`, `DA4GR`: right-rail detector on the `G` branch,
-  which matches the public `EXTERIOR` side.
-- `DA1SR`, `DA2SR`, `DA3SR`, `DA4SR`: right-rail detector on the `S` branch,
-  which matches the public `INTERIOR` side.
-
-The original diagram uses `P` for `petite boucle`. In this repository the
-public detector names keep `S` to stay consistent with the existing `G/S`
-topology, so `DA1SR` corresponds to the physical `DA1P`, `DA2SR` to `DA2P`,
-and so on. The previous unsuffixed names are still kept as aliases in the
-published payload.
+- `DA1GR`, `DA2GR`, `DA3GR`, `DA4GR`: right-rail detector on the `EXTERIOR`
+  branch.
+- `DA1SR`, `DA2SR`, `DA3SR`, `DA4SR`: right-rail detector on the `INTERIOR`
+  branch.
 
 Echo the position detectors:
 
@@ -806,7 +795,8 @@ ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'ALL=I
 
 Expected detector families:
 
-- `slot 1` to `slot 4` startup positions trigger `DZI1R` to `DZI4R`.
+- `slot 1`, `slot 2`, `slot 3`, and `slot 4` startup positions trigger
+  `DZI2R`, `DZI1R`, `DZI4R`, and `DZI3R`.
 - `ALL=EXTERIOR` makes the shuttle pass through `...GR` branch detectors.
 - `ALL=INTERIOR` makes the shuttle pass through `...SR` branch detectors.
 
@@ -820,11 +810,10 @@ Example position-detector event:
       "distance_m": 0.031,
       "entity_name": "room315_shuttle_1",
       "loop_side": "EXTERIOR",
-      "segment": "A3G",
+      "segment": "A1G",
       "sensor": "DA1GR",
       "sensor_kind": "switch_branch",
-      "switch": "A1",
-      "aliases": ["DA1G"]
+      "switch": "A1"
     }
   ]
 }
@@ -861,54 +850,43 @@ Send switch commands to:
 
 Supported states:
 
-- `G`, `E`, `GRAND`, `GRAND_BOUCLE`, `BIG`, `LARGE`, `EXTERIOR`: big loop / exterior branch.
-- `S`, `I`, `PETIT`, `PETIT_BOUCLE`, `SMALL`, `INTERIOR`: small loop / interior branch.
+- `EXTERIOR` or `E`
+- `INTERIOR` or `I`
 
 Switch selectors:
 
 - Public station labels: `A1`, `A2`, `A3`, `A4`
-- Visual right/left aliases: `A1R`, `A1L`, `A2R`, `A2L`, `A3R`, `A3L`, `A4R`, `A4L`
+- Visual right/left selectors: `A1R`, `A1L`, `A2R`, `A2L`, `A3R`, `A3L`, `A4R`, `A4L`
 - Groups: `ALL`, `RIGHT`, `LEFT`
 
-All public switch labels now follow the real switch stickers. The routing layer
-is remapped internally so the shuttle keeps the same motion as before:
+Public switch labels are `A1`, `A2`, `A3`, and `A4`.
 
-- Right rail: `A1R -> former A3`, `A2R -> former A4`, `A3R -> former A1`, `A4R -> former A2`
-- Left rail: `A1L -> former A4`, `A2L -> former A3`, `A3L -> former A2`, `A4L -> former A1`
-- Public route/stopper labels: `A1 -> former A3`, `A2 -> former A4`, `A3 -> former A1`, `A4 -> former A2`
-
-The old state names still work, so `GRAND` and `SMALL` remain valid aliases for
-`EXTERIOR` and `INTERIOR`.
-
-Short one-letter aliases also work, so `A1=E` means exterior and `A1=I` means
-interior.
-
-Set all switches to the big loop:
+Set all switches to the exterior branch:
 
 ```bash
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'ALL=G'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'ALL=EXTERIOR'}"
 ```
 
-Set all switches to the small loop:
+Set all switches to the interior branch:
 
 ```bash
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'ALL=S'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'ALL=INTERIOR'}"
 ```
 
 Switch one station:
 
 ```bash
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=G'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=S'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A2=G'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A2=S'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A3=G'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A3=S'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A4=G'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A4=S'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=EXTERIOR'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=INTERIOR'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A2=EXTERIOR'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A2=INTERIOR'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A3=EXTERIOR'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A3=INTERIOR'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A4=EXTERIOR'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A4=INTERIOR'}"
 ```
 
-Use right/left visual aliases:
+Use right/left visual selectors:
 
 ```bash
 ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1R=EXTERIOR'}"
@@ -924,7 +902,7 @@ right rail set.
 Send multiple updates in one command:
 
 ```bash
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=S A2=G A3=S A4=G'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=INTERIOR A2=EXTERIOR A3=INTERIOR A4=EXTERIOR'}"
 ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1R=INTERIOR A2R=INTERIOR A3R=EXTERIOR A4R=EXTERIOR'}"
 ```
 
