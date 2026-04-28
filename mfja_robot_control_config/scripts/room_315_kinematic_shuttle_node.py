@@ -136,11 +136,73 @@ INTERNAL_TO_PUBLIC_SWITCH_MAP = {
     internal_name: public_name
     for public_name, internal_name in LOGICAL_SWITCH_SELECTOR_MAP.items()
 }
+PUBLIC_SEGMENT_NAME_MAP = {
+    'A1G': 'A3G',
+    'A2G': 'A4G',
+    'A3G': 'A1G',
+    'A4G': 'A2G',
+    'A1S': 'A3S',
+    'A2S': 'A4S',
+    'A3S': 'A1S',
+    'A4S': 'A2S',
+    'A23': 'A14',
+    'A14': 'A23',
+    'A34E': 'A12E',
+    'A34I': 'A12I',
+    'A12E': 'A34E',
+    'A12I': 'A34I',
+}
 
 
 def _public_switch_name(name: str) -> str:
     normalized_name = str(name).strip().upper()
     return INTERNAL_TO_PUBLIC_SWITCH_MAP.get(normalized_name, normalized_name)
+
+
+def _public_segment_name(name: str) -> str:
+    normalized_name = str(name).strip().upper()
+    return PUBLIC_SEGMENT_NAME_MAP.get(normalized_name, normalized_name)
+
+
+def _public_sensor_name(name: str) -> str:
+    normalized_name = str(name).strip().upper()
+
+    if normalized_name == 'DZI1R':
+        return 'DZI2R'
+    if normalized_name == 'DZI2R':
+        return 'DZI1R'
+    if normalized_name == 'DZI1':
+        return 'DZI2'
+    if normalized_name == 'DZI2':
+        return 'DZI1'
+    if normalized_name == 'DZI3R':
+        return 'DZI4R'
+    if normalized_name == 'DZI4R':
+        return 'DZI3R'
+    if normalized_name == 'DZI3':
+        return 'DZI4'
+    if normalized_name == 'DZI4':
+        return 'DZI3'
+
+    da_match = re.fullmatch(r'(DA)([1-4])(.*)', normalized_name)
+    if not da_match:
+        return normalized_name
+
+    prefix, switch_index, suffix = da_match.groups()
+    public_switch = _public_switch_name(f'A{switch_index}')
+    return f'{prefix}{public_switch[1:]}{suffix}'
+
+
+def _dedupe_aliases(values: tuple[str, ...]) -> tuple[str, ...]:
+    ordered_values: list[str] = []
+    seen_values: set[str] = set()
+    for raw_value in values:
+        value = str(raw_value).strip().upper()
+        if not value or value in seen_values:
+            continue
+        seen_values.add(value)
+        ordered_values.append(value)
+    return tuple(ordered_values)
 
 
 def _public_switch_states(switch_states: Dict[str, str]) -> Dict[str, str]:
@@ -693,7 +755,8 @@ class Room315KinematicShuttleNode(Node):
                     f'position_sensors.{raw_name} must be a mapping, got {type(raw_config)!r}.'
                 )
 
-            name = str(raw_name).strip().upper()
+            internal_name = str(raw_name).strip().upper()
+            name = _public_sensor_name(internal_name)
             branch_state, normalized_loop_side = self._normalize_position_sensor_branch(
                 raw_config.get('branch')
             )
@@ -703,17 +766,25 @@ class Room315KinematicShuttleNode(Node):
             switch_name = raw_config.get('switch')
             index_zone = raw_config.get('index_zone')
             start_slot = raw_config.get('slot')
-            aliases = tuple(
+            configured_aliases = tuple(
                 str(alias).strip().upper()
                 for alias in raw_config.get('aliases', [])
                 if str(alias).strip()
             )
+            public_aliases: list[str] = []
+            for alias in configured_aliases:
+                public_alias = _public_sensor_name(alias)
+                if public_alias != name:
+                    public_aliases.append(public_alias)
+            aliases = _dedupe_aliases(tuple(public_aliases))
             configs[name] = PositionSensorConfig(
                 name=name,
                 sensor_kind=str(raw_config.get('kind', 'position')).strip().lower(),
                 points=self._position_sensor_points_from_config(name, raw_config),
                 switch_name=(
-                    str(switch_name).strip().upper() if switch_name is not None else None
+                    _public_switch_name(str(switch_name).strip().upper())
+                    if switch_name is not None
+                    else None
                 ),
                 branch_state=branch_state,
                 loop_side=normalized_loop_side,
@@ -2091,7 +2162,7 @@ class Room315KinematicShuttleNode(Node):
                                 'stopper': stopper_name,
                                 'before_switch': stopper_config.before_switch,
                                 'entity_name': shuttle.entity_name,
-                                'segment': state.current_segment,
+                                'segment': _public_segment_name(state.current_segment),
                                 'distance_m': distance_m,
                                 'stopper_state': self.stopper_states.get(stopper_name, '0'),
                                 'workflow': 'sensor -> stop shuttle -> move switch -> unstop shuttle',
@@ -2115,7 +2186,7 @@ class Room315KinematicShuttleNode(Node):
                         'sensor': sensor_name,
                         'sensor_kind': sensor_config.sensor_kind,
                         'entity_name': shuttle.entity_name,
-                        'segment': state.current_segment,
+                        'segment': _public_segment_name(state.current_segment),
                         'distance_m': distance_m,
                     }
                     if sensor_config.switch_name is not None:
@@ -2162,9 +2233,15 @@ class Room315KinematicShuttleNode(Node):
     ) -> None:
         shuttles_payload = []
         for shuttle, pose, gazebo_pose in zip(self.shuttles, raw_poses, gazebo_poses):
+            pose_payload = asdict(pose)
+            pose_payload['current_segment'] = _public_segment_name(pose.current_segment)
+            gazebo_pose_payload = asdict(gazebo_pose)
+            gazebo_pose_payload['current_segment'] = _public_segment_name(
+                gazebo_pose.current_segment
+            )
             shuttles_payload.append(
                 {
-                    **asdict(pose),
+                    **pose_payload,
                     'entity_name': shuttle.entity_name,
                     'blocked_by': shuttle.blocked_by,
                     'collision_distance_m': shuttle.collision_distance_m,
@@ -2172,7 +2249,7 @@ class Room315KinematicShuttleNode(Node):
                     'stopped_by': shuttle.stopped_by,
                     'stopper_distance_m': shuttle.stopper_distance_m,
                     'gazebo_spawned': shuttle.gazebo_spawned,
-                    'gazebo_pose': asdict(gazebo_pose),
+                    'gazebo_pose': gazebo_pose_payload,
                     'start_slot': shuttle.start_slot,
                     'start_snap_distance_m': shuttle.start_snap_distance_m,
                     'speed': shuttle.core.state.speed,
@@ -2197,11 +2274,19 @@ class Room315KinematicShuttleNode(Node):
             first_shuttle = self.shuttles[0]
             first_pose = raw_poses[0]
             first_gazebo_pose = gazebo_poses[0]
-            primary_payload.update(asdict(first_pose))
+            first_pose_payload = asdict(first_pose)
+            first_pose_payload['current_segment'] = _public_segment_name(
+                first_pose.current_segment
+            )
+            first_gazebo_pose_payload = asdict(first_gazebo_pose)
+            first_gazebo_pose_payload['current_segment'] = _public_segment_name(
+                first_gazebo_pose.current_segment
+            )
+            primary_payload.update(first_pose_payload)
             primary_payload.update(
                 {
                     'entity_name': first_shuttle.entity_name,
-                    'gazebo_pose': asdict(first_gazebo_pose),
+                    'gazebo_pose': first_gazebo_pose_payload,
                     'speed': first_shuttle.core.state.speed,
                     'start_slot': first_shuttle.start_slot,
                     'start_snap_distance_m': first_shuttle.start_snap_distance_m,

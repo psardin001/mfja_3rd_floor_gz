@@ -98,9 +98,9 @@ position_sensors:
     switch: A1
     aliases:
     - DA1
-    segment: A23
+    segment: A14
     reference: end
-    offset_m: 0.18
+    offset_m: 0.10
     sensor_distance_m: 0.08
   DA1GR:
     kind: switch_branch
@@ -108,7 +108,7 @@ position_sensors:
     branch: G
     aliases:
     - DA1G
-    segment: A3G
+    segment: A1G
     reference: start
     offset_m: 0.10
     sensor_distance_m: 0.07
@@ -119,7 +119,7 @@ position_sensors:
     aliases:
     - DA1S
     - DA1P
-    segment: A3S
+    segment: A1S
     reference: start
     offset_m: 0.12
     sensor_distance_m: 0.07
@@ -128,7 +128,7 @@ position_sensors:
     switch: A2
     aliases:
     - DA2
-    segment: A14
+    segment: A23
     reference: start
     offset_m: 0.10
     sensor_distance_m: 0.07
@@ -138,7 +138,7 @@ position_sensors:
     branch: G
     aliases:
     - DA2G
-    segment: A34E
+    segment: A12E
     reference: end
     offset_m: 0.18
     sensor_distance_m: 0.08
@@ -149,7 +149,7 @@ position_sensors:
     aliases:
     - DA2S
     - DA2P
-    segment: A34I
+    segment: A12I
     reference: end
     offset_m: 0.18
     sensor_distance_m: 0.08
@@ -158,9 +158,9 @@ position_sensors:
     switch: A3
     aliases:
     - DA3
-    segment: A14
+    segment: A23
     reference: end
-    offset_m: 0.18
+    offset_m: 0.10
     sensor_distance_m: 0.08
   DA3GR:
     kind: switch_branch
@@ -168,7 +168,7 @@ position_sensors:
     branch: G
     aliases:
     - DA3G
-    segment: A1G
+    segment: A3G
     reference: start
     offset_m: 0.10
     sensor_distance_m: 0.07
@@ -179,7 +179,7 @@ position_sensors:
     aliases:
     - DA3S
     - DA3P
-    segment: A1S
+    segment: A3S
     reference: start
     offset_m: 0.12
     sensor_distance_m: 0.07
@@ -188,7 +188,7 @@ position_sensors:
     switch: A4
     aliases:
     - DA4
-    segment: A23
+    segment: A14
     reference: start
     offset_m: 0.10
     sensor_distance_m: 0.07
@@ -198,7 +198,7 @@ position_sensors:
     branch: G
     aliases:
     - DA4G
-    segment: A12E
+    segment: A34E
     reference: end
     offset_m: 0.18
     sensor_distance_m: 0.08
@@ -209,7 +209,7 @@ position_sensors:
     aliases:
     - DA4S
     - DA4P
-    segment: A12I
+    segment: A34I
     reference: end
     offset_m: 0.18
     sensor_distance_m: 0.08
