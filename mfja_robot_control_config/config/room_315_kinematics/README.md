@@ -140,17 +140,55 @@ name:
 -p gazebo_world_name:=mfja_3rd_floor
 ```
 
+## Quick Check of Recent Additions
+
+The current runtime additions can be validated with four quick checks:
+
+1. Switch aliases:
+
+```bash
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=EXTERIOR A2=INTERIOR A3=E A4=I'}"
+```
+
+2. Reset after `FALLING` without restarting Gazebo:
+
+```bash
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_1=RESET'}"
+```
+
+3. Remove and re-add a shuttle:
+
+```bash
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_1=REMOVE'}"
+ros2 topic pub --once /room_315/shuttle/add_cmd std_msgs/msg/String "{data: 'entity=room315_shuttle_1 slot=1'}"
+```
+
+4. Watch the new right-rail detector stream:
+
+```bash
+ros2 topic echo /room_315/sensors/position
+```
+
+The slot numbering now matches the real cell labels:
+
+- `slot 1`: upper indexing pair, left physical position.
+- `slot 2`: upper indexing pair, right physical position.
+- `slot 3`: lower indexing pair, right physical position.
+- `slot 4`: lower indexing pair, left physical position.
+
 ## Switch Commands
 
 Switch states are controlled through `/room_315/switch_states`. The accepted
 logical states are `G` for the big-loop branch and `S` for the small-loop
 branch. The command layer also accepts aliases such as `BIG`, `LARGE`, and
-`SMALL`.
+`SMALL`. It now also accepts `E` / `EXTERIOR` as aliases for `G` and `I` /
+`INTERIOR` as aliases for `S`. Visual switch selectors stay `A1R` / `A1L` through
+`A4R` / `A4L`.
 
 Example:
 
 ```bash
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=G A2=S A3=G A4=S'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=EXTERIOR A2=INTERIOR A3=EXTERIOR A4=INTERIOR'}"
 ```
 
 The node also republishes visual switch commands on
@@ -210,15 +248,40 @@ ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=S'
 ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'A1=0'}"
 ```
 
+The same network file also defines virtual shuttle position detectors on:
+
+```text
+/room_315/sensors/position
+```
+
+The public detector set is:
+
+- `DZI1R`, `DZI2R`, `DZI3R`, `DZI4R` for the right-rail indexing-zone
+  positions. After the slot renumbering, these are now direct: `DZI1R -> slot 1`,
+  `DZI2R -> slot 2`, `DZI3R -> slot 3`, `DZI4R -> slot 4`.
+- `DA1R`, `DA2R`, `DA3R`, `DA4R` on the single-track side of each switch.
+- `DA1GR`, `DA2GR`, `DA3GR`, `DA4GR` on the `G` / `EXTERIOR` branch.
+- `DA1SR`, `DA2SR`, `DA3SR`, `DA4SR` on the `S` / `INTERIOR` branch.
+
+The original teaching drawing uses `DAiP` for the small-loop side. The current
+repository keeps `DAiS` as the branch marker and now adds `R` to indicate the
+right rail. The previous unsuffixed names are still kept as aliases.
+
+Practical use:
+
+- Spawn or reset on `slot 1` through `slot 4` to check `DZI1R` through `DZI4R`.
+- Send `ALL=EXTERIOR` to observe the `...GR` branch detectors.
+- Send `ALL=INTERIOR` to observe the `...SR` branch detectors.
+
 ## Start Slots
 
 The four allowed start slots are defined in `rail_network.yaml`:
 
 ```text
-slot 1: -14.95 -3.86 0.84 0 0 3.14
-slot 2: -15.43 -3.86 0.84 0 0 3.14
-slot 3: -15.24 -5.54 0.84 0 0 0
-slot 4: -14.77 -5.54 0.84 0 0 0
+slot 1: -15.43 -3.86 0.84 0 0 3.14
+slot 2: -14.95 -3.86 0.84 0 0 3.14
+slot 3: -14.77 -5.54 0.84 0 0 0
+slot 4: -15.24 -5.54 0.84 0 0 0
 ```
 
 Multiple shuttles can be started with `shuttle_count` and `start_slots`, or
@@ -239,6 +302,8 @@ Examples:
 ```bash
 ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_2=OFF'}"
 ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_2=ON'}"
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_2=RESET'}"
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_2=REMOVE'}"
 ```
 
 ## Collision Avoidance

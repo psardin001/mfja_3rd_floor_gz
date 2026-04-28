@@ -16,6 +16,7 @@ from rclpy.parameter import Parameter
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from ros_gz_interfaces.msg import Entity
 from ros_gz_interfaces.msg import EntityFactory
+from ros_gz_interfaces.srv import DeleteEntity
 from ros_gz_interfaces.srv import SetEntityPose
 from ros_gz_interfaces.srv import SpawnEntity
 from std_msgs.msg import String
@@ -88,10 +89,10 @@ class AllowedStartPose:
 
 
 ALLOWED_START_POSES = {
-    '1': AllowedStartPose(-14.95, -3.86, 0.84, 0.0, 0.0, 3.14),
-    '2': AllowedStartPose(-15.43, -3.86, 0.84, 0.0, 0.0, 3.14),
-    '3': AllowedStartPose(-15.24, -5.54, 0.84, 0.0, 0.0, 0.0),
-    '4': AllowedStartPose(-14.77, -5.54, 0.84, 0.0, 0.0, 0.0),
+    '1': AllowedStartPose(-15.43, -3.86, 0.84, 0.0, 0.0, 3.14),
+    '2': AllowedStartPose(-14.95, -3.86, 0.84, 0.0, 0.0, 3.14),
+    '3': AllowedStartPose(-14.77, -5.54, 0.84, 0.0, 0.0, 0.0),
+    '4': AllowedStartPose(-15.24, -5.54, 0.84, 0.0, 0.0, 0.0),
 }
 
 
@@ -171,6 +172,26 @@ class StopperConfig:
     stop_points: tuple[StopPoint, ...]
 
 
+@dataclass(frozen=True)
+class PositionSensorPoint:
+    segment: str
+    sensor_s: float
+    sensor_distance_m: float
+
+
+@dataclass(frozen=True)
+class PositionSensorConfig:
+    name: str
+    sensor_kind: str
+    points: tuple[PositionSensorPoint, ...]
+    switch_name: str | None = None
+    branch_state: str | None = None
+    loop_side: str | None = None
+    index_zone: str | None = None
+    start_slot: str | None = None
+    aliases: tuple[str, ...] = ()
+
+
 @dataclass
 class ManagedShuttle:
     entity_name: str
@@ -218,6 +239,7 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('switch_command_topic', '/room_315/switch_states')
         self.declare_parameter('stopper_command_topic', '/room_315/stopper_states')
         self.declare_parameter('sensor_state_topic', '/room_315/sensors/switch_approach')
+        self.declare_parameter('position_sensor_state_topic', '/room_315/sensors/position')
         self.declare_parameter('pose_offset_command_topic', '/room_315/shuttle/pose_offset_cmd')
         self.declare_parameter('visual_switch_command_topic', '/mfja/conveyor/switch_cmd')
         self.declare_parameter('visual_switch_state_topic', '/mfja/conveyor/switch_states')
@@ -228,6 +250,8 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('gazebo_set_pose_service', '')
         self.declare_parameter('enable_gazebo_spawn', True)
         self.declare_parameter('gazebo_spawn_service', '')
+        self.declare_parameter('enable_gazebo_delete', True)
+        self.declare_parameter('gazebo_delete_service', '')
         self.declare_parameter('shuttle_model_sdf', str(_default_shuttle_model_sdf_path()))
         self.declare_parameter('preloaded_shuttle_count', 4)
         self.declare_parameter('reject_occupied_start_slots', True)
@@ -291,6 +315,9 @@ class Room315KinematicShuttleNode(Node):
         switch_command_topic = str(self.get_parameter('switch_command_topic').value)
         stopper_command_topic = str(self.get_parameter('stopper_command_topic').value)
         sensor_state_topic = str(self.get_parameter('sensor_state_topic').value)
+        position_sensor_state_topic = str(
+            self.get_parameter('position_sensor_state_topic').value
+        )
         pose_offset_command_topic = str(
             self.get_parameter('pose_offset_command_topic').value
         )
@@ -314,6 +341,13 @@ class Room315KinematicShuttleNode(Node):
         gazebo_spawn_service = self._resolve_world_service(
             raw_service=str(self.get_parameter('gazebo_spawn_service').value),
             suffix='create',
+        )
+        self.enable_gazebo_delete = bool(
+            self.get_parameter('enable_gazebo_delete').value
+        )
+        gazebo_delete_service = self._resolve_world_service(
+            raw_service=str(self.get_parameter('gazebo_delete_service').value),
+            suffix='remove',
         )
         self.shuttle_model_sdf = Path(str(self.get_parameter('shuttle_model_sdf').value))
         self.preloaded_shuttle_count = int(self.get_parameter('preloaded_shuttle_count').value)
@@ -355,6 +389,8 @@ class Room315KinematicShuttleNode(Node):
         self.start_snap_tolerance_m = start_snap_tolerance_m
         self.default_shuttle_speed = speed
         self.spawn_warning_logged = False
+        self.deleted_preloaded_entity_names: set[str] = set()
+        self.deleting_entity_names: set[str] = set()
 
         self.network = RailNetwork.from_yaml(
             network_path,
@@ -364,6 +400,7 @@ class Room315KinematicShuttleNode(Node):
         self.allowed_start_poses = self._load_allowed_start_poses()
         self.switch_states: Dict[str, str] = self.network.default_switch_states()
         self.stopper_configs = self._load_stopper_configs()
+        self.position_sensor_configs = self._load_position_sensor_configs()
         self.stopper_states: Dict[str, str] = {
             name: config.default_state
             for name, config in self.stopper_configs.items()
@@ -386,13 +423,13 @@ class Room315KinematicShuttleNode(Node):
                 )
             )
 
-        self.core = self.shuttles[0].core
-        self.start_slot = self.shuttles[0].start_slot
-        self.start_pose = self.shuttles[0].start_pose
-        self.start_snap_distance_m = self.shuttles[0].start_snap_distance_m
-
         self.state_publisher = self.create_publisher(String, state_topic, 10)
         self.sensor_state_publisher = self.create_publisher(String, sensor_state_topic, 10)
+        self.position_sensor_state_publisher = self.create_publisher(
+            String,
+            position_sensor_state_topic,
+            10,
+        )
         self.visual_switch_publisher = self.create_publisher(
             String,
             visual_switch_command_topic,
@@ -445,6 +482,9 @@ class Room315KinematicShuttleNode(Node):
         self.spawn_client = None
         if self.enable_gazebo_spawn:
             self.spawn_client = self.create_client(SpawnEntity, gazebo_spawn_service)
+        self.delete_client = None
+        if self.enable_gazebo_delete:
+            self.delete_client = self.create_client(DeleteEntity, gazebo_delete_service)
 
         for shuttle in self.shuttles:
             self._request_spawn_if_needed(shuttle)
@@ -464,10 +504,12 @@ class Room315KinematicShuttleNode(Node):
             f'switch_topic={switch_command_topic}, '
             f'stopper_topic={stopper_command_topic}, '
             f'sensor_topic={sensor_state_topic}, '
+            f'position_sensor_topic={position_sensor_state_topic}, '
             f'offset_topic={pose_offset_command_topic}, '
             f'visual_switch_topic={visual_switch_command_topic}, '
             f'visual_switch_state_topic={visual_switch_state_topic}, '
             f'spawn_service={gazebo_spawn_service}, '
+            f'delete_service={gazebo_delete_service}, '
             f'shuttles={self._shuttle_summary()}'
         )
 
@@ -570,6 +612,121 @@ class Room315KinematicShuttleNode(Node):
             )
         return configs
 
+    @staticmethod
+    def _normalize_position_sensor_branch(
+        raw_branch: str | None,
+    ) -> tuple[str | None, str | None]:
+        if raw_branch is None:
+            return None, None
+
+        branch = str(raw_branch).strip().upper()
+        if branch in {'G', 'E', 'EXTERIOR', 'GRAND', 'GRANDE', 'BIG', 'LARGE'}:
+            return 'G', 'EXTERIOR'
+        if branch in {'S', 'I', 'INTERIOR', 'P', 'PETIT', 'PETITE', 'SMALL'}:
+            return 'S', 'INTERIOR'
+        raise ValueError(
+            f'Unknown position sensor branch {raw_branch!r}; use G/S or EXTERIOR/INTERIOR.'
+        )
+
+    def _position_sensor_points_from_config(
+        self,
+        sensor_name: str,
+        raw_config: dict,
+    ) -> tuple[PositionSensorPoint, ...]:
+        raw_points = raw_config.get('points')
+        if raw_points is None:
+            raw_points = [raw_config]
+
+        default_sensor_distance_m = float(raw_config.get('sensor_distance_m', 0.08))
+        points: list[PositionSensorPoint] = []
+        for raw_point in raw_points:
+            sensor_distance_m = float(
+                raw_point.get('sensor_distance_m', default_sensor_distance_m)
+            )
+            if 'slot' in raw_point:
+                slot = self._normalize_start_slot(raw_point['slot'])
+                start_pose = self.allowed_start_poses[slot]
+                segment_name, sensor_s, _distance_m = self._closest_network_position(start_pose)
+            else:
+                segment_name = str(raw_point['segment']).strip()
+                if segment_name not in self.network.segments:
+                    raise ValueError(
+                        f'Position sensor {sensor_name} references unknown segment '
+                        f'{segment_name!r}.'
+                    )
+
+                segment = self.network.segments[segment_name]
+                if 's' in raw_point:
+                    sensor_s = float(raw_point['s'])
+                else:
+                    offset_m = float(raw_point.get('offset_m', 0.0))
+                    reference = str(raw_point.get('reference', 'start')).strip().lower()
+                    if reference in {'start', 'begin', 'from_start'}:
+                        sensor_s = offset_m
+                    elif reference in {'end', 'finish', 'from_end', 'before_end'}:
+                        sensor_s = segment.length - offset_m
+                    else:
+                        raise ValueError(
+                            f'Position sensor {sensor_name} uses unsupported reference '
+                            f'{reference!r}; use start or end.'
+                        )
+                sensor_s = max(0.0, min(sensor_s, segment.length))
+
+            points.append(
+                PositionSensorPoint(
+                    segment=segment_name,
+                    sensor_s=sensor_s,
+                    sensor_distance_m=max(0.0, sensor_distance_m),
+                )
+            )
+
+        if not points:
+            raise ValueError(f'Position sensor {sensor_name} must define at least one point.')
+        return tuple(points)
+
+    def _load_position_sensor_configs(self) -> Dict[str, PositionSensorConfig]:
+        configs: Dict[str, PositionSensorConfig] = {}
+        raw_configs = self.network.config.get('position_sensors', {}) or {}
+        for raw_name, raw_config in raw_configs.items():
+            if not isinstance(raw_config, dict):
+                raise ValueError(
+                    f'position_sensors.{raw_name} must be a mapping, got {type(raw_config)!r}.'
+                )
+
+            name = str(raw_name).strip().upper()
+            branch_state, normalized_loop_side = self._normalize_position_sensor_branch(
+                raw_config.get('branch')
+            )
+            explicit_loop_side = raw_config.get('loop_side')
+            if explicit_loop_side is not None:
+                normalized_loop_side = str(explicit_loop_side).strip().upper()
+            switch_name = raw_config.get('switch')
+            index_zone = raw_config.get('index_zone')
+            start_slot = raw_config.get('slot')
+            aliases = tuple(
+                str(alias).strip().upper()
+                for alias in raw_config.get('aliases', [])
+                if str(alias).strip()
+            )
+            configs[name] = PositionSensorConfig(
+                name=name,
+                sensor_kind=str(raw_config.get('kind', 'position')).strip().lower(),
+                points=self._position_sensor_points_from_config(name, raw_config),
+                switch_name=(
+                    str(switch_name).strip().upper() if switch_name is not None else None
+                ),
+                branch_state=branch_state,
+                loop_side=normalized_loop_side,
+                index_zone=str(index_zone).strip() if index_zone is not None else None,
+                start_slot=(
+                    self._normalize_start_slot(start_slot)
+                    if start_slot is not None
+                    else None
+                ),
+                aliases=aliases,
+            )
+        return configs
+
     def _resolve_shuttle_specs(
         self,
         shuttle_count: int,
@@ -633,6 +790,8 @@ class Room315KinematicShuttleNode(Node):
         return re.sub(r'[^A-Za-z0-9_]+', '_', entity_name).strip('_') or 'shuttle'
 
     def _shuttle_summary(self) -> str:
+        if not self.shuttles:
+            return 'none'
         return ', '.join(
             f'{shuttle.entity_name}:slot{shuttle.start_slot}:'
             f'{shuttle.core.state.current_segment}@{shuttle.core.state.s:.3f}:'
@@ -675,10 +834,7 @@ class Room315KinematicShuttleNode(Node):
             ),
             pose_publisher=self.create_publisher(PoseStamped, pose_topic, 10),
             last_gazebo_set_pose_time=self.get_clock().now(),
-            gazebo_spawned=(
-                not self.enable_gazebo_spawn
-                or self._is_preloaded_shuttle_entity(entity_name)
-            ),
+            gazebo_spawned=self._is_preloaded_shuttle_entity(entity_name),
         )
 
     def _on_add_shuttle_command(self, message: String) -> None:
@@ -752,7 +908,10 @@ class Room315KinematicShuttleNode(Node):
 
         if not entity_name:
             entity_name = self._next_unused_entity_name()
-        if any(shuttle.entity_name == entity_name for shuttle in self.shuttles):
+        if (
+            any(shuttle.entity_name == entity_name for shuttle in self.shuttles)
+            or entity_name in self.deleting_entity_names
+        ):
             raise ValueError(
                 f'Gazebo entity {entity_name!r} is already controlled by this node.'
             )
@@ -769,10 +928,16 @@ class Room315KinematicShuttleNode(Node):
                 return slot
         raise ValueError('All allowed start slots are currently occupied.')
 
-    def _start_slot_occupancy_blocker(self, slot: str) -> tuple[str, float] | None:
+    def _start_slot_occupancy_blocker(
+        self,
+        slot: str,
+        ignore_entity_name: str | None = None,
+    ) -> tuple[str, float] | None:
         start_pose = self.allowed_start_poses[slot]
         blockers = []
         for shuttle in self.shuttles:
+            if ignore_entity_name is not None and shuttle.entity_name == ignore_entity_name:
+                continue
             pose = self._to_gazebo_pose(shuttle.core.pose())
             distance_m = math.hypot(start_pose.x - pose.x, start_pose.y - pose.y)
             if distance_m < self.start_slot_occupancy_radius_m:
@@ -783,6 +948,7 @@ class Room315KinematicShuttleNode(Node):
 
     def _next_unused_entity_name(self) -> str:
         used_entities = {shuttle.entity_name for shuttle in self.shuttles}
+        used_entities.update(self.deleting_entity_names)
         index = 1
         while True:
             entity_name = f'room315_shuttle_{index}'
@@ -820,7 +986,12 @@ class Room315KinematicShuttleNode(Node):
 
     def _is_preloaded_shuttle_entity(self, entity_name: str) -> bool:
         match = re.match(r'^room315_shuttle_(\d+)$', entity_name)
-        return bool(match and int(match.group(1)) <= self.preloaded_shuttle_count)
+        return bool(
+            match
+            and int(match.group(1)) <= self.preloaded_shuttle_count
+            and entity_name not in self.deleted_preloaded_entity_names
+            and entity_name not in self.deleting_entity_names
+        )
 
     def _make_spawn_entity_factory(self, shuttle: ManagedShuttle) -> EntityFactory:
         pose = self._to_gazebo_pose(shuttle.core.pose())
@@ -870,6 +1041,7 @@ class Room315KinematicShuttleNode(Node):
 
         shuttle.pending_spawn = None
         shuttle.gazebo_spawned = True
+        self.deleted_preloaded_entity_names.discard(shuttle.entity_name)
         self.get_logger().info(f'Gazebo spawned {shuttle.entity_name}')
         return True
 
@@ -1114,30 +1286,27 @@ class Room315KinematicShuttleNode(Node):
             self.get_logger().error(str(error))
             return
 
-        for entity_name, enabled in updates.items():
+        applied_updates: Dict[str, str] = {}
+        for entity_name, action in updates.items():
             shuttle = self._find_shuttle(entity_name)
             if shuttle is None:
                 self.get_logger().error(
                     f'Unknown shuttle {entity_name!r}; command ignored.'
                 )
                 continue
-            shuttle.enabled = enabled
-            if not enabled:
-                shuttle.core.state.mode = WAITING
-                shuttle.stopped_by = 'DISABLED'
-                shuttle.stopper_distance_m = 0.0
-            else:
-                if shuttle.stopped_by == 'DISABLED':
-                    shuttle.stopped_by = None
-                    shuttle.stopper_distance_m = None
-                if shuttle.core.state.mode == WAITING and shuttle.core.state.speed > 0.0:
-                    shuttle.core.state.mode = MOVING
-        self.get_logger().info(
-            'Updated shuttle enable states: '
-            f'{ {shuttle.entity_name: shuttle.enabled for shuttle in self.shuttles} }'
-        )
+            try:
+                self._apply_shuttle_action(shuttle, action)
+                applied_updates[entity_name] = action
+            except ValueError as error:
+                self.get_logger().error(str(error))
 
-    def _parse_shuttle_control_command(self, raw_command: str) -> Dict[str, bool]:
+        if applied_updates:
+            self.get_logger().info(
+                f'Applied shuttle commands: {applied_updates}; '
+                f'shuttles={self._shuttle_summary()}'
+            )
+
+    def _parse_shuttle_control_command(self, raw_command: str) -> Dict[str, str]:
         assignments = self._parse_assignments(raw_command, 'Shuttle control')
         keyed_payload = {key.strip().lower(): value for key, value in assignments}
         if {'entity', 'entity_name', 'name', 'shuttle'} & set(keyed_payload):
@@ -1147,27 +1316,30 @@ class Room315KinematicShuttleNode(Node):
                 or keyed_payload.get('name')
                 or keyed_payload.get('shuttle')
             )
-            raw_state = (
-                keyed_payload.get('enabled')
+            raw_action = (
+                keyed_payload.get('action')
+                or keyed_payload.get('command')
+                or keyed_payload.get('enabled')
                 or keyed_payload.get('state')
                 or keyed_payload.get('mode')
                 or keyed_payload.get('power')
             )
-            if entity_name is None or raw_state is None:
+            if entity_name is None or raw_action is None:
                 raise ValueError(
-                    'Shuttle control command with entity=... must also include enabled=ON/OFF.'
+                    'Shuttle control command with entity=... must also include '
+                    'enabled=ON/OFF or action=RESET/REMOVE.'
                 )
-            return {entity_name: self._normalize_enabled_state(raw_state)}
+            return {entity_name: self._normalize_shuttle_action(raw_action)}
 
-        updates: Dict[str, bool] = {}
-        for raw_selector, raw_state in assignments:
+        updates: Dict[str, str] = {}
+        for raw_selector, raw_action in assignments:
             selector = raw_selector.strip()
-            enabled = self._normalize_enabled_state(raw_state)
+            action = self._normalize_shuttle_action(raw_action)
             if selector.upper() == 'ALL':
                 for shuttle in self.shuttles:
-                    updates[shuttle.entity_name] = enabled
+                    updates[shuttle.entity_name] = action
             else:
-                updates[selector] = enabled
+                updates[selector] = action
         return updates
 
     @staticmethod
@@ -1180,6 +1352,164 @@ class Room315KinematicShuttleNode(Node):
         raise ValueError(
             f'Unknown shuttle control state {raw_state!r}; use ON/OFF or ENABLE/DISABLE.'
         )
+
+    @classmethod
+    def _normalize_shuttle_action(cls, raw_state: str) -> str:
+        state = str(raw_state).strip().upper()
+        if state in {'RESET', 'RESPAWN', 'RECOVER', 'RESTART', 'HOME'}:
+            return 'RESET'
+        if state in {'REMOVE', 'DELETE', 'ERASE', 'DROP'}:
+            return 'REMOVE'
+        return 'ENABLE' if cls._normalize_enabled_state(raw_state) else 'DISABLE'
+
+    def _apply_shuttle_action(self, shuttle: ManagedShuttle, action: str) -> None:
+        if action == 'ENABLE':
+            self._set_shuttle_enabled(shuttle, True)
+            return
+        if action == 'DISABLE':
+            self._set_shuttle_enabled(shuttle, False)
+            return
+        if action == 'RESET':
+            self._reset_shuttle(shuttle)
+            return
+        if action == 'REMOVE':
+            self._remove_shuttle(shuttle)
+            return
+        raise ValueError(f'Unsupported shuttle action {action!r}.')
+
+    def _set_shuttle_enabled(self, shuttle: ManagedShuttle, enabled: bool) -> None:
+        shuttle.enabled = enabled
+        shuttle.blocked_by = None
+        shuttle.collision_distance_m = None
+        if not enabled:
+            shuttle.core.state.mode = WAITING
+            shuttle.stopped_by = 'DISABLED'
+            shuttle.stopper_distance_m = 0.0
+            return
+
+        if shuttle.stopped_by == 'DISABLED':
+            shuttle.stopped_by = None
+            shuttle.stopper_distance_m = None
+        if shuttle.core.state.mode in {WAITING, FALLING} and shuttle.core.state.speed > 0.0:
+            shuttle.core.state.mode = MOVING
+
+    def _reset_shuttle(self, shuttle: ManagedShuttle) -> None:
+        if shuttle.pending_spawn is not None and not shuttle.pending_spawn.done():
+            raise ValueError(
+                f'Cannot reset {shuttle.entity_name} while its Gazebo spawn request is still in flight.'
+            )
+
+        occupied_by = self._start_slot_occupancy_blocker(
+            shuttle.start_slot,
+            ignore_entity_name=shuttle.entity_name,
+        )
+        if occupied_by is not None:
+            blocker_name, distance_m = occupied_by
+            raise ValueError(
+                f'Cannot reset {shuttle.entity_name} to slot {shuttle.start_slot}: '
+                f'occupied by {blocker_name} at distance {distance_m:.3f} m.'
+            )
+
+        (
+            resolved_slot,
+            start_pose,
+            start_snap_distance_m,
+            initial_segment,
+            initial_s,
+        ) = self._resolve_allowed_start_slot(shuttle.start_slot, self.start_snap_tolerance_m)
+        shuttle.start_slot = resolved_slot
+        shuttle.start_pose = start_pose
+        shuttle.start_snap_distance_m = start_snap_distance_m
+        shuttle.core.state = ShuttleState(
+            current_segment=initial_segment,
+            s=initial_s,
+            speed=shuttle.core.state.speed,
+            mode=MOVING if shuttle.enabled and shuttle.core.state.speed > 0.0 else WAITING,
+        )
+        shuttle.blocked_by = None
+        shuttle.collision_distance_m = None
+        shuttle.pending_set_pose = None
+        shuttle.last_gazebo_set_pose_time = None
+        if shuttle.enabled:
+            shuttle.stopped_by = None
+            shuttle.stopper_distance_m = None
+        else:
+            shuttle.stopped_by = 'DISABLED'
+            shuttle.stopper_distance_m = 0.0
+
+        self.get_logger().info(
+            f'Reset shuttle {shuttle.entity_name} to slot {shuttle.start_slot} '
+            f'({initial_segment}@{initial_s:.3f}).'
+        )
+
+    def _remove_shuttle(self, shuttle: ManagedShuttle) -> None:
+        if shuttle.pending_spawn is not None and not shuttle.pending_spawn.done():
+            raise ValueError(
+                f'Cannot remove {shuttle.entity_name} while its Gazebo spawn request is still in flight.'
+            )
+
+        if self._find_shuttle(shuttle.entity_name) is None:
+            return
+
+        should_delete_entity = shuttle.gazebo_spawned or self._is_preloaded_shuttle_entity(
+            shuttle.entity_name
+        )
+        if not should_delete_entity:
+            self.shuttles = [
+                managed for managed in self.shuttles
+                if managed.entity_name != shuttle.entity_name
+            ]
+            self.get_logger().info(
+                f'Removed shuttle {shuttle.entity_name} from node state.'
+            )
+            return
+
+        if self.delete_client is None or not self.enable_gazebo_delete:
+            raise ValueError(
+                f'Cannot remove {shuttle.entity_name} from Gazebo because delete support is disabled.'
+            )
+        if not self.delete_client.service_is_ready():
+            raise ValueError(
+                f'Cannot remove {shuttle.entity_name} because the Gazebo delete service is not ready.'
+            )
+
+        request = DeleteEntity.Request()
+        request.entity.name = shuttle.entity_name
+        request.entity.type = Entity.MODEL
+        future = self.delete_client.call_async(request)
+        future.add_done_callback(
+            lambda result, entity_name=shuttle.entity_name: self._on_delete_entity_result(
+                entity_name,
+                result,
+            )
+        )
+        self.deleting_entity_names.add(shuttle.entity_name)
+        self.shuttles = [
+            managed for managed in self.shuttles
+            if managed.entity_name != shuttle.entity_name
+        ]
+        self.get_logger().info(f'Requested Gazebo removal for {shuttle.entity_name}.')
+
+    def _on_delete_entity_result(self, entity_name: str, future) -> None:
+        self.deleting_entity_names.discard(entity_name)
+        try:
+            response = future.result()
+        except Exception as error:
+            self.get_logger().error(
+                f'Gazebo delete request for {entity_name} failed: {error}'
+            )
+            return
+
+        if not response.success:
+            self.get_logger().error(
+                f'Gazebo delete service rejected {entity_name}; the model may still exist in the simulation.'
+            )
+            return
+
+        match = re.match(r'^room315_shuttle_(\d+)$', entity_name)
+        if match and int(match.group(1)) <= self.preloaded_shuttle_count:
+            self.deleted_preloaded_entity_names.add(entity_name)
+        self.get_logger().info(f'Gazebo removed {entity_name}.')
 
     def _find_shuttle(self, entity_name: str) -> ManagedShuttle | None:
         for shuttle in self.shuttles:
@@ -1341,9 +1671,9 @@ class Room315KinematicShuttleNode(Node):
 
     def _normalize_commanded_switch_state(self, raw_state: str) -> str:
         state = raw_state.strip().upper()
-        if state in {'G', 'GRAND', 'GRAND_BOUCLE', 'BIG', 'LARGE'}:
+        if state in {'G', 'E', 'GRAND', 'GRAND_BOUCLE', 'BIG', 'LARGE', 'EXTERIOR'}:
             return 'G'
-        if state in {'S', 'PETIT', 'PETIT_BOUCLE', 'SMALL'}:
+        if state in {'S', 'I', 'PETIT', 'PETIT_BOUCLE', 'SMALL', 'INTERIOR'}:
             return 'S'
         return self.network.normalized_switch_state(state)
 
@@ -1435,6 +1765,12 @@ class Room315KinematicShuttleNode(Node):
         dt = max(0.0, (now - self.last_tick).nanoseconds / 1e9)
         self.last_tick = now
 
+        if not self.shuttles:
+            self._publish_state([], [])
+            self._publish_sensor_state()
+            self._publish_position_sensor_state()
+            return
+
         raw_poses = []
         gazebo_poses = []
         occupied_poses = {
@@ -1470,6 +1806,7 @@ class Room315KinematicShuttleNode(Node):
 
         self._publish_state(raw_poses, gazebo_poses)
         self._publish_sensor_state()
+        self._publish_position_sensor_state()
 
     def _step_with_motion_guards(
         self,
@@ -1716,10 +2053,11 @@ class Room315KinematicShuttleNode(Node):
         if not self.enable_gazebo_set_pose or self.set_pose_client is None:
             return
         now = self.get_clock().now()
-        last_sent = shuttle.last_gazebo_set_pose_time or now
-        elapsed = (now - last_sent).nanoseconds / 1e9
-        if elapsed < self.gazebo_set_pose_period:
-            return
+        last_sent = shuttle.last_gazebo_set_pose_time
+        if last_sent is not None:
+            elapsed = (now - last_sent).nanoseconds / 1e9
+            if elapsed < self.gazebo_set_pose_period:
+                return
         if shuttle.pending_set_pose is not None and not shuttle.pending_set_pose.done():
             return
         if not self.set_pose_client.service_is_ready():
@@ -1761,6 +2099,41 @@ class Room315KinematicShuttleNode(Node):
                         )
         return events
 
+    def _position_sensor_events(self) -> list[dict]:
+        events = []
+        for shuttle in self.shuttles:
+            state = shuttle.core.state
+            for sensor_name, sensor_config in self.position_sensor_configs.items():
+                for point in sensor_config.points:
+                    if point.segment != state.current_segment:
+                        continue
+                    distance_m = abs(point.sensor_s - state.s)
+                    if distance_m > point.sensor_distance_m:
+                        continue
+
+                    event = {
+                        'sensor': sensor_name,
+                        'sensor_kind': sensor_config.sensor_kind,
+                        'entity_name': shuttle.entity_name,
+                        'segment': state.current_segment,
+                        'distance_m': distance_m,
+                    }
+                    if sensor_config.switch_name is not None:
+                        event['switch'] = sensor_config.switch_name
+                    if sensor_config.branch_state is not None:
+                        event['branch_state'] = sensor_config.branch_state
+                    if sensor_config.loop_side is not None:
+                        event['loop_side'] = sensor_config.loop_side
+                    if sensor_config.index_zone is not None:
+                        event['index_zone'] = sensor_config.index_zone
+                    if sensor_config.start_slot is not None:
+                        event['start_slot'] = sensor_config.start_slot
+                    if sensor_config.aliases:
+                        event['aliases'] = list(sensor_config.aliases)
+                    events.append(event)
+                    break
+        return events
+
     def _publish_sensor_state(self) -> None:
         message = String()
         message.data = json.dumps(
@@ -1771,6 +2144,16 @@ class Room315KinematicShuttleNode(Node):
             sort_keys=True,
         )
         self.sensor_state_publisher.publish(message)
+
+    def _publish_position_sensor_state(self) -> None:
+        message = String()
+        message.data = json.dumps(
+            {
+                'sensors': self._position_sensor_events(),
+            },
+            sort_keys=True,
+        )
+        self.position_sensor_state_publisher.publish(message)
 
     def _publish_state(
         self,
@@ -1788,6 +2171,7 @@ class Room315KinematicShuttleNode(Node):
                     'enabled': shuttle.enabled,
                     'stopped_by': shuttle.stopped_by,
                     'stopper_distance_m': shuttle.stopper_distance_m,
+                    'gazebo_spawned': shuttle.gazebo_spawned,
                     'gazebo_pose': asdict(gazebo_pose),
                     'start_slot': shuttle.start_slot,
                     'start_snap_distance_m': shuttle.start_snap_distance_m,
@@ -1795,14 +2179,39 @@ class Room315KinematicShuttleNode(Node):
                 }
             )
 
-        first_pose = raw_poses[0]
-        first_gazebo_pose = gazebo_poses[0]
+        primary_payload = {
+            'current_segment': None,
+            'entity_name': None,
+            'gazebo_pose': None,
+            'mode': None,
+            's': None,
+            'speed': None,
+            'start_slot': None,
+            'start_snap_distance_m': None,
+            'x': None,
+            'y': None,
+            'yaw': None,
+            'z': None,
+        }
+        if self.shuttles and raw_poses and gazebo_poses:
+            first_shuttle = self.shuttles[0]
+            first_pose = raw_poses[0]
+            first_gazebo_pose = gazebo_poses[0]
+            primary_payload.update(asdict(first_pose))
+            primary_payload.update(
+                {
+                    'entity_name': first_shuttle.entity_name,
+                    'gazebo_pose': asdict(first_gazebo_pose),
+                    'speed': first_shuttle.core.state.speed,
+                    'start_slot': first_shuttle.start_slot,
+                    'start_snap_distance_m': first_shuttle.start_snap_distance_m,
+                }
+            )
+
         message = String()
         message.data = json.dumps(
             {
-                **asdict(first_pose),
-                'entity_name': self.shuttles[0].entity_name,
-                'gazebo_pose': asdict(first_gazebo_pose),
+                **primary_payload,
                 'pose_offset': {
                     'x': self.pose_offset_x,
                     'y': self.pose_offset_y,
@@ -1814,9 +2223,6 @@ class Room315KinematicShuttleNode(Node):
                     'origin_x': self.pose_scale_origin_x,
                     'origin_y': self.pose_scale_origin_y,
                 },
-                'speed': self.core.state.speed,
-                'start_slot': self.start_slot,
-                'start_snap_distance_m': self.start_snap_distance_m,
                 'shuttle_count': len(self.shuttles),
                 'collision_avoidance': {
                     'enabled': self.enable_collision_avoidance,
@@ -1826,6 +2232,7 @@ class Room315KinematicShuttleNode(Node):
                 'switch_states': _public_switch_states(self.switch_states),
                 'stopper_states': self.stopper_states,
                 'sensor_events': self._sensor_events(),
+                'position_sensor_events': self._position_sensor_events(),
             },
             sort_keys=True,
         )

@@ -134,11 +134,15 @@ MODE_ALIASES = {
     'grande_boucle': 'grand_boucle',
     'large': 'grand_boucle',
     'big': 'grand_boucle',
+    'e': 'grand_boucle',
+    'exterior': 'grand_boucle',
     '1': 'grand_boucle',
     'petit_boucle': 'petit_boucle',
     'petit': 'petit_boucle',
     'small': 'petit_boucle',
     'mini': 'petit_boucle',
+    'i': 'petit_boucle',
+    'interior': 'petit_boucle',
     '0': 'petit_boucle',
 }
 
@@ -353,7 +357,7 @@ class ConveyorLoopModeController(Node):
         ):
             raise RuntimeError(
                 f'Unsupported initial loop mode "{args.initial_loop_mode}". '
-                'Use auto, PETIT_BOUCLE, or GRAND_BOUCLE.'
+                'Use auto, INTERIOR, EXTERIOR, PETIT_BOUCLE, or GRAND_BOUCLE.'
             )
         self.command_topic = args.command_topic
         self.state_topic = args.state_topic
@@ -427,8 +431,8 @@ class ConveyorLoopModeController(Node):
         self.get_logger().info(
             'Per-switch command topic: '
             f'{self.switch_command_topic} '
-            '(examples: "A1R=PETIT_BOUCLE", '
-            '"A1=GRAND_BOUCLE", "RIGHT=PETIT_BOUCLE, A3L=GRAND_BOUCLE").'
+            '(examples: "A1R=INTERIOR", '
+            '"A1=EXTERIOR", "RIGHT=INTERIOR, A3L=EXTERIOR").'
         )
 
         if self.initial_loop_mode is not None:
@@ -443,7 +447,7 @@ class ConveyorLoopModeController(Node):
         if requested_mode is None:
             self.get_logger().warning(
                 f'Unsupported loop mode command "{msg.data}". '
-                'Use PETIT_BOUCLE or GRAND_BOUCLE.'
+                'Use INTERIOR, EXTERIOR, PETIT_BOUCLE, or GRAND_BOUCLE.'
             )
             return
 
@@ -498,7 +502,7 @@ class ConveyorLoopModeController(Node):
                     if requested_mode is None:
                         self.get_logger().warning(
                             f'Unsupported switch command fragment "{entry}". '
-                            'Use forms like "A1R=PETIT_BOUCLE" or "RIGHT GRAND_BOUCLE".'
+                            'Use forms like "A1R=INTERIOR" or "RIGHT EXTERIOR".'
                         )
                         return None
                     selector_text = 'all'
@@ -508,7 +512,7 @@ class ConveyorLoopModeController(Node):
                 else:
                     self.get_logger().warning(
                         f'Unsupported switch command fragment "{entry}". '
-                        'Use forms like "A1R=PETIT_BOUCLE" or "RIGHT GRAND_BOUCLE".'
+                        'Use forms like "A1R=INTERIOR" or "RIGHT EXTERIOR".'
                     )
                     return None
 
@@ -516,7 +520,7 @@ class ConveyorLoopModeController(Node):
             if requested_mode is None:
                 self.get_logger().warning(
                     f'Unsupported switch target mode "{mode_text}" in "{entry}". '
-                    'Use PETIT_BOUCLE or GRAND_BOUCLE.'
+                    'Use INTERIOR, EXTERIOR, PETIT_BOUCLE, or GRAND_BOUCLE.'
                 )
                 return None
 
@@ -823,7 +827,7 @@ def main():
     parser = argparse.ArgumentParser(
         description=(
             'Subscribe to ROS 2 conveyor loop-mode topics and switch all MFJA conveyor '
-            'rail blades between PETIT_BOUCLE and GRAND_BOUCLE.'
+            'rail blades between INTERIOR / PETIT_BOUCLE and EXTERIOR / GRAND_BOUCLE.'
         )
     )
     parser.add_argument(
@@ -844,7 +848,7 @@ def main():
     parser.add_argument(
         '--command-topic',
         default='/mfja/conveyor/loop_mode_cmd',
-        help='ROS 2 std_msgs/String topic used to request PETIT_BOUCLE or GRAND_BOUCLE.',
+        help='ROS 2 std_msgs/String topic used to request INTERIOR/EXTERIOR or PETIT_BOUCLE/GRAND_BOUCLE.',
     )
     parser.add_argument(
         '--state-topic',
@@ -856,8 +860,8 @@ def main():
         default='/mfja/conveyor/switch_cmd',
         help=(
             'ROS 2 std_msgs/String topic used to command one or more switches. '
-            'Examples: "A1R=PETIT_BOUCLE", "A1=GRAND_BOUCLE", '
-            '"RIGHT=PETIT_BOUCLE, A3L=GRAND_BOUCLE".'
+            'Examples: "A1R=INTERIOR", "A1=EXTERIOR", '
+            '"RIGHT=INTERIOR, A3L=EXTERIOR".'
         ),
     )
     parser.add_argument(
@@ -886,7 +890,8 @@ def main():
         help=(
             'Loop mode to apply as soon as the controller starts. '
             'Use auto to keep the mode detected from the world file, '
-            'or PETIT_BOUCLE / GRAND_BOUCLE to force a startup mode.'
+            'or INTERIOR / EXTERIOR (also PETIT_BOUCLE / GRAND_BOUCLE) '
+            'to force a startup mode.'
         ),
     )
     parser.add_argument(

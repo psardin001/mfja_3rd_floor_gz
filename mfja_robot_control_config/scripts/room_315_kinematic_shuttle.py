@@ -269,9 +269,15 @@ class RailNetwork:
 
     def normalized_switch_state(self, raw_state: str) -> str:
         state = raw_state.strip().upper()
+        if state in {'E', 'EXTERIOR', 'GRAND', 'GRAND_BOUCLE', 'BIG', 'LARGE'}:
+            state = 'G'
+        elif state in {'I', 'INTERIOR', 'PETIT', 'PETIT_BOUCLE', 'SMALL', 'MINI'}:
+            state = 'S'
         if state not in self.valid_switch_states:
             raise ValueError(
-                f'Unknown switch state {raw_state!r}; expected one of {sorted(self.valid_switch_states)}'
+                f'Unknown switch state {raw_state!r}; expected one of '
+                f'{sorted(self.valid_switch_states)} or their aliases '
+                '(for example E / I / EXTERIOR / INTERIOR).'
             )
         return state
 
