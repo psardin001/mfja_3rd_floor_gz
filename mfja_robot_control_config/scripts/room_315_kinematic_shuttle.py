@@ -269,9 +269,15 @@ class RailNetwork:
 
     def normalized_switch_state(self, raw_state: str) -> str:
         state = raw_state.strip().upper()
+        if state in {'E', 'EXTERIOR', 'GRAND', 'GRAND_BOUCLE', 'BIG', 'LARGE'}:
+            state = 'G'
+        elif state in {'I', 'INTERIOR', 'PETIT', 'PETIT_BOUCLE', 'SMALL', 'MINI'}:
+            state = 'S'
         if state not in self.valid_switch_states:
             raise ValueError(
-                f'Unknown switch state {raw_state!r}; expected one of {sorted(self.valid_switch_states)}'
+                f'Unknown switch state {raw_state!r}; expected one of '
+                f'{sorted(self.valid_switch_states)} or their aliases '
+                '(for example E / I / EXTERIOR / INTERIOR).'
             )
         return state
 
@@ -417,6 +423,14 @@ def _read_csv_points(csv_path: Path) -> List[Point3D]:
         ]
 
 
+PUBLIC_TO_INTERNAL_SWITCH_MAP = {
+    'A1': 'A3',
+    'A2': 'A4',
+    'A3': 'A1',
+    'A4': 'A2',
+}
+
+
 def _parse_switch_states(network: RailNetwork, raw_values: Sequence[str]) -> Dict[str, str]:
     switch_states = network.default_switch_states()
     for raw_value in raw_values:
@@ -425,6 +439,7 @@ def _parse_switch_states(network: RailNetwork, raw_values: Sequence[str]) -> Dic
                 raise ValueError(f'Switch assignment must look like A1=G, got {token!r}')
             switch_name, raw_state = token.split('=', 1)
             switch_name = switch_name.strip().upper()
+            switch_name = PUBLIC_TO_INTERNAL_SWITCH_MAP.get(switch_name, switch_name)
             if switch_name not in network.switches:
                 raise ValueError(f'Unknown switch {switch_name!r}; expected one of {sorted(network.switches)}')
             switch_states[switch_name] = network.normalized_switch_state(raw_state)

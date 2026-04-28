@@ -357,6 +357,7 @@ def _launch_setup(context, *args, **kwargs):
             arguments=[
                 f'/world/{world_entity_name}/set_pose@ros_gz_interfaces/srv/SetEntityPose',
                 f'/world/{world_entity_name}/create@ros_gz_interfaces/srv/SpawnEntity',
+                f'/world/{world_entity_name}/remove@ros_gz_interfaces/srv/DeleteEntity',
             ],
         )
     ]

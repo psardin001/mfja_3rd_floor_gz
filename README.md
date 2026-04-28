@@ -140,6 +140,53 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle_node.py --ros-args
   -p gazebo_set_pose_rate_hz:=10.0
 ```
 
+## Quick Check of Recent Additions
+
+Open one extra terminal for commands:
+
+```bash
+cd /home/tiago/ALI_ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+```
+
+Switch aliases now accept both the old `G` / `S` names and the new
+`EXTERIOR` / `INTERIOR` or `E` / `I` forms:
+
+```bash
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=EXTERIOR A2=INTERIOR A3=E A4=I'}"
+```
+
+The current slot numbering was corrected to the real-world naming:
+
+- `slot 1`: upper indexing pair, left physical position.
+- `slot 2`: upper indexing pair, right physical position.
+- `slot 3`: lower indexing pair, right physical position.
+- `slot 4`: lower indexing pair, left physical position.
+
+Reset a shuttle after a bad switch configuration sent it to `FALLING`:
+
+```bash
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_1=RESET'}"
+```
+
+Remove a shuttle completely from Gazebo, then add it back on a corrected slot:
+
+```bash
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_1=REMOVE'}"
+ros2 topic pub --once /room_315/shuttle/add_cmd std_msgs/msg/String "{data: 'entity=room315_shuttle_1 slot=1 speed=0.2'}"
+```
+
+Watch the new right-rail position detectors:
+
+```bash
+ros2 topic echo /room_315/sensors/position
+```
+
+The canonical detector names now end with `R` because they belong to the right
+rail set. The published payload still includes aliases such as `DZI1`, `DA1G`,
+or `DA1P` for compatibility with older notes and diagrams.
+
 ## Full Floor
 
 The full-floor world file is `mfja_3rd_floor.world`, and its internal Gazebo
@@ -191,6 +238,7 @@ The launch automatically starts ROS-Gazebo service bridges for:
 
 - `/world/<world_name>/set_pose`
 - `/world/<world_name>/create`
+- `/world/<world_name>/remove`
 
 Check them with:
 
@@ -199,7 +247,7 @@ cd /home/tiago/ALI_ros2_ws
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
-ros2 service list | grep -E "set_pose|create"
+ros2 service list | grep -E "set_pose|create|remove"
 ```
 
 For Room 315 only, expected services:
@@ -207,6 +255,7 @@ For Room 315 only, expected services:
 ```text
 /world/room_315_only/set_pose
 /world/room_315_only/create
+/world/room_315_only/remove
 ```
 
 For the full floor, expected services:
@@ -214,6 +263,7 @@ For the full floor, expected services:
 ```text
 /world/mfja_3rd_floor/set_pose
 /world/mfja_3rd_floor/create
+/world/mfja_3rd_floor/remove
 ```
 
 If you see `/world/default/set_pose` while running the full floor, Gazebo is
@@ -432,10 +482,10 @@ Only these four start slots are allowed:
 
 | Slot | Gazebo pose |
 | --- | --- |
-| `1` | `-14.95 -3.86 0.84 0 0 3.14` |
-| `2` | `-15.43 -3.86 0.84 0 0 3.14` |
-| `3` | `-15.24 -5.54 0.84 0 0 0` |
-| `4` | `-14.77 -5.54 0.84 0 0 0` |
+| `1` | `-15.43 -3.86 0.84 0 0 3.14` |
+| `2` | `-14.95 -3.86 0.84 0 0 3.14` |
+| `3` | `-14.77 -5.54 0.84 0 0 0` |
+| `4` | `-15.24 -5.54 0.84 0 0 0` |
 
 Example:
 
@@ -522,10 +572,12 @@ Notes:
 - Shuttles beyond the preloaded count are spawned through `/world/<world_name>/create`.
 - If the requested start slot is occupied, the node rejects the add command and does not create a new shuttle.
 - A slot is considered occupied when an existing shuttle is within `start_slot_occupancy_radius_m` of that start pose.
+- The slot numbering now matches the real cell labels: `1 <-> old 2`, `2 <-> old 1`, `3 <-> old 4`, `4 <-> old 3`.
 
 ## Shuttle ON/OFF Control
 
-Each shuttle can be independently enabled or disabled through:
+Each shuttle can be independently enabled, disabled, reset to its start slot,
+or removed from Gazebo through:
 
 ```text
 /room_315/shuttle/control_cmd
@@ -533,7 +585,9 @@ Each shuttle can be independently enabled or disabled through:
 
 Disabling a shuttle keeps the model in place and stops its kinematic motion.
 Enabling it again lets it continue from its current segment and arc-length
-position.
+position. `RESET` re-snaps the shuttle to its configured start slot without
+restarting Gazebo. `REMOVE` deletes the shuttle model from Gazebo and
+unregisters it from the node.
 
 Turn one shuttle off:
 
@@ -547,17 +601,37 @@ Turn it back on:
 ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_2=ON'}"
 ```
 
+Reset a shuttle after it entered `FALLING`:
+
+```bash
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_2=RESET'}"
+```
+
+Remove a shuttle completely from the simulation:
+
+```bash
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_2=REMOVE'}"
+```
+
+Add the same shuttle back after removal:
+
+```bash
+ros2 topic pub --once /room_315/shuttle/add_cmd std_msgs/msg/String "{data: 'entity=room315_shuttle_2 slot=2'}"
+```
+
 Control all shuttles at once:
 
 ```bash
 ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'ALL=OFF'}"
 ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'ALL=ON'}"
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'ALL=RESET'}"
 ```
 
 JSON form:
 
 ```bash
 ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: '{\"entity\":\"room315_shuttle_3\",\"enabled\":\"OFF\"}'}"
+ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: '{\"entity\":\"room315_shuttle_3\",\"action\":\"RESET\"}'}"
 ```
 
 ## Stopper Control and Sensor Workflow
@@ -567,15 +641,16 @@ Stopper logic is independent from switch logic. A stopper is a binary primitive:
 - `0`, `OPEN`, `RELEASE`, `OFF`: the stopper is open and shuttles may pass.
 - `1`, `STOP`, `CLOSED`, `ON`: the stopper stops a shuttle before the switch.
 
-The current network defines four logical stoppers before the four switch
-stations:
+The public stopper labels now follow the real switch labels used in the cell,
+while the internal routing stays remapped under the hood so the motion does not
+change:
 
 | Stopper | Before switch | Stop segments |
 | --- | --- | --- |
-| `A1` | `A1` | `A14` |
-| `A2` | `A2` | `A12E`, `A12I` |
-| `A3` | `A3` | `A23` |
-| `A4` | `A4` | `A34E`, `A34I` |
+| `A1` | `A1` | `A23` |
+| `A2` | `A2` | `A34E`, `A34I` |
+| `A3` | `A3` | `A14` |
+| `A4` | `A4` | `A12E`, `A12I` |
 
 Stopper commands use:
 
@@ -624,12 +699,12 @@ Example single-shuttle event:
 {
   "sensors": [
     {
-      "before_switch": "A3",
+      "before_switch": "A1",
       "distance_m": 0.247,
       "entity_name": "room315_shuttle_4",
       "segment": "A23",
-      "sensor": "A3_APPROACH",
-      "stopper": "A3",
+      "sensor": "A1_APPROACH",
+      "stopper": "A1",
       "stopper_state": "0",
       "workflow": "sensor -> stop shuttle -> move switch -> unstop shuttle"
     }
@@ -643,8 +718,8 @@ Example single-shuttle event:
 }
 ```
 
-This means `room315_shuttle_4` is on segment `A23`, approaching switch `A3`,
-and is about `0.247 m` before the A3 stop point. If the printed distance keeps
+This means `room315_shuttle_4` is on segment `A23`, approaching switch `A1`,
+and is about `0.247 m` before the A1 stop point. If the printed distance keeps
 decreasing, the shuttle is moving toward that stopper.
 
 Example with two simultaneous sensor events:
@@ -653,18 +728,18 @@ Example with two simultaneous sensor events:
 {
   "sensors": [
     {
-      "before_switch": "A1",
+      "before_switch": "A3",
       "distance_m": 0.18,
       "entity_name": "room315_shuttle_2",
       "segment": "A14",
-      "stopper": "A1"
+      "stopper": "A3"
     },
     {
-      "before_switch": "A3",
+      "before_switch": "A1",
       "distance_m": 0.24,
       "entity_name": "room315_shuttle_4",
       "segment": "A23",
-      "stopper": "A3"
+      "stopper": "A1"
     }
   ]
 }
@@ -687,6 +762,72 @@ ros2 topic echo /room_315/sensors/switch_approach
 ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'A1=1'}"
 ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=S'}"
 ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'A1=0'}"
+```
+
+Virtual position detectors are published separately on:
+
+```text
+/room_315/sensors/position
+```
+
+These detector names follow the same public `A1` to `A4` structure already used
+for switches and stoppers:
+
+- `DZI1R`, `DZI2R`, `DZI3R`, `DZI4R`: right-rail indexing-zone detectors. They
+  are tied to the four configured start slots so they stay aligned with the
+  current entry poses. After the slot renumbering, these are now direct:
+  `DZI1R -> slot 1`, `DZI2R -> slot 2`, `DZI3R -> slot 3`, `DZI4R -> slot 4`.
+- `DA1R`, `DA2R`, `DA3R`, `DA4R`: right-rail detector on the single-track side
+  of each switch.
+- `DA1GR`, `DA2GR`, `DA3GR`, `DA4GR`: right-rail detector on the `G` branch,
+  which matches the public `EXTERIOR` side.
+- `DA1SR`, `DA2SR`, `DA3SR`, `DA4SR`: right-rail detector on the `S` branch,
+  which matches the public `INTERIOR` side.
+
+The original diagram uses `P` for `petite boucle`. In this repository the
+public detector names keep `S` to stay consistent with the existing `G/S`
+topology, so `DA1SR` corresponds to the physical `DA1P`, `DA2SR` to `DA2P`,
+and so on. The previous unsuffixed names are still kept as aliases in the
+published payload.
+
+Echo the position detectors:
+
+```bash
+ros2 topic echo /room_315/sensors/position
+```
+
+Typical manual checks:
+
+```bash
+ros2 topic pub --once /room_315/shuttle/add_cmd std_msgs/msg/String "{data: 'entity=room315_shuttle_1 slot=1 speed=0.05'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'ALL=EXTERIOR'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'ALL=INTERIOR'}"
+```
+
+Expected detector families:
+
+- `slot 1` to `slot 4` startup positions trigger `DZI1R` to `DZI4R`.
+- `ALL=EXTERIOR` makes the shuttle pass through `...GR` branch detectors.
+- `ALL=INTERIOR` makes the shuttle pass through `...SR` branch detectors.
+
+Example position-detector event:
+
+```json
+{
+  "sensors": [
+    {
+      "branch_state": "G",
+      "distance_m": 0.031,
+      "entity_name": "room315_shuttle_1",
+      "loop_side": "EXTERIOR",
+      "segment": "A3G",
+      "sensor": "DA1GR",
+      "sensor_kind": "switch_branch",
+      "switch": "A1",
+      "aliases": ["DA1G"]
+    }
+  ]
+}
 ```
 
 ## Collision Avoidance
@@ -720,14 +861,27 @@ Send switch commands to:
 
 Supported states:
 
-- `G`, `GRAND`, `GRAND_BOUCLE`, `BIG`, `LARGE`: big loop.
-- `S`, `PETIT`, `PETIT_BOUCLE`, `SMALL`: small loop.
+- `G`, `E`, `GRAND`, `GRAND_BOUCLE`, `BIG`, `LARGE`, `EXTERIOR`: big loop / exterior branch.
+- `S`, `I`, `PETIT`, `PETIT_BOUCLE`, `SMALL`, `INTERIOR`: small loop / interior branch.
 
 Switch selectors:
 
-- Logical: `A1`, `A2`, `A3`, `A4`
+- Public station labels: `A1`, `A2`, `A3`, `A4`
 - Visual right/left aliases: `A1R`, `A1L`, `A2R`, `A2L`, `A3R`, `A3L`, `A4R`, `A4L`
 - Groups: `ALL`, `RIGHT`, `LEFT`
+
+All public switch labels now follow the real switch stickers. The routing layer
+is remapped internally so the shuttle keeps the same motion as before:
+
+- Right rail: `A1R -> former A3`, `A2R -> former A4`, `A3R -> former A1`, `A4R -> former A2`
+- Left rail: `A1L -> former A4`, `A2L -> former A3`, `A3L -> former A2`, `A4L -> former A1`
+- Public route/stopper labels: `A1 -> former A3`, `A2 -> former A4`, `A3 -> former A1`, `A4 -> former A2`
+
+The old state names still work, so `GRAND` and `SMALL` remain valid aliases for
+`EXTERIOR` and `INTERIOR`.
+
+Short one-letter aliases also work, so `A1=E` means exterior and `A1=I` means
+interior.
 
 Set all switches to the big loop:
 
@@ -757,17 +911,21 @@ ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A4=S'
 Use right/left visual aliases:
 
 ```bash
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1R=G'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1R=S'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1L=G'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1L=S'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1R=EXTERIOR'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1R=INTERIOR'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1L=EXTERIOR'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1L=INTERIOR'}"
 ```
+
+`A?R` updates the routed line and Gazebo together. `A?L` only moves the left
+visual switch in Gazebo, because the current shuttle routing still follows the
+right rail set.
 
 Send multiple updates in one command:
 
 ```bash
 ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=S A2=G A3=S A4=G'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1R=S A2R=S A3R=G A4R=G'}"
+ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1R=INTERIOR A2R=INTERIOR A3R=EXTERIOR A4R=EXTERIOR'}"
 ```
 
 Always prefer `/room_315/switch_states`. It updates the route logic and also
@@ -879,7 +1037,7 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
 
 | Parameter | Default | Meaning |
 | --- | --- | --- |
-| `gazebo_world_name` | `room_315_only` | Gazebo world used to derive `/world/<name>/set_pose` and `/world/<name>/create`. |
+| `gazebo_world_name` | `room_315_only` | Gazebo world used to derive `/world/<name>/set_pose`, `/world/<name>/create`, and `/world/<name>/remove`. |
 | `enable_gazebo_set_pose` | `false` | If `true`, the node moves Gazebo shuttle models. |
 | `enable_gazebo_spawn` | `true` | Allows runtime spawning of shuttles beyond the preloaded models. |
 | `start_slot` | `2` | Start slot for a single shuttle. |
@@ -900,8 +1058,9 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
 | `switch_command_topic` | `/room_315/switch_states` | Route and visual switch command topic. |
 | `stopper_command_topic` | `/room_315/stopper_states` | Independent binary stopper command topic. |
 | `sensor_state_topic` | `/room_315/sensors/switch_approach` | Sensor-style approach event topic for switch workflow testing. |
+| `position_sensor_state_topic` | `/room_315/sensors/position` | Virtual position-detector topic for `DZI*R` and `DA*R` events on the right rail. |
 | `add_shuttle_command_topic` | `/room_315/shuttle/add_cmd` | Runtime shuttle add command topic. |
-| `shuttle_control_command_topic` | `/room_315/shuttle/control_cmd` | Per-shuttle ON/OFF control topic. |
+| `shuttle_control_command_topic` | `/room_315/shuttle/control_cmd` | Per-shuttle ON/OFF/RESET/REMOVE control topic. |
 | `state_topic` | `/room_315/shuttle/state` | Combined shuttle state topic. |
 | `pose_offset_command_topic` | `/room_315/shuttle/pose_offset_cmd` | Runtime pose calibration topic. |
 | `publish_visual_switch_commands` | `true` | Also move the visible Gazebo switch models. |
@@ -913,10 +1072,11 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
 - If `Gazebo set_pose service is not ready yet`, check `gazebo_world_name` and `ros2 service list`.
 - If full-floor services appear as `/world/default/...`, restart Gazebo after ensuring the world contains `<world name="mfja_3rd_floor">`.
 - If runtime-spawned shuttles do not appear, check `/world/<world_name>/create`.
+- If `REMOVE` does not delete the shuttle model, check `/world/<world_name>/remove` in `ros2 service list`.
 - If an add command is rejected, check whether another shuttle is still inside `start_slot_occupancy_radius_m` of that slot.
 - If the rail path was edited, run `room_315_csv_preprocessor.py`, `room_315_network_validator.py`, and `room_315_continuous_path_validator.py` before testing in Gazebo.
 - If you need to compare the continuous path against the measured CSV path, rerun the shuttle node with `-p path_backend:=polyline`.
 - If a shuttle stops with `stopped_by` set to a stopper name, open that stopper with `/room_315/stopper_states`.
 - If a shuttle stops in `WAITING`, it is likely blocked by another shuttle within `shuttle_collision_distance_m`.
-- If a shuttle enters `FALLING`, the graph has no valid successor for the current switch configuration.
+- If a shuttle enters `FALLING`, the graph has no valid successor for the current switch configuration. Reset it with `/room_315/shuttle/control_cmd`, for example `room315_shuttle_2=RESET`.
 - If a switch moves visually but the shuttle route does not change, send commands to `/room_315/switch_states`, not directly to `/mfja/conveyor/switch_cmd`.
