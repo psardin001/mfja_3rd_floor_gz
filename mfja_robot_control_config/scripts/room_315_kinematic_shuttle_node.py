@@ -53,6 +53,10 @@ def _default_network_path() -> Path:
         )
 
 
+def _default_left_network_path() -> Path:
+    return _default_network_path().with_name('rail_network_left.yaml')
+
+
 def _default_shuttle_model_sdf_path() -> Path:
     try:
         from ament_index_python.packages import get_package_share_directory
@@ -95,6 +99,86 @@ ALLOWED_START_POSES = {
     '4': AllowedStartPose(-15.24, -5.54, 0.84, 0.0, 0.0, 0.0),
 }
 
+RIGHT_TOPIC_DEFAULTS = {
+    'pose_topic': '/room_315/shuttle/pose_cmd',
+    'pose_topic_prefix': '/room_315/shuttles',
+    'state_topic': '/room_315/shuttle/state',
+    'add_shuttle_command_topic': '/room_315/shuttle/add_cmd',
+    'shuttle_control_command_topic': '/room_315/shuttle/control_cmd',
+    'switch_command_topic': '/room_315/switch_states',
+    'stopper_command_topic': '/room_315/stopper_states',
+    'sensor_state_topic': '/room_315/sensors/switch_approach',
+    'position_sensor_state_topic': '/room_315/sensors/position',
+    'pose_offset_command_topic': '/room_315/shuttle/pose_offset_cmd',
+}
+
+LEFT_TOPIC_DEFAULTS = {
+    'pose_topic': '/room_315_left/shuttle/pose_cmd',
+    'pose_topic_prefix': '/room_315_left/shuttles',
+    'state_topic': '/room_315_left/shuttle/state',
+    'add_shuttle_command_topic': '/room_315_left/shuttle/add_cmd',
+    'shuttle_control_command_topic': '/room_315_left/shuttle/control_cmd',
+    'switch_command_topic': '/room_315_left/switch_states',
+    'stopper_command_topic': '/room_315_left/stopper_states',
+    'sensor_state_topic': '/room_315_left/sensors/switch_approach',
+    'position_sensor_state_topic': '/room_315_left/sensors/position',
+    'pose_offset_command_topic': '/room_315_left/shuttle/pose_offset_cmd',
+}
+
+RIGHT_ENTITY_DEFAULTS = {
+    'preloaded_shuttle_count': 4,
+    'gazebo_entity_name': 'room315_shuttle_1',
+    'entity_name_prefix': 'room315_shuttle_',
+}
+
+LEFT_ENTITY_DEFAULTS = {
+    'preloaded_shuttle_count': 0,
+    'gazebo_entity_name': 'room315_left_shuttle_1',
+    'entity_name_prefix': 'room315_left_shuttle_',
+}
+
+RIGHT_CALIBRATION_DEFAULTS = {
+    'pose_transform_a': -0.893249246800,
+    'pose_transform_b': 0.005839516878,
+    'pose_transform_tx': -26.921427375871,
+    'pose_transform_c': 0.001889497475,
+    'pose_transform_d': 1.308619216904,
+    'pose_transform_ty': 0.666926143808,
+    'pose_transform_z_offset': 0.0,
+    'pose_transform_yaw_offset': 0.0,
+    'pose_scale_x': 1.0,
+    'pose_scale_y': 1.0,
+    'pose_scale_origin_x': -15.855195431322,
+    'pose_scale_origin_y': -4.525523413467,
+    'pose_rotation_deg': 0.0,
+    'pose_rotation_origin_x': -15.855195431322,
+    'pose_rotation_origin_y': -4.525523413467,
+    'pose_offset_x': 0.0,
+    'pose_offset_y': 0.0,
+    'pose_offset_z': 0.0,
+}
+
+LEFT_CALIBRATION_DEFAULTS = {
+    'pose_transform_a': -0.8938584503560025,
+    'pose_transform_b': 0.005001975618640809,
+    'pose_transform_tx': -22.47198317328330,
+    'pose_transform_c': 0.001348127530438647,
+    'pose_transform_d': 1.255463611604302,
+    'pose_transform_ty': 0.4431777232193935,
+    'pose_transform_z_offset': 0.0,
+    'pose_transform_yaw_offset': 0.0,
+    'pose_scale_x': 0.98,
+    'pose_scale_y': 1.041,
+    'pose_scale_origin_x': -10.6365565,
+    'pose_scale_origin_y': -4.6995835,
+    'pose_rotation_deg': 180.0,
+    'pose_rotation_origin_x': -10.6365565,
+    'pose_rotation_origin_y': -4.6995835,
+    'pose_offset_x': 0.14,
+    'pose_offset_y': 0.0,
+    'pose_offset_z': 0.0,
+}
+
 
 VISUAL_SWITCH_SELECTOR_MAP = {
     'A1R': ('A1', 'right'),
@@ -119,10 +203,22 @@ RIGHT_VISUAL_SWITCH_SELECTOR_MAP = {
     for selector_name, (station, side) in VISUAL_SWITCH_SELECTOR_MAP.items()
     if side == 'right'
 }
-LEFT_VISUAL_SWITCH_SELECTORS = {
-    selector_name
-    for selector_name, (_station, side) in VISUAL_SWITCH_SELECTOR_MAP.items()
+LEFT_VISUAL_SWITCH_SELECTOR_MAP = {
+    selector_name: station
+    for selector_name, (station, side) in VISUAL_SWITCH_SELECTOR_MAP.items()
     if side == 'left'
+}
+VISUAL_SWITCH_SELECTOR_MAP_BY_SIDE = {
+    'right': RIGHT_VISUAL_SWITCH_SELECTOR_MAP,
+    'left': LEFT_VISUAL_SWITCH_SELECTOR_MAP,
+}
+VISUAL_GROUP_SELECTOR_BY_SIDE = {
+    'right': 'RIGHT',
+    'left': 'LEFT',
+}
+VISUAL_SELECTOR_SUFFIX_BY_SIDE = {
+    'right': 'R',
+    'left': 'L',
 }
 
 PUBLIC_SWITCH_ORDER = ('A1', 'A2', 'A3', 'A4')
@@ -138,6 +234,17 @@ def _canonical_segment_name(name: str) -> str:
 
 def _canonical_sensor_name(name: str) -> str:
     return str(name).strip().upper()
+
+
+def _normalize_rail_side(raw_value: str) -> str:
+    side = str(raw_value).strip().lower()
+    if side in {'right', 'r', 'droit'}:
+        return 'right'
+    if side in {'left', 'l', 'gauche'}:
+        return 'left'
+    raise ValueError(
+        f'Unsupported rail_side={raw_value!r}; use right or left.'
+    )
 
 
 def _dedupe_aliases(values: tuple[str, ...]) -> tuple[str, ...]:
@@ -226,6 +333,7 @@ class Room315KinematicShuttleNode(Node):
         super().__init__('room_315_kinematic_shuttle')
 
         self.declare_parameter('network_yaml', str(_default_network_path()))
+        self.declare_parameter('rail_side', 'right')
         self.declare_parameter('path_backend', CUBIC_HERMITE_PATH_BACKEND)
         self.declare_parameter('arc_length_samples_per_edge', 16)
         self.declare_parameter('shuttle_count', 1)
@@ -266,6 +374,7 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('start_slot_occupancy_radius_m', 0.33)
         self.declare_parameter('gazebo_entity_name', 'room315_shuttle_1')
         self.declare_parameter('gazebo_entity_names', '')
+        self.declare_parameter('entity_name_prefix', 'room315_shuttle_')
         self.declare_parameter('gazebo_set_pose_rate_hz', 10.0)
         self.declare_parameter('publish_visual_switch_commands', True)
         self.declare_parameter('enable_gazebo_pose_transform', True)
@@ -281,11 +390,26 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('pose_scale_y', 1.0)
         self.declare_parameter('pose_scale_origin_x', -15.855195431322)
         self.declare_parameter('pose_scale_origin_y', -4.525523413467)
+        self.declare_parameter('pose_rotation_deg', 0.0)
+        self.declare_parameter('pose_rotation_origin_x', -15.855195431322)
+        self.declare_parameter('pose_rotation_origin_y', -4.525523413467)
         self.declare_parameter('pose_offset_x', 0.0)
         self.declare_parameter('pose_offset_y', 0.0)
         self.declare_parameter('pose_offset_z', 0.0)
 
-        network_path = Path(str(self.get_parameter('network_yaml').value))
+        self.rail_side = _normalize_rail_side(
+            str(self.get_parameter('rail_side').value)
+        )
+        self.active_visual_switch_selector_map = VISUAL_SWITCH_SELECTOR_MAP_BY_SIDE[
+            self.rail_side
+        ]
+        self.active_visual_group_selector = VISUAL_GROUP_SELECTOR_BY_SIDE[self.rail_side]
+        self.active_visual_selector_suffix = VISUAL_SELECTOR_SUFFIX_BY_SIDE[
+            self.rail_side
+        ]
+        network_path = self._side_default_path(
+            Path(str(self.get_parameter('network_yaml').value))
+        )
         path_backend = str(self.get_parameter('path_backend').value)
         arc_length_samples_per_edge = int(
             self.get_parameter('arc_length_samples_per_edge').value
@@ -309,25 +433,65 @@ class Room315KinematicShuttleNode(Node):
         self.collision_search_iterations = int(
             self.get_parameter('collision_search_iterations').value
         )
-        pose_topic = str(self.get_parameter('pose_topic').value)
-        self.pose_topic_prefix = str(
-            self.get_parameter('pose_topic_prefix').value
+        pose_topic = self._side_default_string(
+            str(self.get_parameter('pose_topic').value),
+            'pose_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
+        )
+        self.pose_topic_prefix = self._side_default_string(
+            str(self.get_parameter('pose_topic_prefix').value).rstrip('/'),
+            'pose_topic_prefix',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
         ).rstrip('/')
-        state_topic = str(self.get_parameter('state_topic').value)
-        add_shuttle_command_topic = str(
-            self.get_parameter('add_shuttle_command_topic').value
+        state_topic = self._side_default_string(
+            str(self.get_parameter('state_topic').value),
+            'state_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
         )
-        shuttle_control_command_topic = str(
-            self.get_parameter('shuttle_control_command_topic').value
+        add_shuttle_command_topic = self._side_default_string(
+            str(self.get_parameter('add_shuttle_command_topic').value),
+            'add_shuttle_command_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
         )
-        switch_command_topic = str(self.get_parameter('switch_command_topic').value)
-        stopper_command_topic = str(self.get_parameter('stopper_command_topic').value)
-        sensor_state_topic = str(self.get_parameter('sensor_state_topic').value)
-        position_sensor_state_topic = str(
-            self.get_parameter('position_sensor_state_topic').value
+        shuttle_control_command_topic = self._side_default_string(
+            str(self.get_parameter('shuttle_control_command_topic').value),
+            'shuttle_control_command_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
         )
-        pose_offset_command_topic = str(
-            self.get_parameter('pose_offset_command_topic').value
+        switch_command_topic = self._side_default_string(
+            str(self.get_parameter('switch_command_topic').value),
+            'switch_command_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
+        )
+        stopper_command_topic = self._side_default_string(
+            str(self.get_parameter('stopper_command_topic').value),
+            'stopper_command_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
+        )
+        sensor_state_topic = self._side_default_string(
+            str(self.get_parameter('sensor_state_topic').value),
+            'sensor_state_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
+        )
+        position_sensor_state_topic = self._side_default_string(
+            str(self.get_parameter('position_sensor_state_topic').value),
+            'position_sensor_state_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
+        )
+        pose_offset_command_topic = self._side_default_string(
+            str(self.get_parameter('pose_offset_command_topic').value),
+            'pose_offset_command_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
         )
         visual_switch_command_topic = str(
             self.get_parameter('visual_switch_command_topic').value
@@ -358,15 +522,38 @@ class Room315KinematicShuttleNode(Node):
             suffix='remove',
         )
         self.shuttle_model_sdf = Path(str(self.get_parameter('shuttle_model_sdf').value))
-        self.preloaded_shuttle_count = int(self.get_parameter('preloaded_shuttle_count').value)
+        self.preloaded_shuttle_count = int(
+            self._side_default_numeric(
+                int(self.get_parameter('preloaded_shuttle_count').value),
+                'preloaded_shuttle_count',
+                right_defaults=RIGHT_ENTITY_DEFAULTS,
+                left_defaults=LEFT_ENTITY_DEFAULTS,
+            )
+        )
         self.reject_occupied_start_slots = bool(
             self.get_parameter('reject_occupied_start_slots').value
         )
         self.start_slot_occupancy_radius_m = float(
             self.get_parameter('start_slot_occupancy_radius_m').value
         )
-        self.gazebo_entity_name = str(self.get_parameter('gazebo_entity_name').value)
+        self.gazebo_entity_name = self._side_default_string(
+            str(self.get_parameter('gazebo_entity_name').value),
+            'gazebo_entity_name',
+            right_defaults=RIGHT_ENTITY_DEFAULTS,
+            left_defaults=LEFT_ENTITY_DEFAULTS,
+        )
         gazebo_entity_names = str(self.get_parameter('gazebo_entity_names').value)
+        self.entity_name_prefix = self._normalize_entity_name_prefix(
+            self._side_default_string(
+                str(self.get_parameter('entity_name_prefix').value),
+                'entity_name_prefix',
+                right_defaults=RIGHT_ENTITY_DEFAULTS,
+                left_defaults=LEFT_ENTITY_DEFAULTS,
+            )
+        )
+        self.preloaded_entity_pattern = re.compile(
+            rf'^{re.escape(self.entity_name_prefix)}(\d+)$'
+        )
         gazebo_set_pose_rate_hz = float(self.get_parameter('gazebo_set_pose_rate_hz').value)
         self.gazebo_set_pose_period = 1.0 / max(gazebo_set_pose_rate_hz, 1.0)
         self.publish_visual_switch_commands = bool(
@@ -375,25 +562,162 @@ class Room315KinematicShuttleNode(Node):
         self.enable_gazebo_pose_transform = bool(
             self.get_parameter('enable_gazebo_pose_transform').value
         )
-        self.pose_transform_a = float(self.get_parameter('pose_transform_a').value)
-        self.pose_transform_b = float(self.get_parameter('pose_transform_b').value)
-        self.pose_transform_tx = float(self.get_parameter('pose_transform_tx').value)
-        self.pose_transform_c = float(self.get_parameter('pose_transform_c').value)
-        self.pose_transform_d = float(self.get_parameter('pose_transform_d').value)
-        self.pose_transform_ty = float(self.get_parameter('pose_transform_ty').value)
+        self.pose_transform_a = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_a').value),
+                'pose_transform_a',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_transform_b = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_b').value),
+                'pose_transform_b',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_transform_tx = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_tx').value),
+                'pose_transform_tx',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_transform_c = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_c').value),
+                'pose_transform_c',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_transform_d = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_d').value),
+                'pose_transform_d',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_transform_ty = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_ty').value),
+                'pose_transform_ty',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
         self.pose_transform_z_offset = float(
-            self.get_parameter('pose_transform_z_offset').value
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_z_offset').value),
+                'pose_transform_z_offset',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
         )
         self.pose_transform_yaw_offset = float(
-            self.get_parameter('pose_transform_yaw_offset').value
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_yaw_offset').value),
+                'pose_transform_yaw_offset',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
         )
-        self.pose_scale_x = float(self.get_parameter('pose_scale_x').value)
-        self.pose_scale_y = float(self.get_parameter('pose_scale_y').value)
-        self.pose_scale_origin_x = float(self.get_parameter('pose_scale_origin_x').value)
-        self.pose_scale_origin_y = float(self.get_parameter('pose_scale_origin_y').value)
-        self.pose_offset_x = float(self.get_parameter('pose_offset_x').value)
-        self.pose_offset_y = float(self.get_parameter('pose_offset_y').value)
-        self.pose_offset_z = float(self.get_parameter('pose_offset_z').value)
+        self.pose_scale_x = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_scale_x').value),
+                'pose_scale_x',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_scale_y = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_scale_y').value),
+                'pose_scale_y',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_scale_origin_x = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_scale_origin_x').value),
+                'pose_scale_origin_x',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_scale_origin_y = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_scale_origin_y').value),
+                'pose_scale_origin_y',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_rotation_deg = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_rotation_deg').value),
+                'pose_rotation_deg',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_rotation_origin_x = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_rotation_origin_x').value),
+                'pose_rotation_origin_x',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_rotation_origin_y = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_rotation_origin_y').value),
+                'pose_rotation_origin_y',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_offset_x = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_offset_x').value),
+                'pose_offset_x',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_offset_y = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_offset_y').value),
+                'pose_offset_y',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_offset_z = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_offset_z').value),
+                'pose_offset_z',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_calibration_defaults = {
+            'pose_scale_x': self.pose_scale_x,
+            'pose_scale_y': self.pose_scale_y,
+            'pose_scale_origin_x': self.pose_scale_origin_x,
+            'pose_scale_origin_y': self.pose_scale_origin_y,
+            'pose_rotation_deg': self.pose_rotation_deg,
+            'pose_rotation_origin_x': self.pose_rotation_origin_x,
+            'pose_rotation_origin_y': self.pose_rotation_origin_y,
+            'pose_offset_x': self.pose_offset_x,
+            'pose_offset_y': self.pose_offset_y,
+            'pose_offset_z': self.pose_offset_z,
+        }
         self.start_snap_tolerance_m = start_snap_tolerance_m
         self.default_shuttle_speed = speed
         self.spawn_warning_logged = False
@@ -504,7 +828,7 @@ class Room315KinematicShuttleNode(Node):
 
         self.get_logger().info(
             'Room 315 kinematic shuttle started with '
-            f'network={network_path}, path_backend={path_backend}, '
+            f'rail_side={self.rail_side}, network={network_path}, path_backend={path_backend}, '
             f'pose_topic={pose_topic}, '
             f'gazebo_world={self.gazebo_world_name}, '
             f'add_shuttle_topic={add_shuttle_command_topic}, '
@@ -516,6 +840,7 @@ class Room315KinematicShuttleNode(Node):
             f'offset_topic={pose_offset_command_topic}, '
             f'visual_switch_topic={visual_switch_command_topic}, '
             f'visual_switch_state_topic={visual_switch_state_topic}, '
+            f'entity_prefix={self.entity_name_prefix}, '
             f'spawn_service={gazebo_spawn_service}, '
             f'delete_service={gazebo_delete_service}, '
             f'shuttles={self._shuttle_summary()}'
@@ -540,6 +865,46 @@ class Room315KinematicShuttleNode(Node):
                 'gazebo_world_name cannot be empty when Gazebo service names are auto-derived.'
             )
         return f'/world/{world_name}/{suffix}'
+
+    @staticmethod
+    def _normalize_entity_name_prefix(raw_value: str) -> str:
+        prefix = str(raw_value).strip()
+        if prefix:
+            return prefix
+        raise ValueError('entity_name_prefix must not be empty.')
+
+    def _side_default_path(self, configured_path: Path) -> Path:
+        if self.rail_side != 'left':
+            return configured_path
+
+        right_default = _default_network_path().resolve()
+        if configured_path.resolve() == right_default:
+            return _default_left_network_path()
+        return configured_path
+
+    def _side_default_string(
+        self,
+        configured_value: str,
+        key: str,
+        *,
+        right_defaults: Dict[str, str],
+        left_defaults: Dict[str, str],
+    ) -> str:
+        if self.rail_side == 'left' and configured_value == right_defaults[key]:
+            return left_defaults[key]
+        return configured_value
+
+    def _side_default_numeric(
+        self,
+        configured_value,
+        key: str,
+        *,
+        right_defaults: Dict[str, float] | Dict[str, int],
+        left_defaults: Dict[str, float] | Dict[str, int],
+    ):
+        if self.rail_side == 'left' and configured_value == right_defaults[key]:
+            return left_defaults[key]
+        return configured_value
 
     def _load_allowed_start_poses(self) -> Dict[str, AllowedStartPose]:
         raw_slots = self.network.config.get('start_slots') or {}
@@ -788,7 +1153,10 @@ class Room315KinematicShuttleNode(Node):
             entity_names = (
                 [default_entity_name]
                 if shuttle_count == 1
-                else [f'room315_shuttle_{index}' for index in range(1, shuttle_count + 1)]
+                else [
+                    self._auto_entity_name(index)
+                    for index in range(1, shuttle_count + 1)
+                ]
             )
         if len(entity_names) != shuttle_count:
             raise ValueError(
@@ -968,10 +1336,13 @@ class Room315KinematicShuttleNode(Node):
         used_entities.update(self.deleting_entity_names)
         index = 1
         while True:
-            entity_name = f'room315_shuttle_{index}'
+            entity_name = self._auto_entity_name(index)
             if entity_name not in used_entities:
                 return entity_name
             index += 1
+
+    def _auto_entity_name(self, index: int) -> str:
+        return f'{self.entity_name_prefix}{index}'
 
     def _request_spawn_if_needed(self, shuttle: ManagedShuttle) -> None:
         if not self.enable_gazebo_spawn:
@@ -1002,7 +1373,7 @@ class Room315KinematicShuttleNode(Node):
         self.get_logger().info(f'Requested Gazebo spawn for {shuttle.entity_name}')
 
     def _is_preloaded_shuttle_entity(self, entity_name: str) -> bool:
-        match = re.match(r'^room315_shuttle_(\d+)$', entity_name)
+        match = self.preloaded_entity_pattern.match(entity_name)
         return bool(
             match
             and int(match.group(1)) <= self.preloaded_shuttle_count
@@ -1141,14 +1512,36 @@ class Room315KinematicShuttleNode(Node):
 
         base_x = self.pose_transform_a * x + self.pose_transform_b * y + self.pose_transform_tx
         base_y = self.pose_transform_c * x + self.pose_transform_d * y + self.pose_transform_ty
-        return (
+        scaled_x = (
             self.pose_scale_origin_x
             + (base_x - self.pose_scale_origin_x) * self.pose_scale_x
-            + self.pose_offset_x,
+        )
+        scaled_y = (
             self.pose_scale_origin_y
             + (base_y - self.pose_scale_origin_y) * self.pose_scale_y
-            + self.pose_offset_y,
+        )
+        rotated_x, rotated_y = self._apply_planar_rotation(scaled_x, scaled_y)
+        return (
+            rotated_x + self.pose_offset_x,
+            rotated_y + self.pose_offset_y,
             z + self.pose_transform_z_offset + self.pose_offset_z,
+        )
+
+    def _pose_rotation_rad(self) -> float:
+        return math.radians(self.pose_rotation_deg)
+
+    def _apply_planar_rotation(self, x: float, y: float) -> tuple[float, float]:
+        rotation_rad = self._pose_rotation_rad()
+        if abs(rotation_rad) <= 1e-12:
+            return x, y
+
+        dx = x - self.pose_rotation_origin_x
+        dy = y - self.pose_rotation_origin_y
+        cos_theta = math.cos(rotation_rad)
+        sin_theta = math.sin(rotation_rad)
+        return (
+            self.pose_rotation_origin_x + cos_theta * dx - sin_theta * dy,
+            self.pose_rotation_origin_y + sin_theta * dx + cos_theta * dy,
         )
 
     def _on_pose_offset_command(self, message: String) -> None:
@@ -1172,6 +1565,7 @@ class Room315KinematicShuttleNode(Node):
             'Updated pose calibration: '
             f'scale_x={self.pose_scale_x:.6f}, '
             f'scale_y={self.pose_scale_y:.6f}, '
+            f'rotation_deg={self.pose_rotation_deg:.3f}, '
             f'offset_x={self.pose_offset_x:.4f}, '
             f'offset_y={self.pose_offset_y:.4f}, '
             f'offset_z={self.pose_offset_z:.4f}'
@@ -1183,21 +1577,20 @@ class Room315KinematicShuttleNode(Node):
             raise ValueError('Empty pose offset command')
 
         if command.lower() in {'reset', 'zero', '0'}:
-            return {
-                'pose_scale_x': 1.0,
-                'pose_scale_y': 1.0,
-                'pose_offset_x': 0.0,
-                'pose_offset_y': 0.0,
-                'pose_offset_z': 0.0,
-            }
+            return dict(self.pose_calibration_defaults)
 
         if command.startswith('{'):
             payload = json.loads(command)
             assignments = [(str(key), str(value)) for key, value in payload.items()]
+            reset_requested = False
         else:
             assignments = []
+            reset_requested = False
             for token in re.split(r'[\s,;]+', command.replace(':', '=')):
                 if not token:
+                    continue
+                if token.strip().lower() in {'reset', 'zero', '0'}:
+                    reset_requested = True
                     continue
                 if '=' not in token:
                     raise ValueError(
@@ -1206,13 +1599,47 @@ class Room315KinematicShuttleNode(Node):
                 key, raw_value = token.split('=', 1)
                 assignments.append((key, raw_value))
 
-        next_x = self.pose_offset_x
-        next_y = self.pose_offset_y
-        next_z = self.pose_offset_z
-        next_scale_x = self.pose_scale_x
-        next_scale_y = self.pose_scale_y
-        next_origin_x = self.pose_scale_origin_x
-        next_origin_y = self.pose_scale_origin_y
+        default_calibration = self.pose_calibration_defaults
+        next_x = (
+            default_calibration['pose_offset_x']
+            if reset_requested else self.pose_offset_x
+        )
+        next_y = (
+            default_calibration['pose_offset_y']
+            if reset_requested else self.pose_offset_y
+        )
+        next_z = (
+            default_calibration['pose_offset_z']
+            if reset_requested else self.pose_offset_z
+        )
+        next_scale_x = (
+            default_calibration['pose_scale_x']
+            if reset_requested else self.pose_scale_x
+        )
+        next_scale_y = (
+            default_calibration['pose_scale_y']
+            if reset_requested else self.pose_scale_y
+        )
+        next_origin_x = (
+            default_calibration['pose_scale_origin_x']
+            if reset_requested else self.pose_scale_origin_x
+        )
+        next_origin_y = (
+            default_calibration['pose_scale_origin_y']
+            if reset_requested else self.pose_scale_origin_y
+        )
+        next_rotation_deg = (
+            default_calibration['pose_rotation_deg']
+            if reset_requested else self.pose_rotation_deg
+        )
+        next_rotation_origin_x = (
+            default_calibration['pose_rotation_origin_x']
+            if reset_requested else self.pose_rotation_origin_x
+        )
+        next_rotation_origin_y = (
+            default_calibration['pose_rotation_origin_y']
+            if reset_requested else self.pose_rotation_origin_y
+        )
         for raw_key, raw_value in assignments:
             key = raw_key.strip().lower()
             value = float(raw_value)
@@ -1240,11 +1667,39 @@ class Room315KinematicShuttleNode(Node):
                 next_origin_x = value
             elif key in {'origin_y', 'scale_origin_y', 'pose_scale_origin_y'}:
                 next_origin_y = value
+            elif key in {
+                'rot',
+                'rotation',
+                'rotation_deg',
+                'rot_deg',
+                'deg',
+                'pose_rotation_deg',
+            }:
+                next_rotation_deg = value
+            elif key in {'drot', 'drotation', 'drotation_deg', 'drot_deg', 'ddeg'}:
+                next_rotation_deg += value
+            elif key in {'rotation_rad', 'rot_rad', 'rad', 'pose_rotation_rad'}:
+                next_rotation_deg = math.degrees(value)
+            elif key in {'drotation_rad', 'drot_rad', 'drad'}:
+                next_rotation_deg += math.degrees(value)
+            elif key in {
+                'rot_origin_x',
+                'rotation_origin_x',
+                'pose_rotation_origin_x',
+            }:
+                next_rotation_origin_x = value
+            elif key in {
+                'rot_origin_y',
+                'rotation_origin_y',
+                'pose_rotation_origin_y',
+            }:
+                next_rotation_origin_y = value
             else:
                 raise ValueError(
                     f'Unknown pose calibration key {raw_key!r}; use x/y/z for offsets, '
-                    'dx/dy/dz for incremental offsets, sx/sy for scale, or dsx/dsy '
-                    'for incremental scale.'
+                    'dx/dy/dz for incremental offsets, sx/sy for scale, dsx/dsy '
+                    'for incremental scale, and rot_deg/deg or rot_rad for planar '
+                    'rotation.'
                 )
 
         return {
@@ -1252,6 +1707,9 @@ class Room315KinematicShuttleNode(Node):
             'pose_scale_y': next_scale_y,
             'pose_scale_origin_x': next_origin_x,
             'pose_scale_origin_y': next_origin_y,
+            'pose_rotation_deg': next_rotation_deg,
+            'pose_rotation_origin_x': next_rotation_origin_x,
+            'pose_rotation_origin_y': next_rotation_origin_y,
             'pose_offset_x': next_x,
             'pose_offset_y': next_y,
             'pose_offset_z': next_z,
@@ -1523,7 +1981,7 @@ class Room315KinematicShuttleNode(Node):
             )
             return
 
-        match = re.match(r'^room315_shuttle_(\d+)$', entity_name)
+        match = self.preloaded_entity_pattern.match(entity_name)
         if match and int(match.group(1)) <= self.preloaded_shuttle_count:
             self.deleted_preloaded_entity_names.add(entity_name)
         self.get_logger().info(f'Gazebo removed {entity_name}.')
@@ -1615,13 +2073,14 @@ class Room315KinematicShuttleNode(Node):
 
         updates: Dict[str, str] = {}
         for station, states_by_side in candidates.items():
-            # The calibrated shuttle path currently follows the droit/right rail set.
-            if 'right' in states_by_side:
-                updates[station] = states_by_side['right']
+            if self.rail_side in states_by_side:
+                updates[station] = states_by_side[self.rail_side]
             elif 'station' in states_by_side:
                 updates[station] = states_by_side['station']
-            elif 'left' in states_by_side:
-                updates[station] = states_by_side['left']
+            else:
+                other_side = 'left' if self.rail_side == 'right' else 'right'
+                if other_side in states_by_side:
+                    updates[station] = states_by_side[other_side]
         return updates
 
     @staticmethod
@@ -1639,8 +2098,9 @@ class Room315KinematicShuttleNode(Node):
         if mapped_selector is not None:
             return mapped_selector, 'right'
 
-        if name in LEFT_VISUAL_SWITCH_SELECTORS:
-            return None, 'left'
+        mapped_selector = LEFT_VISUAL_SWITCH_SELECTOR_MAP.get(name)
+        if mapped_selector is not None:
+            return mapped_selector, 'left'
 
         return None, 'unknown'
 
@@ -1695,9 +2155,11 @@ class Room315KinematicShuttleNode(Node):
         return self.network.normalized_switch_state(state)
 
     def _logic_targets_for_selector(self, selector_name: str) -> list[str]:
-        if selector_name in {'ALL', 'RIGHT'}:
+        if selector_name == 'ALL':
             return sorted(self.network.switches)
-        if selector_name == 'LEFT':
+        if selector_name == self.active_visual_group_selector:
+            return sorted(self.network.switches)
+        if selector_name in {'RIGHT', 'LEFT'}:
             return []
 
         station_match = re.match(r'^(A[1-4])$', selector_name)
@@ -1705,24 +2167,23 @@ class Room315KinematicShuttleNode(Node):
             station = station_match.group(1)
             return [station]
 
-        mapped_selector = RIGHT_VISUAL_SWITCH_SELECTOR_MAP.get(selector_name)
+        mapped_selector = self.active_visual_switch_selector_map.get(selector_name)
         if mapped_selector is not None:
             return [mapped_selector]
-
-        if selector_name in LEFT_VISUAL_SWITCH_SELECTORS:
-            return []
 
         return []
 
     def _visual_selector_for_selector(self, selector_name: str) -> str | None:
-        if selector_name in {'ALL', 'RIGHT', 'LEFT'}:
-            return selector_name
+        if selector_name == 'ALL':
+            return self.active_visual_group_selector
+        if selector_name in {'RIGHT', 'LEFT'}:
+            return selector_name if selector_name == self.active_visual_group_selector else None
 
         station_match = re.match(r'^(A[1-4])$', selector_name)
         if station_match:
-            return selector_name
+            return f'{station_match.group(1)}{self.active_visual_selector_suffix}'
 
-        if selector_name in VISUAL_SWITCH_SELECTOR_MAP:
+        if selector_name in self.active_visual_switch_selector_map:
             return selector_name
 
         return None
@@ -1745,6 +2206,9 @@ class Room315KinematicShuttleNode(Node):
             'pose_scale_y',
             'pose_scale_origin_x',
             'pose_scale_origin_y',
+            'pose_rotation_deg',
+            'pose_rotation_origin_x',
+            'pose_rotation_origin_y',
             'pose_offset_x',
             'pose_offset_y',
             'pose_offset_z',
@@ -2013,13 +2477,14 @@ class Room315KinematicShuttleNode(Node):
         x = (
             self.pose_scale_origin_x
             + (base_x - self.pose_scale_origin_x) * self.pose_scale_x
-            + self.pose_offset_x
         )
         y = (
             self.pose_scale_origin_y
             + (base_y - self.pose_scale_origin_y) * self.pose_scale_y
-            + self.pose_offset_y
         )
+        x, y = self._apply_planar_rotation(x, y)
+        x += self.pose_offset_x
+        y += self.pose_offset_y
 
         raw_direction_x = math.cos(pose.yaw)
         raw_direction_y = math.sin(pose.yaw)
@@ -2035,6 +2500,7 @@ class Room315KinematicShuttleNode(Node):
             transformed_direction_y * self.pose_scale_y,
             transformed_direction_x * self.pose_scale_x,
         )
+        yaw += self._pose_rotation_rad()
         yaw += self.pose_transform_yaw_offset
 
         return ShuttlePose(
@@ -2253,6 +2719,11 @@ class Room315KinematicShuttleNode(Node):
                     'y': self.pose_scale_y,
                     'origin_x': self.pose_scale_origin_x,
                     'origin_y': self.pose_scale_origin_y,
+                },
+                'pose_rotation': {
+                    'deg': self.pose_rotation_deg,
+                    'origin_x': self.pose_rotation_origin_x,
+                    'origin_y': self.pose_rotation_origin_y,
                 },
                 'shuttle_count': len(self.shuttles),
                 'collision_avoidance': {

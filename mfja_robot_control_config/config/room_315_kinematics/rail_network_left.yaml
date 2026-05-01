@@ -1,0 +1,579 @@
+schema_version: 2
+network_id: room_315_left_directed_one_way
+description: 'Explicit directed rail topology for the room 315 left-rail shuttle
+  network. Every segment is traversed forward-only, from CSV index 0 to the last
+  row.
+
+  '
+source_csv_dir: mfja_robot_control_config/config/room_315_kinematics/raw_segments
+normalized_csv_dir: mfja_robot_control_config/config/room_315_kinematics/normalized_segments
+snap_tolerance_m: 0.05
+motion_policy:
+  segment_direction: forward_only
+  traversal_rule: from_csv_index_0_to_last
+  reverse_traversal_allowed: false
+  on_missing_successor: FALLING
+  topology_source_of_truth: explicit_nodes_and_routing_tables
+switch_state_space:
+  values:
+  - G
+  - S
+  note: 'Switch states match the segment suffixes. G selects the G branch, and S selects
+    the S branch. A later command layer may expose LEFT/RIGHT aliases if desired.
+
+    '
+stopper_state_space:
+  values:
+  - '0'
+  - '1'
+  note: 'Stopper states are independent from switch states. 0 means open/released,
+    and 1 means stop/closed.
+
+    '
+stoppers:
+  A1:
+    before_switch: A1
+    default_state: '0'
+    stop_offset_m: 0.08
+    sensor_distance_m: 0.25
+    segments:
+    - A23
+  A2:
+    before_switch: A2
+    default_state: '0'
+    stop_offset_m: 0.08
+    sensor_distance_m: 0.25
+    segments:
+    - A34E
+    - A34I
+  A3:
+    before_switch: A3
+    default_state: '0'
+    stop_offset_m: 0.08
+    sensor_distance_m: 0.25
+    segments:
+    - A14
+  A4:
+    before_switch: A4
+    default_state: '0'
+    stop_offset_m: 0.08
+    sensor_distance_m: 0.25
+    segments:
+    - A12E
+    - A12I
+position_sensors:
+  DZI2L:
+    kind: indexing_zone
+    index_zone: '1'
+    slot: '1'
+    aliases:
+    - DZI2
+    sensor_distance_m: 0.09
+    loop_side: EXTERIOR
+  DZI1L:
+    kind: indexing_zone
+    index_zone: '2'
+    slot: '2'
+    aliases:
+    - DZI1
+    sensor_distance_m: 0.09
+    loop_side: EXTERIOR
+  DZI4L:
+    kind: indexing_zone
+    index_zone: '3'
+    slot: '3'
+    aliases:
+    - DZI4
+    sensor_distance_m: 0.09
+    loop_side: EXTERIOR
+  DZI3L:
+    kind: indexing_zone
+    index_zone: '4'
+    slot: '4'
+    aliases:
+    - DZI3
+    sensor_distance_m: 0.09
+    loop_side: EXTERIOR
+  DA1L:
+    kind: switch_main
+    switch: A1
+    aliases:
+    - DA1
+    segment: A23
+    reference: end
+    offset_m: 0.1
+    sensor_distance_m: 0.08
+  DA1GL:
+    kind: switch_branch
+    switch: A1
+    branch: G
+    aliases:
+    - DA1G
+    segment: A3G
+    reference: start
+    offset_m: 0.1
+    sensor_distance_m: 0.07
+  DA1SL:
+    kind: switch_branch
+    switch: A1
+    branch: S
+    aliases:
+    - DA1S
+    - DA1P
+    segment: A3S
+    reference: start
+    offset_m: 0.12
+    sensor_distance_m: 0.07
+  DA2L:
+    kind: switch_main
+    switch: A2
+    aliases:
+    - DA2
+    segment: A14
+    reference: start
+    offset_m: 0.1
+    sensor_distance_m: 0.07
+  DA2GL:
+    kind: switch_branch
+    switch: A2
+    branch: G
+    aliases:
+    - DA2G
+    segment: A34E
+    reference: end
+    offset_m: 0.18
+    sensor_distance_m: 0.08
+  DA2SL:
+    kind: switch_branch
+    switch: A2
+    branch: S
+    aliases:
+    - DA2S
+    - DA2P
+    segment: A34I
+    reference: end
+    offset_m: 0.18
+    sensor_distance_m: 0.08
+  DA3L:
+    kind: switch_main
+    switch: A3
+    aliases:
+    - DA3
+    segment: A14
+    reference: end
+    offset_m: 0.1
+    sensor_distance_m: 0.08
+  DA3GL:
+    kind: switch_branch
+    switch: A3
+    branch: G
+    aliases:
+    - DA3G
+    segment: A1G
+    reference: start
+    offset_m: 0.1
+    sensor_distance_m: 0.07
+  DA3SL:
+    kind: switch_branch
+    switch: A3
+    branch: S
+    aliases:
+    - DA3S
+    - DA3P
+    segment: A1S
+    reference: start
+    offset_m: 0.12
+    sensor_distance_m: 0.07
+  DA4L:
+    kind: switch_main
+    switch: A4
+    aliases:
+    - DA4
+    segment: A23
+    reference: start
+    offset_m: 0.1
+    sensor_distance_m: 0.07
+  DA4GL:
+    kind: switch_branch
+    switch: A4
+    branch: G
+    aliases:
+    - DA4G
+    segment: A12E
+    reference: end
+    offset_m: 0.18
+    sensor_distance_m: 0.08
+  DA4SL:
+    kind: switch_branch
+    switch: A4
+    branch: S
+    aliases:
+    - DA4S
+    - DA4P
+    segment: A12I
+    reference: end
+    offset_m: 0.18
+    sensor_distance_m: 0.08
+start_slots:
+  '1':
+    pose:
+    - -10.969823
+    - -3.893879
+    - 0.84
+    - 0.0
+    - 0.0
+    - 3.14
+  '2':
+    pose:
+    - -10.489496
+    - -3.893629
+    - 0.84
+    - 0.0
+    - 0.0
+    - 3.14
+  '3':
+    pose:
+    - -10.308294
+    - -5.505291
+    - 0.84
+    - 0.0
+    - 0.0
+    - 0.0
+  '4':
+    pose:
+    - -10.778613
+    - -5.505535
+    - 0.84
+    - 0.0
+    - 0.0
+    - 0.0
+nodes:
+  A3_C:
+    xyz:
+    - -12.411620846209
+    - -4.210146413924
+    - 0.839346
+    attached_segment_ends:
+    - segment: A23
+      side: end
+    - segment: A3G
+      side: start
+    - segment: A3S
+      side: start
+  A3_G:
+    xyz:
+    - -12.411068709521
+    - -4.377968538178
+    - 0.839346
+    attached_segment_ends:
+    - segment: A3G
+      side: end
+    - segment: A34E
+      side: start
+  A3_S:
+    xyz:
+    - -12.630456355245
+    - -4.294506357306
+    - 0.839346
+    attached_segment_ends:
+    - segment: A3S
+      side: end
+    - segment: A34I
+      side: start
+  A4_C:
+    xyz:
+    - -14.298127955012
+    - -4.314956886276
+    - 0.839346
+    attached_segment_ends:
+    - segment: A4G
+      side: end
+    - segment: A4S
+      side: end
+    - segment: A14
+      side: start
+  A4_G:
+    xyz:
+    - -14.170829572493
+    - -4.461813691179
+    - 0.839346
+    attached_segment_ends:
+    - segment: A34E
+      side: end
+    - segment: A4G
+      side: start
+  A4_S:
+    xyz:
+    - -14.043487622669
+    - -4.317707880582
+    - 0.839346
+    attached_segment_ends:
+    - segment: A34I
+      side: end
+    - segment: A4S
+      side: start
+  A1_C:
+    xyz:
+    - -14.296344748695
+    - -3.841906069184
+    - 0.839346
+    attached_segment_ends:
+    - segment: A14
+      side: end
+    - segment: A1G
+      side: start
+    - segment: A1S
+      side: start
+  A1_G:
+    xyz:
+    - -14.170018795842
+    - -3.6964263697
+    - 0.839346
+    attached_segment_ends:
+    - segment: A1G
+      side: end
+    - segment: A12E
+      side: start
+  A1_S:
+    xyz:
+    - -14.042453383596
+    - -3.840708114815
+    - 0.839346
+    attached_segment_ends:
+    - segment: A1S
+      side: end
+    - segment: A12I
+      side: start
+  A2_C:
+    xyz:
+    - -12.41456159814
+    - -3.949959016123
+    - 0.839346
+    attached_segment_ends:
+    - segment: A2G
+      side: end
+    - segment: A2S
+      side: end
+    - segment: A23
+      side: start
+  A2_G:
+    xyz:
+    - -12.417316165756
+    - -3.779454642551
+    - 0.839346
+    attached_segment_ends:
+    - segment: A12E
+      side: end
+    - segment: A2G
+      side: start
+  A2_S:
+    xyz:
+    - -12.634666929685
+    - -3.864864946894
+    - 0.839346
+    attached_segment_ends:
+    - segment: A12I
+      side: end
+    - segment: A2S
+      side: start
+segments:
+  A3G:
+    csv: raw_segments/A1G.csv
+    start_node: A3_C
+    end_node: A3_G
+    direction: forward
+  A3S:
+    csv: raw_segments/A1S.csv
+    start_node: A3_C
+    end_node: A3_S
+    direction: forward
+  A4G:
+    csv: raw_segments/A2G.csv
+    start_node: A4_G
+    end_node: A4_C
+    direction: forward
+  A4S:
+    csv: raw_segments/A2S.csv
+    start_node: A4_S
+    end_node: A4_C
+    direction: forward
+  A1G:
+    csv: raw_segments/A3G.csv
+    start_node: A1_C
+    end_node: A1_G
+    direction: forward
+  A1S:
+    csv: raw_segments/A3S.csv
+    start_node: A1_C
+    end_node: A1_S
+    direction: forward
+  A2G:
+    csv: raw_segments/A4G.csv
+    start_node: A2_G
+    end_node: A2_C
+    direction: forward
+  A2S:
+    csv: raw_segments/A4S.csv
+    start_node: A2_S
+    end_node: A2_C
+    direction: forward
+  A34E:
+    csv: raw_segments/A12E.csv
+    start_node: A3_G
+    end_node: A4_G
+    direction: forward
+  A34I:
+    csv: raw_segments/A12I.csv
+    start_node: A3_S
+    end_node: A4_S
+    direction: forward
+  A23:
+    csv: raw_segments/A14.csv
+    start_node: A2_C
+    end_node: A3_C
+    direction: forward
+  A14:
+    csv: raw_segments/A23.csv
+    start_node: A4_C
+    end_node: A1_C
+    direction: forward
+  A12E:
+    csv: raw_segments/A34E.csv
+    start_node: A1_G
+    end_node: A2_G
+    direction: forward
+  A12I:
+    csv: raw_segments/A34I.csv
+    start_node: A1_S
+    end_node: A2_S
+    direction: forward
+switches:
+  A1:
+    kind: diverging
+    controlled_node: A3_C
+    states:
+    - G
+    - S
+    incoming_segments:
+    - A23
+    outgoing_by_state:
+      G: A3G
+      S: A3S
+  A2:
+    kind: converging_gate
+    controlled_node: A4_C
+    states:
+    - G
+    - S
+    incoming_path_by_state:
+      G:
+        incoming_segment: A34E
+        connector_segment: A4G
+      S:
+        incoming_segment: A34I
+        connector_segment: A4S
+    outgoing_segments:
+    - A14
+  A3:
+    kind: diverging
+    controlled_node: A1_C
+    states:
+    - G
+    - S
+    incoming_segments:
+    - A14
+    outgoing_by_state:
+      G: A1G
+      S: A1S
+  A4:
+    kind: converging_gate
+    controlled_node: A2_C
+    states:
+    - G
+    - S
+    incoming_path_by_state:
+      G:
+        incoming_segment: A12E
+        connector_segment: A2G
+      S:
+        incoming_segment: A12I
+        connector_segment: A2S
+    outgoing_segments:
+    - A23
+fixed_transitions:
+  A3G: A34E
+  A3S: A34I
+  A4G: A14
+  A4S: A14
+  A1G: A12E
+  A1S: A12I
+  A2G: A23
+  A2S: A23
+routing_table:
+  A23:
+    type: switch_select
+    switch: A1
+    by_state:
+      G: A3G
+      S: A3S
+    on_unknown_state: FALLING
+  A3G:
+    type: fixed
+    next_segment: A34E
+  A3S:
+    type: fixed
+    next_segment: A34I
+  A34E:
+    type: switch_guard
+    switch: A2
+    by_state:
+      G: A4G
+      S: FALLING
+    on_unknown_state: FALLING
+  A34I:
+    type: switch_guard
+    switch: A2
+    by_state:
+      G: FALLING
+      S: A4S
+    on_unknown_state: FALLING
+  A4G:
+    type: fixed
+    next_segment: A14
+  A4S:
+    type: fixed
+    next_segment: A14
+  A14:
+    type: switch_select
+    switch: A3
+    by_state:
+      G: A1G
+      S: A1S
+    on_unknown_state: FALLING
+  A1G:
+    type: fixed
+    next_segment: A12E
+  A1S:
+    type: fixed
+    next_segment: A12I
+  A12E:
+    type: switch_guard
+    switch: A4
+    by_state:
+      G: A2G
+      S: FALLING
+    on_unknown_state: FALLING
+  A12I:
+    type: switch_guard
+    switch: A4
+    by_state:
+      G: FALLING
+      S: A2S
+    on_unknown_state: FALLING
+  A2G:
+    type: fixed
+    next_segment: A23
+  A2S:
+    type: fixed
+    next_segment: A23
+blocks: {}
