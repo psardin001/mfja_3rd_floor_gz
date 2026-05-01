@@ -107,12 +107,7 @@ SLOT_LABEL_OFFSETS = {
 
 REPORT_MIRROR_X = True
 
-DISPLAY_SWITCH_LABELS = {
-    'A1': 'A2',
-    'A2': 'A1',
-    'A3': 'A4',
-    'A4': 'A3',
-}
+DISPLAY_SWITCH_LABELS = {}
 
 DISPLAY_SLOT_LABELS = {
     '1': '3',
@@ -175,10 +170,10 @@ def _display_stopper_label(stopper_name: str) -> str:
 
 
 DISPLAY_STOPPER_LABELS = {
-    ('A1', 'A14'): 'A3',
+    ('A1', 'A14'): 'A1',
     ('A2', 'A12E'): 'A2E',
     ('A2', 'A12I'): 'A2I',
-    ('A3', 'A23'): 'A1',
+    ('A3', 'A23'): 'A3',
     ('A4', 'A34E'): 'A4E',
     ('A4', 'A34I'): 'A4I',
 }

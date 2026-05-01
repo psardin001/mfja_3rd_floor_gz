@@ -423,14 +423,6 @@ def _read_csv_points(csv_path: Path) -> List[Point3D]:
         ]
 
 
-PUBLIC_TO_INTERNAL_SWITCH_MAP = {
-    'A1': 'A3',
-    'A2': 'A4',
-    'A3': 'A1',
-    'A4': 'A2',
-}
-
-
 def _parse_switch_states(network: RailNetwork, raw_values: Sequence[str]) -> Dict[str, str]:
     switch_states = network.default_switch_states()
     for raw_value in raw_values:
@@ -439,7 +431,6 @@ def _parse_switch_states(network: RailNetwork, raw_values: Sequence[str]) -> Dic
                 raise ValueError(f'Switch assignment must look like A1=G, got {token!r}')
             switch_name, raw_state = token.split('=', 1)
             switch_name = switch_name.strip().upper()
-            switch_name = PUBLIC_TO_INTERNAL_SWITCH_MAP.get(switch_name, switch_name)
             if switch_name not in network.switches:
                 raise ValueError(f'Unknown switch {switch_name!r}; expected one of {sorted(network.switches)}')
             switch_states[switch_name] = network.normalized_switch_state(raw_state)
@@ -458,7 +449,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         '--segment',
-        default='A14',
+        default='A23',
         help='Initial segment name.',
     )
     parser.add_argument(
