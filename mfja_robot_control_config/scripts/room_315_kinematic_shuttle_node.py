@@ -132,7 +132,7 @@ RIGHT_ENTITY_DEFAULTS = {
 }
 
 LEFT_ENTITY_DEFAULTS = {
-    'preloaded_shuttle_count': 0,
+    'preloaded_shuttle_count': 1,
     'gazebo_entity_name': 'room315_left_shuttle_1',
     'entity_name_prefix': 'room315_left_shuttle_',
 }
@@ -222,6 +222,23 @@ VISUAL_SELECTOR_SUFFIX_BY_SIDE = {
 }
 
 PUBLIC_SWITCH_ORDER = ('A1', 'A2', 'A3', 'A4')
+
+LEFT_PUBLIC_SEGMENT_NAME_MAP = {
+    'A1G': 'A3G',
+    'A1S': 'A3S',
+    'A2G': 'A4G',
+    'A2S': 'A4S',
+    'A3G': 'A1G',
+    'A3S': 'A1S',
+    'A4G': 'A2G',
+    'A4S': 'A2S',
+    'A12E': 'A34E',
+    'A12I': 'A34I',
+    'A14': 'A23',
+    'A23': 'A14',
+    'A34E': 'A12E',
+    'A34I': 'A12I',
+}
 
 
 def _canonical_switch_name(name: str) -> str:
@@ -319,6 +336,7 @@ class ManagedShuttle:
     pending_spawn: object | None = None
     last_gazebo_set_pose_time: object | None = None
     gazebo_spawned: bool = False
+    deployed: bool = True
     blocked_by: str | None = None
     collision_distance_m: float | None = None
     enabled: bool = True
@@ -337,6 +355,7 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('path_backend', CUBIC_HERMITE_PATH_BACKEND)
         self.declare_parameter('arc_length_samples_per_edge', 16)
         self.declare_parameter('shuttle_count', 1)
+        self.declare_parameter('start_enabled', False)
         self.declare_parameter('start_slot', 2)
         self.declare_parameter('start_slots', '')
         self.declare_parameter('start_snap_tolerance_m', 0.25)
@@ -415,6 +434,7 @@ class Room315KinematicShuttleNode(Node):
             self.get_parameter('arc_length_samples_per_edge').value
         )
         shuttle_count = int(self.get_parameter('shuttle_count').value)
+        start_enabled = bool(self.get_parameter('start_enabled').value)
         start_slot = self.get_parameter('start_slot').value
         start_slots = str(self.get_parameter('start_slots').value)
         start_snap_tolerance_m = float(
@@ -751,6 +771,8 @@ class Room315KinematicShuttleNode(Node):
                     entity_name=entity_name,
                     slot=slot,
                     speed=speed,
+                    enabled=start_enabled,
+                    deployed=start_enabled,
                     pose_topic_override=pose_topic if shuttle_index == 0 else None,
                 )
             )
@@ -1179,7 +1201,7 @@ class Room315KinematicShuttleNode(Node):
             return 'none'
         return ', '.join(
             f'{shuttle.entity_name}:slot{shuttle.start_slot}:'
-            f'{shuttle.core.state.current_segment}@{shuttle.core.state.s:.3f}:'
+            f'{self._public_segment_name(shuttle.core.state.current_segment)}@{shuttle.core.state.s:.3f}:'
             f'snap={shuttle.start_snap_distance_m:.3f}m'
             for shuttle in self.shuttles
         )
@@ -1189,6 +1211,8 @@ class Room315KinematicShuttleNode(Node):
         entity_name: str,
         slot,
         speed: float,
+        enabled: bool = True,
+        deployed: bool = True,
         pose_topic_override: str | None = None,
     ) -> ManagedShuttle:
         (
@@ -1214,12 +1238,16 @@ class Room315KinematicShuttleNode(Node):
                     current_segment=initial_segment,
                     s=initial_s,
                     speed=speed,
-                    mode=MOVING,
+                    mode=MOVING if enabled and deployed and speed > 0.0 else WAITING,
                 ),
             ),
             pose_publisher=self.create_publisher(PoseStamped, pose_topic, 10),
             last_gazebo_set_pose_time=self.get_clock().now(),
             gazebo_spawned=self._is_preloaded_shuttle_entity(entity_name),
+            deployed=deployed,
+            enabled=enabled,
+            stopped_by=None if deployed else 'NOT_DEPLOYED',
+            stopper_distance_m=None if deployed else 0.0,
         )
 
     def _on_add_shuttle_command(self, message: String) -> None:
@@ -1345,6 +1373,8 @@ class Room315KinematicShuttleNode(Node):
         return f'{self.entity_name_prefix}{index}'
 
     def _request_spawn_if_needed(self, shuttle: ManagedShuttle) -> None:
+        if not shuttle.deployed:
+            return
         if not self.enable_gazebo_spawn:
             return
         if self.spawn_client is None:
@@ -1399,6 +1429,8 @@ class Room315KinematicShuttleNode(Node):
         return factory
 
     def _spawn_ready_for_motion(self, shuttle: ManagedShuttle) -> bool:
+        if not shuttle.deployed:
+            return False
         if shuttle.pending_spawn is None:
             needs_spawn = self.enable_gazebo_spawn and not shuttle.gazebo_spawned
             self._request_spawn_if_needed(shuttle)
@@ -1858,11 +1890,18 @@ class Room315KinematicShuttleNode(Node):
         shuttle.collision_distance_m = None
         if not enabled:
             shuttle.core.state.mode = WAITING
-            shuttle.stopped_by = 'DISABLED'
+            shuttle.stopped_by = 'NOT_DEPLOYED' if not shuttle.deployed else 'DISABLED'
             shuttle.stopper_distance_m = 0.0
             return
 
-        if shuttle.stopped_by == 'DISABLED':
+        if not shuttle.deployed:
+            shuttle.deployed = True
+            shuttle.pending_set_pose = None
+            shuttle.last_gazebo_set_pose_time = None
+            shuttle.stopped_by = None
+            shuttle.stopper_distance_m = None
+
+        if shuttle.stopped_by in {'DISABLED', 'NOT_DEPLOYED'}:
             shuttle.stopped_by = None
             shuttle.stopper_distance_m = None
         if shuttle.core.state.mode in {WAITING, FALLING} and shuttle.core.state.speed > 0.0:
@@ -1909,7 +1948,7 @@ class Room315KinematicShuttleNode(Node):
             shuttle.stopped_by = None
             shuttle.stopper_distance_m = None
         else:
-            shuttle.stopped_by = 'DISABLED'
+            shuttle.stopped_by = 'NOT_DEPLOYED' if not shuttle.deployed else 'DISABLED'
             shuttle.stopper_distance_m = 0.0
 
         self.get_logger().info(
@@ -2026,7 +2065,7 @@ class Room315KinematicShuttleNode(Node):
         if updates:
             self.switch_states.update(updates)
             self.get_logger().info(
-                f'Updated route switch states: {_ordered_switch_states(self.switch_states)}'
+                f'Updated route switch states: {self._public_switch_state_map(self.switch_states)}'
             )
 
         if self.publish_visual_switch_commands and visual_command:
@@ -2257,8 +2296,18 @@ class Room315KinematicShuttleNode(Node):
         occupied_poses = {
             shuttle.entity_name: self._to_gazebo_pose(shuttle.core.pose())
             for shuttle in self.shuttles
+            if shuttle.deployed
         }
         for shuttle in self.shuttles:
+            if not shuttle.deployed:
+                shuttle.blocked_by = None
+                shuttle.collision_distance_m = None
+                shuttle.stopped_by = 'NOT_DEPLOYED'
+                shuttle.stopper_distance_m = 0.0
+                raw_poses.append(shuttle.core.pose())
+                gazebo_poses.append(self._hidden_gazebo_pose(shuttle))
+                continue
+
             if not self._spawn_ready_for_motion(shuttle):
                 pose = shuttle.core.pose()
                 gazebo_pose = self._to_gazebo_pose(pose)
@@ -2282,12 +2331,24 @@ class Room315KinematicShuttleNode(Node):
             if pose.mode == FALLING:
                 self.get_logger().error(
                     f'Shuttle {shuttle.entity_name} entered FALLING mode at '
-                    f'segment={pose.current_segment}, s={pose.s:.3f}'
+                    f'segment={self._public_segment_name(pose.current_segment)}, s={pose.s:.3f}'
                 )
 
         self._publish_state(raw_poses, gazebo_poses)
         self._publish_sensor_state()
         self._publish_position_sensor_state()
+
+    @staticmethod
+    def _hidden_gazebo_pose(shuttle: ManagedShuttle) -> ShuttlePose:
+        return ShuttlePose(
+            x=0.0,
+            y=0.0,
+            z=-10.0,
+            yaw=0.0,
+            current_segment=shuttle.core.state.current_segment,
+            s=shuttle.core.state.s,
+            mode=WAITING,
+        )
 
     def _step_with_motion_guards(
         self,
@@ -2561,6 +2622,8 @@ class Room315KinematicShuttleNode(Node):
     def _sensor_events(self) -> list[dict]:
         events = []
         for shuttle in self.shuttles:
+            if not shuttle.deployed:
+                continue
             state = shuttle.core.state
             for stopper_name, stopper_config in self.stopper_configs.items():
                 for stop_point in stopper_config.stop_points:
@@ -2570,11 +2633,13 @@ class Room315KinematicShuttleNode(Node):
                     if 0.0 <= distance_m <= stop_point.sensor_distance_m:
                         events.append(
                             {
-                                'sensor': f'{stopper_name}_APPROACH',
-                                'stopper': stopper_name,
-                                'before_switch': stopper_config.before_switch,
+                                'sensor': self._public_sensor_name(f'{stopper_name}_APPROACH'),
+                                'stopper': self._public_switch_name(stopper_name),
+                                'before_switch': self._public_switch_name(
+                                    stopper_config.before_switch
+                                ),
                                 'entity_name': shuttle.entity_name,
-                                'segment': _canonical_segment_name(state.current_segment),
+                                'segment': self._public_segment_name(state.current_segment),
                                 'distance_m': distance_m,
                                 'stopper_state': self.stopper_states.get(stopper_name, '0'),
                                 'workflow': 'sensor -> stop shuttle -> move switch -> unstop shuttle',
@@ -2585,6 +2650,8 @@ class Room315KinematicShuttleNode(Node):
     def _position_sensor_events(self) -> list[dict]:
         events = []
         for shuttle in self.shuttles:
+            if not shuttle.deployed:
+                continue
             state = shuttle.core.state
             for sensor_name, sensor_config in self.position_sensor_configs.items():
                 for point in sensor_config.points:
@@ -2595,14 +2662,14 @@ class Room315KinematicShuttleNode(Node):
                         continue
 
                     event = {
-                        'sensor': sensor_name,
+                        'sensor': self._public_sensor_name(sensor_name),
                         'sensor_kind': sensor_config.sensor_kind,
                         'entity_name': shuttle.entity_name,
-                        'segment': _canonical_segment_name(state.current_segment),
+                        'segment': self._public_segment_name(state.current_segment),
                         'distance_m': distance_m,
                     }
                     if sensor_config.switch_name is not None:
-                        event['switch'] = sensor_config.switch_name
+                        event['switch'] = self._public_switch_name(sensor_config.switch_name)
                     if sensor_config.branch_state is not None:
                         event['branch_state'] = sensor_config.branch_state
                     if sensor_config.loop_side is not None:
@@ -2612,7 +2679,9 @@ class Room315KinematicShuttleNode(Node):
                     if sensor_config.start_slot is not None:
                         event['start_slot'] = sensor_config.start_slot
                     if sensor_config.aliases:
-                        event['aliases'] = list(sensor_config.aliases)
+                        event['aliases'] = [
+                            self._public_sensor_name(alias) for alias in sensor_config.aliases
+                        ]
                     events.append(event)
                     break
         return events
@@ -2622,7 +2691,7 @@ class Room315KinematicShuttleNode(Node):
         message.data = json.dumps(
             {
                 'sensors': self._sensor_events(),
-                'stopper_states': self.stopper_states,
+                'stopper_states': self._public_switch_state_map(self.stopper_states),
             },
             sort_keys=True,
         )
@@ -2638,6 +2707,21 @@ class Room315KinematicShuttleNode(Node):
         )
         self.position_sensor_state_publisher.publish(message)
 
+    def _public_switch_name(self, name: str) -> str:
+        return _canonical_switch_name(name)
+
+    def _public_segment_name(self, name: str) -> str:
+        canonical_name = _canonical_segment_name(name)
+        if self.rail_side != 'left':
+            return canonical_name
+        return LEFT_PUBLIC_SEGMENT_NAME_MAP.get(canonical_name, canonical_name)
+
+    def _public_sensor_name(self, name: str) -> str:
+        return _canonical_sensor_name(name)
+
+    def _public_switch_state_map(self, raw_states: Dict[str, str]) -> Dict[str, str]:
+        return _ordered_switch_states(raw_states)
+
     def _publish_state(
         self,
         raw_poses: list[ShuttlePose],
@@ -2646,9 +2730,9 @@ class Room315KinematicShuttleNode(Node):
         shuttles_payload = []
         for shuttle, pose, gazebo_pose in zip(self.shuttles, raw_poses, gazebo_poses):
             pose_payload = asdict(pose)
-            pose_payload['current_segment'] = _canonical_segment_name(pose.current_segment)
+            pose_payload['current_segment'] = self._public_segment_name(pose.current_segment)
             gazebo_pose_payload = asdict(gazebo_pose)
-            gazebo_pose_payload['current_segment'] = _canonical_segment_name(
+            gazebo_pose_payload['current_segment'] = self._public_segment_name(
                 gazebo_pose.current_segment
             )
             shuttles_payload.append(
@@ -2661,6 +2745,7 @@ class Room315KinematicShuttleNode(Node):
                     'stopped_by': shuttle.stopped_by,
                     'stopper_distance_m': shuttle.stopper_distance_m,
                     'gazebo_spawned': shuttle.gazebo_spawned,
+                    'deployed': shuttle.deployed,
                     'gazebo_pose': gazebo_pose_payload,
                     'start_slot': shuttle.start_slot,
                     'start_snap_distance_m': shuttle.start_snap_distance_m,
@@ -2687,11 +2772,11 @@ class Room315KinematicShuttleNode(Node):
             first_pose = raw_poses[0]
             first_gazebo_pose = gazebo_poses[0]
             first_pose_payload = asdict(first_pose)
-            first_pose_payload['current_segment'] = _canonical_segment_name(
+            first_pose_payload['current_segment'] = self._public_segment_name(
                 first_pose.current_segment
             )
             first_gazebo_pose_payload = asdict(first_gazebo_pose)
-            first_gazebo_pose_payload['current_segment'] = _canonical_segment_name(
+            first_gazebo_pose_payload['current_segment'] = self._public_segment_name(
                 first_gazebo_pose.current_segment
             )
             primary_payload.update(first_pose_payload)
@@ -2731,8 +2816,8 @@ class Room315KinematicShuttleNode(Node):
                     'distance_m': self.shuttle_collision_distance_m,
                 },
                 'shuttles': shuttles_payload,
-                'switch_states': _ordered_switch_states(self.switch_states),
-                'stopper_states': self.stopper_states,
+                'switch_states': self._public_switch_state_map(self.switch_states),
+                'stopper_states': self._public_switch_state_map(self.stopper_states),
                 'sensor_events': self._sensor_events(),
                 'position_sensor_events': self._position_sensor_events(),
             },

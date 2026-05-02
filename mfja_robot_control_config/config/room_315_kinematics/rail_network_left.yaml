@@ -65,7 +65,7 @@ position_sensors:
   DZI2L:
     kind: indexing_zone
     index_zone: '1'
-    slot: '1'
+    slot: '2'
     aliases:
     - DZI2
     sensor_distance_m: 0.09
@@ -73,7 +73,7 @@ position_sensors:
   DZI1L:
     kind: indexing_zone
     index_zone: '2'
-    slot: '2'
+    slot: '1'
     aliases:
     - DZI1
     sensor_distance_m: 0.09
@@ -81,7 +81,7 @@ position_sensors:
   DZI4L:
     kind: indexing_zone
     index_zone: '3'
-    slot: '3'
+    slot: '4'
     aliases:
     - DZI4
     sensor_distance_m: 0.09
@@ -89,7 +89,7 @@ position_sensors:
   DZI3L:
     kind: indexing_zone
     index_zone: '4'
-    slot: '4'
+    slot: '3'
     aliases:
     - DZI3
     sensor_distance_m: 0.09
@@ -217,32 +217,32 @@ position_sensors:
 start_slots:
   '1':
     pose:
-    - -10.969823
-    - -3.893879
+    - -10.32
+    - -3.86
     - 0.84
     - 0.0
     - 0.0
     - 3.14
   '2':
     pose:
-    - -10.489496
-    - -3.893629
+    - -10.8
+    - -3.86
     - 0.84
     - 0.0
     - 0.0
     - 3.14
   '3':
     pose:
-    - -10.308294
-    - -5.505291
+    - -10.61
+    - -5.54
     - 0.84
     - 0.0
     - 0.0
     - 0.0
   '4':
     pose:
-    - -10.778613
-    - -5.505535
+    - -10.14
+    - -5.54
     - 0.84
     - 0.0
     - 0.0
