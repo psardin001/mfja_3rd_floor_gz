@@ -222,34 +222,34 @@ and start its motion.
 
 Default first entity names:
 
-- Right rail: `room315_shuttle_1`
+- Right rail: `room315_right_shuttle_1`
 - Left rail: `room315_left_shuttle_1`
 
 Main per-rail topics:
 
 | Purpose | Right rail | Left rail |
 | --- | --- | --- |
-| Shuttle state | `/room_315/shuttle/state` | `/room_315_left/shuttle/state` |
-| Shuttle control | `/room_315/shuttle/control_cmd` | `/room_315_left/shuttle/control_cmd` |
-| Add shuttle | `/room_315/shuttle/add_cmd` | `/room_315_left/shuttle/add_cmd` |
-| Switch commands | `/room_315/switch_states` | `/room_315_left/switch_states` |
-| Stopper commands | `/room_315/stopper_states` | `/room_315_left/stopper_states` |
-| Position sensors | `/room_315/sensors/position` | `/room_315_left/sensors/position` |
-| Approach sensors | `/room_315/sensors/switch_approach` | `/room_315_left/sensors/switch_approach` |
+| Shuttle state | `/room_315_right/shuttle/state` | `/room_315_left/shuttle/state` |
+| Shuttle control | `/room_315_right/shuttle/control_cmd` | `/room_315_left/shuttle/control_cmd` |
+| Add shuttle | `/room_315_right/shuttle/add_cmd` | `/room_315_left/shuttle/add_cmd` |
+| Switch commands | `/room_315_right/switch_states` | `/room_315_left/switch_states` |
+| Stopper commands | `/room_315_right/stopper_states` | `/room_315_left/stopper_states` |
+| Position sensors | `/room_315_right/sensors/position` | `/room_315_left/sensors/position` |
+| Approach sensors | `/room_315_right/sensors/switch_approach` | `/room_315_left/sensors/switch_approach` |
 
 Right rail basic commands:
 
 ```bash
-ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_1=ON'}"
-ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_1=OFF'}"
-ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_1=RESET'}"
-ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_1=REMOVE'}"
-ros2 topic pub --once /room_315/shuttle/add_cmd std_msgs/msg/String "{data: 'entity=room315_shuttle_1 slot=2 speed=0.2'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'ALL=EXTERIOR'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'ALL=INTERIOR'}"
-ros2 topic echo /room_315/shuttle/state
-ros2 topic echo /room_315/sensors/position
-ros2 topic echo /room_315/sensors/switch_approach
+ros2 topic pub --once /room_315_right/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_right_shuttle_1=ON'}"
+ros2 topic pub --once /room_315_right/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_right_shuttle_1=OFF'}"
+ros2 topic pub --once /room_315_right/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_right_shuttle_1=RESET'}"
+ros2 topic pub --once /room_315_right/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_right_shuttle_1=REMOVE'}"
+ros2 topic pub --once /room_315_right/shuttle/add_cmd std_msgs/msg/String "{data: 'entity=room315_right_shuttle_1 slot=2 speed=0.2'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'ALL=EXTERIOR'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'ALL=INTERIOR'}"
+ros2 topic echo /room_315_right/shuttle/state
+ros2 topic echo /room_315_right/sensors/position
+ros2 topic echo /room_315_right/sensors/switch_approach
 ```
 
 Left rail basic commands:
@@ -634,30 +634,30 @@ shuttles can be added later after a start slot becomes free.
 After Gazebo and the shuttle node are running, publish to:
 
 ```text
-/room_315/shuttle/add_cmd
+/room_315_right/shuttle/add_cmd
 ```
 
 Add a shuttle at slot 3:
 
 ```bash
-ros2 topic pub --once /room_315/shuttle/add_cmd std_msgs/msg/String "{data: 'slot=3'}"
+ros2 topic pub --once /room_315_right/shuttle/add_cmd std_msgs/msg/String "{data: 'slot=3'}"
 ```
 
 Add a shuttle with a specific entity name and speed:
 
 ```bash
-ros2 topic pub --once /room_315/shuttle/add_cmd std_msgs/msg/String "{data: 'entity=room315_shuttle_5 slot=3 speed=0.2'}"
+ros2 topic pub --once /room_315_right/shuttle/add_cmd std_msgs/msg/String "{data: 'entity=room315_right_shuttle_5 slot=3 speed=0.2'}"
 ```
 
 Short form:
 
 ```bash
-ros2 topic pub --once /room_315/shuttle/add_cmd std_msgs/msg/String "{data: '4'}"
+ros2 topic pub --once /room_315_right/shuttle/add_cmd std_msgs/msg/String "{data: '4'}"
 ```
 
 Notes:
 
-- `room315_shuttle_1` to `room315_shuttle_4` are preloaded in the worlds.
+- `room315_right_shuttle_1` to `room315_right_shuttle_4` are preloaded in the worlds.
 - Shuttles beyond the preloaded count are spawned through `/world/<world_name>/create`.
 - If the requested start slot is occupied, the node rejects the add command and does not create a new shuttle.
 - A slot is considered occupied when an existing shuttle is within `start_slot_occupancy_radius_m` of that start pose.
@@ -669,7 +669,7 @@ Each shuttle can be independently enabled, disabled, reset to its start slot,
 or removed from Gazebo through:
 
 ```text
-/room_315/shuttle/control_cmd
+/room_315_right/shuttle/control_cmd
 ```
 
 For the left rail, use the same commands on `/room_315_left/shuttle/control_cmd`
@@ -684,46 +684,46 @@ unregisters it from the node.
 Turn one shuttle off:
 
 ```bash
-ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_2=OFF'}"
+ros2 topic pub --once /room_315_right/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_right_shuttle_2=OFF'}"
 ```
 
 Turn it back on:
 
 ```bash
-ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_2=ON'}"
+ros2 topic pub --once /room_315_right/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_right_shuttle_2=ON'}"
 ```
 
 Reset a shuttle after it entered `FALLING`:
 
 ```bash
-ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_2=RESET'}"
+ros2 topic pub --once /room_315_right/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_right_shuttle_2=RESET'}"
 ```
 
 Remove a shuttle completely from the simulation:
 
 ```bash
-ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_shuttle_2=REMOVE'}"
+ros2 topic pub --once /room_315_right/shuttle/control_cmd std_msgs/msg/String "{data: 'room315_right_shuttle_2=REMOVE'}"
 ```
 
 Add the same shuttle back after removal:
 
 ```bash
-ros2 topic pub --once /room_315/shuttle/add_cmd std_msgs/msg/String "{data: 'entity=room315_shuttle_2 slot=2'}"
+ros2 topic pub --once /room_315_right/shuttle/add_cmd std_msgs/msg/String "{data: 'entity=room315_right_shuttle_2 slot=2'}"
 ```
 
 Control all shuttles at once:
 
 ```bash
-ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'ALL=OFF'}"
-ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'ALL=ON'}"
-ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: 'ALL=RESET'}"
+ros2 topic pub --once /room_315_right/shuttle/control_cmd std_msgs/msg/String "{data: 'ALL=OFF'}"
+ros2 topic pub --once /room_315_right/shuttle/control_cmd std_msgs/msg/String "{data: 'ALL=ON'}"
+ros2 topic pub --once /room_315_right/shuttle/control_cmd std_msgs/msg/String "{data: 'ALL=RESET'}"
 ```
 
 JSON form:
 
 ```bash
-ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: '{\"entity\":\"room315_shuttle_3\",\"enabled\":\"OFF\"}'}"
-ros2 topic pub --once /room_315/shuttle/control_cmd std_msgs/msg/String "{data: '{\"entity\":\"room315_shuttle_3\",\"action\":\"RESET\"}'}"
+ros2 topic pub --once /room_315_right/shuttle/control_cmd std_msgs/msg/String "{data: '{\"entity\":\"room315_right_shuttle_3\",\"enabled\":\"OFF\"}'}"
+ros2 topic pub --once /room_315_right/shuttle/control_cmd std_msgs/msg/String "{data: '{\"entity\":\"room315_right_shuttle_3\",\"action\":\"RESET\"}'}"
 ```
 
 ## Stopper Control and Sensor Workflow
@@ -745,38 +745,38 @@ Public stopper labels:
 Stopper commands use:
 
 ```text
-/room_315/stopper_states
+/room_315_right/stopper_states
 ```
 
 Close one stopper:
 
 ```bash
-ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'A1=1'}"
+ros2 topic pub --once /room_315_right/stopper_states std_msgs/msg/String "{data: 'A1=1'}"
 ```
 
 Open one stopper:
 
 ```bash
-ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'A1=0'}"
+ros2 topic pub --once /room_315_right/stopper_states std_msgs/msg/String "{data: 'A1=0'}"
 ```
 
 Close or open all stoppers:
 
 ```bash
-ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'ALL=1'}"
-ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'ALL=0'}"
+ros2 topic pub --once /room_315_right/stopper_states std_msgs/msg/String "{data: 'ALL=1'}"
+ros2 topic pub --once /room_315_right/stopper_states std_msgs/msg/String "{data: 'ALL=0'}"
 ```
 
 The educational sensor workflow is exposed on:
 
 ```text
-/room_315/sensors/switch_approach
+/room_315_right/sensors/switch_approach
 ```
 
 Echo the sensor events:
 
 ```bash
-ros2 topic echo /room_315/sensors/switch_approach
+ros2 topic echo /room_315_right/sensors/switch_approach
 ```
 
 Each message is JSON text. The `sensors` field is a list because multiple
@@ -791,7 +791,7 @@ Example single-shuttle event:
     {
       "before_switch": "A1",
       "distance_m": 0.247,
-      "entity_name": "room315_shuttle_4",
+      "entity_name": "room315_right_shuttle_4",
       "segment": "A14",
       "sensor": "A1_APPROACH",
       "stopper": "A1",
@@ -808,7 +808,7 @@ Example single-shuttle event:
 }
 ```
 
-This means `room315_shuttle_4` is on segment `A14`, approaching switch `A1`,
+This means `room315_right_shuttle_4` is on segment `A14`, approaching switch `A1`,
 and is about `0.247 m` before the A1 stop point. If the printed distance keeps
 decreasing, the shuttle is moving toward that stopper.
 
@@ -820,14 +820,14 @@ Example with two simultaneous sensor events:
     {
       "before_switch": "A3",
       "distance_m": 0.18,
-      "entity_name": "room315_shuttle_2",
+      "entity_name": "room315_right_shuttle_2",
       "segment": "A23",
       "stopper": "A3"
     },
     {
       "before_switch": "A1",
       "distance_m": 0.24,
-      "entity_name": "room315_shuttle_4",
+      "entity_name": "room315_right_shuttle_4",
       "segment": "A14",
       "stopper": "A1"
     }
@@ -848,16 +848,16 @@ The intended manual workflow is:
 Example sequence:
 
 ```bash
-ros2 topic echo /room_315/sensors/switch_approach
-ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'A1=1'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=INTERIOR'}"
-ros2 topic pub --once /room_315/stopper_states std_msgs/msg/String "{data: 'A1=0'}"
+ros2 topic echo /room_315_right/sensors/switch_approach
+ros2 topic pub --once /room_315_right/stopper_states std_msgs/msg/String "{data: 'A1=1'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'A1=INTERIOR'}"
+ros2 topic pub --once /room_315_right/stopper_states std_msgs/msg/String "{data: 'A1=0'}"
 ```
 
 Virtual position detectors are published separately on:
 
 ```text
-/room_315/sensors/position
+/room_315_right/sensors/position
 ```
 
 These detector names follow the same public `A1` to `A4` structure already used
@@ -875,15 +875,15 @@ for switches and stoppers:
 Echo the position detectors:
 
 ```bash
-ros2 topic echo /room_315/sensors/position
+ros2 topic echo /room_315_right/sensors/position
 ```
 
 Typical manual checks:
 
 ```bash
-ros2 topic pub --once /room_315/shuttle/add_cmd std_msgs/msg/String "{data: 'entity=room315_shuttle_1 slot=1 speed=0.05'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'ALL=EXTERIOR'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'ALL=INTERIOR'}"
+ros2 topic pub --once /room_315_right/shuttle/add_cmd std_msgs/msg/String "{data: 'entity=room315_right_shuttle_1 slot=1 speed=0.05'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'ALL=EXTERIOR'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'ALL=INTERIOR'}"
 ```
 
 Expected detector families:
@@ -901,7 +901,7 @@ Example position-detector event:
     {
       "branch_state": "G",
       "distance_m": 0.031,
-      "entity_name": "room315_shuttle_1",
+      "entity_name": "room315_right_shuttle_1",
       "loop_side": "EXTERIOR",
       "segment": "A1G",
       "sensor": "DA1GR",
@@ -938,7 +938,7 @@ You usually do not need to pass these parameters, but they can be overridden:
 Each rail has its own switch-command topic:
 
 ```text
-/room_315/switch_states
+/room_315_right/switch_states
 /room_315_left/switch_states
 ```
 
@@ -959,38 +959,38 @@ prefer the public labels on the rail-specific topic.
 Set all switches to the exterior branch:
 
 ```bash
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'ALL=EXTERIOR'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'ALL=EXTERIOR'}"
 ros2 topic pub --once /room_315_left/switch_states std_msgs/msg/String "{data: 'ALL=EXTERIOR'}"
 ```
 
 Set all switches to the interior branch:
 
 ```bash
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'ALL=INTERIOR'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'ALL=INTERIOR'}"
 ros2 topic pub --once /room_315_left/switch_states std_msgs/msg/String "{data: 'ALL=INTERIOR'}"
 ```
 
 Switch one station on either rail:
 
 ```bash
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=EXTERIOR'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=INTERIOR'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'A1=EXTERIOR'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'A1=INTERIOR'}"
 ros2 topic pub --once /room_315_left/switch_states std_msgs/msg/String "{data: 'A1=EXTERIOR'}"
 ros2 topic pub --once /room_315_left/switch_states std_msgs/msg/String "{data: 'A1=INTERIOR'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A2=EXTERIOR'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A2=INTERIOR'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A3=EXTERIOR'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A3=INTERIOR'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A4=EXTERIOR'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A4=INTERIOR'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'A2=EXTERIOR'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'A2=INTERIOR'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'A3=EXTERIOR'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'A3=INTERIOR'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'A4=EXTERIOR'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'A4=INTERIOR'}"
 ```
 
 Use explicit visual selectors only when you intentionally want the right/left
 selector form on the matching rail topic:
 
 ```bash
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1R=EXTERIOR'}"
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1R=INTERIOR'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'A1R=EXTERIOR'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'A1R=INTERIOR'}"
 ros2 topic pub --once /room_315_left/switch_states std_msgs/msg/String "{data: 'A1L=EXTERIOR'}"
 ros2 topic pub --once /room_315_left/switch_states std_msgs/msg/String "{data: 'A1L=INTERIOR'}"
 ```
@@ -998,11 +998,11 @@ ros2 topic pub --once /room_315_left/switch_states std_msgs/msg/String "{data: '
 Send multiple updates in one command:
 
 ```bash
-ros2 topic pub --once /room_315/switch_states std_msgs/msg/String "{data: 'A1=INTERIOR A2=EXTERIOR A3=INTERIOR A4=EXTERIOR'}"
+ros2 topic pub --once /room_315_right/switch_states std_msgs/msg/String "{data: 'A1=INTERIOR A2=EXTERIOR A3=INTERIOR A4=EXTERIOR'}"
 ros2 topic pub --once /room_315_left/switch_states std_msgs/msg/String "{data: 'A1=INTERIOR A2=EXTERIOR A3=INTERIOR A4=EXTERIOR'}"
 ```
 
-Always prefer the rail-specific `/room_315/switch_states` or
+Always prefer the rail-specific `/room_315_right/switch_states` or
 `/room_315_left/switch_states` topic. It updates the route logic and also
 publishes visual switch commands to Gazebo.
 
@@ -1021,17 +1021,17 @@ The current CSV files are already calibrated, so offset and scale should normall
 be `1.0` and `0.0`. For runtime testing, publish to:
 
 ```text
-/room_315/shuttle/pose_offset_cmd
+/room_315_right/shuttle/pose_offset_cmd
 ```
 
 Examples:
 
 ```bash
-ros2 topic pub --once /room_315/shuttle/pose_offset_cmd std_msgs/msg/String "{data: 'dx=0.01'}"
-ros2 topic pub --once /room_315/shuttle/pose_offset_cmd std_msgs/msg/String "{data: 'dy=-0.02'}"
-ros2 topic pub --once /room_315/shuttle/pose_offset_cmd std_msgs/msg/String "{data: 'x=0.0 y=0.0 z=0.0'}"
-ros2 topic pub --once /room_315/shuttle/pose_offset_cmd std_msgs/msg/String "{data: 'sx=1.0 sy=1.0'}"
-ros2 topic pub --once /room_315/shuttle/pose_offset_cmd std_msgs/msg/String "{data: 'reset'}"
+ros2 topic pub --once /room_315_right/shuttle/pose_offset_cmd std_msgs/msg/String "{data: 'dx=0.01'}"
+ros2 topic pub --once /room_315_right/shuttle/pose_offset_cmd std_msgs/msg/String "{data: 'dy=-0.02'}"
+ros2 topic pub --once /room_315_right/shuttle/pose_offset_cmd std_msgs/msg/String "{data: 'x=0.0 y=0.0 z=0.0'}"
+ros2 topic pub --once /room_315_right/shuttle/pose_offset_cmd std_msgs/msg/String "{data: 'sx=1.0 sy=1.0'}"
+ros2 topic pub --once /room_315_right/shuttle/pose_offset_cmd std_msgs/msg/String "{data: 'reset'}"
 ```
 
 ## State and Debug Topics
@@ -1039,25 +1039,25 @@ ros2 topic pub --once /room_315/shuttle/pose_offset_cmd std_msgs/msg/String "{da
 State topic:
 
 ```bash
-ros2 topic echo /room_315/shuttle/state --once
+ros2 topic echo /room_315_right/shuttle/state --once
 ```
 
 Approach sensor events:
 
 ```bash
-ros2 topic echo /room_315/sensors/switch_approach --once
+ros2 topic echo /room_315_right/sensors/switch_approach --once
 ```
 
 First shuttle pose:
 
 ```bash
-ros2 topic echo /room_315/shuttle/pose_cmd --once
+ros2 topic echo /room_315_right/shuttle/pose_cmd --once
 ```
 
 Specific shuttle pose:
 
 ```bash
-ros2 topic echo /room_315/shuttles/room315_shuttle_3/pose_cmd --once
+ros2 topic echo /room_315_right/shuttles/room315_right_shuttle_3/pose_cmd --once
 ```
 
 Visual switch state:
@@ -1118,7 +1118,7 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
 | `start_slot` | `2` | Start slot for a single shuttle. |
 | `start_slots` | empty | Comma-separated start slots for multiple shuttles, for example `1,2,3,4`. |
 | `shuttle_count` | `1` | Initial shuttle count. |
-| `gazebo_entity_name` | `room315_shuttle_1` | Gazebo entity name for a single shuttle on the right rail. The left rail default is `room315_left_shuttle_1`. |
+| `gazebo_entity_name` | `room315_right_shuttle_1` | Gazebo entity name for a single shuttle on the right rail. The left rail default is `room315_left_shuttle_1`. |
 | `gazebo_entity_names` | empty | Comma-separated names for multiple shuttles. |
 | `preloaded_shuttle_count` | `4` | Number of shuttle models already present in the world on the right rail. The left rail currently preloads `1`. |
 | `reject_occupied_start_slots` | `true` | Reject runtime add commands when the requested start slot is occupied. |
@@ -1130,14 +1130,14 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
 | `arc_length_samples_per_edge` | `16` | Sub-samples per CSV edge used to parameterize the continuous path by arc length. |
 | `enable_collision_avoidance` | `true` | Stop before center-distance collision. |
 | `shuttle_collision_distance_m` | `0.33` | Minimum allowed center distance between shuttles. |
-| `switch_command_topic` | `/room_315/switch_states` | Route and visual switch command topic for the right rail. The left rail default is `/room_315_left/switch_states`. |
-| `stopper_command_topic` | `/room_315/stopper_states` | Independent binary stopper command topic for the right rail. The left rail default is `/room_315_left/stopper_states`. |
-| `sensor_state_topic` | `/room_315/sensors/switch_approach` | Approach-event topic for the right rail. The left rail default is `/room_315_left/sensors/switch_approach`. |
-| `position_sensor_state_topic` | `/room_315/sensors/position` | Position-detector topic for `DZI*R` and `DA*R` on the right rail. The left rail default is `/room_315_left/sensors/position` for `DZI*L` and `DA*L`. |
-| `add_shuttle_command_topic` | `/room_315/shuttle/add_cmd` | Runtime shuttle add command topic for the right rail. The left rail default is `/room_315_left/shuttle/add_cmd`. |
-| `shuttle_control_command_topic` | `/room_315/shuttle/control_cmd` | Per-shuttle ON/OFF/RESET/REMOVE control topic for the right rail. The left rail default is `/room_315_left/shuttle/control_cmd`. |
-| `state_topic` | `/room_315/shuttle/state` | Combined shuttle state topic for the right rail. The left rail default is `/room_315_left/shuttle/state`. |
-| `pose_offset_command_topic` | `/room_315/shuttle/pose_offset_cmd` | Runtime pose calibration topic for the right rail. The left rail default is `/room_315_left/shuttle/pose_offset_cmd`. |
+| `switch_command_topic` | `/room_315_right/switch_states` | Route and visual switch command topic for the right rail. The left rail default is `/room_315_left/switch_states`. |
+| `stopper_command_topic` | `/room_315_right/stopper_states` | Independent binary stopper command topic for the right rail. The left rail default is `/room_315_left/stopper_states`. |
+| `sensor_state_topic` | `/room_315_right/sensors/switch_approach` | Approach-event topic for the right rail. The left rail default is `/room_315_left/sensors/switch_approach`. |
+| `position_sensor_state_topic` | `/room_315_right/sensors/position` | Position-detector topic for `DZI*R` and `DA*R` on the right rail. The left rail default is `/room_315_left/sensors/position` for `DZI*L` and `DA*L`. |
+| `add_shuttle_command_topic` | `/room_315_right/shuttle/add_cmd` | Runtime shuttle add command topic for the right rail. The left rail default is `/room_315_left/shuttle/add_cmd`. |
+| `shuttle_control_command_topic` | `/room_315_right/shuttle/control_cmd` | Per-shuttle ON/OFF/RESET/REMOVE control topic for the right rail. The left rail default is `/room_315_left/shuttle/control_cmd`. |
+| `state_topic` | `/room_315_right/shuttle/state` | Combined shuttle state topic for the right rail. The left rail default is `/room_315_left/shuttle/state`. |
+| `pose_offset_command_topic` | `/room_315_right/shuttle/pose_offset_cmd` | Runtime pose calibration topic for the right rail. The left rail default is `/room_315_left/shuttle/pose_offset_cmd`. |
 | `publish_visual_switch_commands` | `true` | Also move the visible Gazebo switch models. |
 | `sync_from_visual_switch_states` | `true` | Sync route logic from the latest visual switch state. |
 
@@ -1151,7 +1151,7 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
 - If an add command is rejected, check whether another shuttle is still inside `start_slot_occupancy_radius_m` of that slot.
 - If the rail path was edited, run `room_315_csv_preprocessor.py`, `room_315_network_validator.py`, and `room_315_continuous_path_validator.py` before testing in Gazebo.
 - If you need to compare the continuous path against the measured CSV path, rerun the shuttle node with `-p path_backend:=polyline`.
-- If a shuttle stops with `stopped_by` set to a stopper name, open that stopper with `/room_315/stopper_states`.
+- If a shuttle stops with `stopped_by` set to a stopper name, open that stopper with `/room_315_right/stopper_states`.
 - If a shuttle stops in `WAITING`, it is likely blocked by another shuttle within `shuttle_collision_distance_m`.
-- If a shuttle enters `FALLING`, the graph has no valid successor for the current switch configuration. Reset it with `/room_315/shuttle/control_cmd`, for example `room315_shuttle_2=RESET`.
-- If a switch moves visually but the shuttle route does not change, send commands to `/room_315/switch_states`, not directly to `/mfja/conveyor/switch_cmd`.
+- If a shuttle enters `FALLING`, the graph has no valid successor for the current switch configuration. Reset it with `/room_315_right/shuttle/control_cmd`, for example `room315_right_shuttle_2=RESET`.
+- If a switch moves visually but the shuttle route does not change, send commands to `/room_315_right/switch_states`, not directly to `/mfja/conveyor/switch_cmd`.
