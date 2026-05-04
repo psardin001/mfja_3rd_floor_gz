@@ -53,6 +53,10 @@ def _default_network_path() -> Path:
         )
 
 
+def _default_left_network_path() -> Path:
+    return _default_network_path().with_name('rail_network_left.yaml')
+
+
 def _default_shuttle_model_sdf_path() -> Path:
     try:
         from ament_index_python.packages import get_package_share_directory
@@ -95,102 +99,169 @@ ALLOWED_START_POSES = {
     '4': AllowedStartPose(-15.24, -5.54, 0.84, 0.0, 0.0, 0.0),
 }
 
+RIGHT_TOPIC_DEFAULTS = {
+    'pose_topic': '/room_315/shuttle/pose_cmd',
+    'pose_topic_prefix': '/room_315/shuttles',
+    'state_topic': '/room_315/shuttle/state',
+    'add_shuttle_command_topic': '/room_315/shuttle/add_cmd',
+    'shuttle_control_command_topic': '/room_315/shuttle/control_cmd',
+    'switch_command_topic': '/room_315/switch_states',
+    'stopper_command_topic': '/room_315/stopper_states',
+    'sensor_state_topic': '/room_315/sensors/switch_approach',
+    'position_sensor_state_topic': '/room_315/sensors/position',
+    'pose_offset_command_topic': '/room_315/shuttle/pose_offset_cmd',
+}
+
+LEFT_TOPIC_DEFAULTS = {
+    'pose_topic': '/room_315_left/shuttle/pose_cmd',
+    'pose_topic_prefix': '/room_315_left/shuttles',
+    'state_topic': '/room_315_left/shuttle/state',
+    'add_shuttle_command_topic': '/room_315_left/shuttle/add_cmd',
+    'shuttle_control_command_topic': '/room_315_left/shuttle/control_cmd',
+    'switch_command_topic': '/room_315_left/switch_states',
+    'stopper_command_topic': '/room_315_left/stopper_states',
+    'sensor_state_topic': '/room_315_left/sensors/switch_approach',
+    'position_sensor_state_topic': '/room_315_left/sensors/position',
+    'pose_offset_command_topic': '/room_315_left/shuttle/pose_offset_cmd',
+}
+
+RIGHT_ENTITY_DEFAULTS = {
+    'preloaded_shuttle_count': 4,
+    'gazebo_entity_name': 'room315_shuttle_1',
+    'entity_name_prefix': 'room315_shuttle_',
+}
+
+LEFT_ENTITY_DEFAULTS = {
+    'preloaded_shuttle_count': 1,
+    'gazebo_entity_name': 'room315_left_shuttle_1',
+    'entity_name_prefix': 'room315_left_shuttle_',
+}
+
+RIGHT_CALIBRATION_DEFAULTS = {
+    'pose_transform_a': -0.893249246800,
+    'pose_transform_b': 0.005839516878,
+    'pose_transform_tx': -26.921427375871,
+    'pose_transform_c': 0.001889497475,
+    'pose_transform_d': 1.308619216904,
+    'pose_transform_ty': 0.666926143808,
+    'pose_transform_z_offset': 0.0,
+    'pose_transform_yaw_offset': 0.0,
+    'pose_scale_x': 1.0,
+    'pose_scale_y': 1.0,
+    'pose_scale_origin_x': -15.855195431322,
+    'pose_scale_origin_y': -4.525523413467,
+    'pose_rotation_deg': 0.0,
+    'pose_rotation_origin_x': -15.855195431322,
+    'pose_rotation_origin_y': -4.525523413467,
+    'pose_offset_x': 0.0,
+    'pose_offset_y': 0.0,
+    'pose_offset_z': 0.0,
+}
+
+LEFT_CALIBRATION_DEFAULTS = {
+    'pose_transform_a': -0.8938584503560025,
+    'pose_transform_b': 0.005001975618640809,
+    'pose_transform_tx': -22.47198317328330,
+    'pose_transform_c': 0.001348127530438647,
+    'pose_transform_d': 1.255463611604302,
+    'pose_transform_ty': 0.4431777232193935,
+    'pose_transform_z_offset': 0.0,
+    'pose_transform_yaw_offset': 0.0,
+    'pose_scale_x': 0.98,
+    'pose_scale_y': 1.041,
+    'pose_scale_origin_x': -10.6365565,
+    'pose_scale_origin_y': -4.6995835,
+    'pose_rotation_deg': 180.0,
+    'pose_rotation_origin_x': -10.6365565,
+    'pose_rotation_origin_y': -4.6995835,
+    'pose_offset_x': 0.14,
+    'pose_offset_y': 0.0,
+    'pose_offset_z': 0.0,
+}
+
 
 VISUAL_SWITCH_SELECTOR_MAP = {
-    'A1R': ('A3', 'right'),
-    'A2R': ('A4', 'right'),
-    'A3R': ('A1', 'right'),
-    'A4R': ('A2', 'right'),
-    'A1L': ('A4', 'left'),
-    'A2L': ('A3', 'left'),
-    'A3L': ('A2', 'left'),
-    'A4L': ('A1', 'left'),
-    'A1_DROIT_SWITCH': ('A3', 'right'),
-    'A2_DROIT_SWITCH': ('A4', 'right'),
-    'A3_DROIT_SWITCH': ('A1', 'right'),
-    'A4_DROIT_SWITCH': ('A2', 'right'),
-    'A1_GAUCHE_SWITCH': ('A4', 'left'),
-    'A2_GAUCHE_SWITCH': ('A3', 'left'),
-    'A3_GAUCHE_SWITCH': ('A2', 'left'),
-    'A4_GAUCHE_SWITCH': ('A1', 'left'),
+    'A1R': ('A1', 'right'),
+    'A2R': ('A2', 'right'),
+    'A3R': ('A3', 'right'),
+    'A4R': ('A4', 'right'),
+    'A1L': ('A1', 'left'),
+    'A2L': ('A2', 'left'),
+    'A3L': ('A3', 'left'),
+    'A4L': ('A4', 'left'),
+    'A1_DROIT_SWITCH': ('A1', 'right'),
+    'A2_DROIT_SWITCH': ('A2', 'right'),
+    'A3_DROIT_SWITCH': ('A3', 'right'),
+    'A4_DROIT_SWITCH': ('A4', 'right'),
+    'A1_GAUCHE_SWITCH': ('A1', 'left'),
+    'A2_GAUCHE_SWITCH': ('A2', 'left'),
+    'A3_GAUCHE_SWITCH': ('A3', 'left'),
+    'A4_GAUCHE_SWITCH': ('A4', 'left'),
 }
 RIGHT_VISUAL_SWITCH_SELECTOR_MAP = {
     selector_name: station
     for selector_name, (station, side) in VISUAL_SWITCH_SELECTOR_MAP.items()
     if side == 'right'
 }
-LEFT_VISUAL_SWITCH_SELECTORS = {
-    selector_name
-    for selector_name, (_station, side) in VISUAL_SWITCH_SELECTOR_MAP.items()
+LEFT_VISUAL_SWITCH_SELECTOR_MAP = {
+    selector_name: station
+    for selector_name, (station, side) in VISUAL_SWITCH_SELECTOR_MAP.items()
     if side == 'left'
 }
+VISUAL_SWITCH_SELECTOR_MAP_BY_SIDE = {
+    'right': RIGHT_VISUAL_SWITCH_SELECTOR_MAP,
+    'left': LEFT_VISUAL_SWITCH_SELECTOR_MAP,
+}
+VISUAL_GROUP_SELECTOR_BY_SIDE = {
+    'right': 'RIGHT',
+    'left': 'LEFT',
+}
+VISUAL_SELECTOR_SUFFIX_BY_SIDE = {
+    'right': 'R',
+    'left': 'L',
+}
 
-LOGICAL_SWITCH_SELECTOR_MAP = {
-    'A1': 'A3',
-    'A2': 'A4',
-    'A3': 'A1',
-    'A4': 'A2',
-}
 PUBLIC_SWITCH_ORDER = ('A1', 'A2', 'A3', 'A4')
-INTERNAL_TO_PUBLIC_SWITCH_MAP = {
-    internal_name: public_name
-    for public_name, internal_name in LOGICAL_SWITCH_SELECTOR_MAP.items()
-}
-PUBLIC_SEGMENT_NAME_MAP = {
+
+LEFT_PUBLIC_SEGMENT_NAME_MAP = {
     'A1G': 'A3G',
-    'A2G': 'A4G',
-    'A3G': 'A1G',
-    'A4G': 'A2G',
     'A1S': 'A3S',
+    'A2G': 'A4G',
     'A2S': 'A4S',
+    'A3G': 'A1G',
     'A3S': 'A1S',
+    'A4G': 'A2G',
     'A4S': 'A2S',
-    'A23': 'A14',
-    'A14': 'A23',
-    'A34E': 'A12E',
-    'A34I': 'A12I',
     'A12E': 'A34E',
     'A12I': 'A34I',
+    'A14': 'A23',
+    'A23': 'A14',
+    'A34E': 'A12E',
+    'A34I': 'A12I',
 }
 
 
-def _public_switch_name(name: str) -> str:
-    normalized_name = str(name).strip().upper()
-    return INTERNAL_TO_PUBLIC_SWITCH_MAP.get(normalized_name, normalized_name)
+def _canonical_switch_name(name: str) -> str:
+    return str(name).strip().upper()
 
 
-def _public_segment_name(name: str) -> str:
-    normalized_name = str(name).strip().upper()
-    return PUBLIC_SEGMENT_NAME_MAP.get(normalized_name, normalized_name)
+def _canonical_segment_name(name: str) -> str:
+    return str(name).strip().upper()
 
 
-def _public_sensor_name(name: str) -> str:
-    normalized_name = str(name).strip().upper()
+def _canonical_sensor_name(name: str) -> str:
+    return str(name).strip().upper()
 
-    if normalized_name == 'DZI1R':
-        return 'DZI2R'
-    if normalized_name == 'DZI2R':
-        return 'DZI1R'
-    if normalized_name == 'DZI1':
-        return 'DZI2'
-    if normalized_name == 'DZI2':
-        return 'DZI1'
-    if normalized_name == 'DZI3R':
-        return 'DZI4R'
-    if normalized_name == 'DZI4R':
-        return 'DZI3R'
-    if normalized_name == 'DZI3':
-        return 'DZI4'
-    if normalized_name == 'DZI4':
-        return 'DZI3'
 
-    da_match = re.fullmatch(r'(DA)([1-4])(.*)', normalized_name)
-    if not da_match:
-        return normalized_name
-
-    prefix, switch_index, suffix = da_match.groups()
-    public_switch = _public_switch_name(f'A{switch_index}')
-    return f'{prefix}{public_switch[1:]}{suffix}'
+def _normalize_rail_side(raw_value: str) -> str:
+    side = str(raw_value).strip().lower()
+    if side in {'right', 'r', 'droit'}:
+        return 'right'
+    if side in {'left', 'l', 'gauche'}:
+        return 'left'
+    raise ValueError(
+        f'Unsupported rail_side={raw_value!r}; use right or left.'
+    )
 
 
 def _dedupe_aliases(values: tuple[str, ...]) -> tuple[str, ...]:
@@ -205,17 +276,16 @@ def _dedupe_aliases(values: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(ordered_values)
 
 
-def _public_switch_states(switch_states: Dict[str, str]) -> Dict[str, str]:
+def _ordered_switch_states(switch_states: Dict[str, str]) -> Dict[str, str]:
     ordered: Dict[str, str] = {}
     for switch_name in PUBLIC_SWITCH_ORDER:
-        internal_name = LOGICAL_SWITCH_SELECTOR_MAP[switch_name]
-        if internal_name in switch_states:
-            ordered[switch_name] = switch_states[internal_name]
+        if switch_name in switch_states:
+            ordered[switch_name] = switch_states[switch_name]
 
-    for internal_name, state in switch_states.items():
-        public_name = _public_switch_name(internal_name)
-        if public_name not in ordered:
-            ordered[public_name] = state
+    for switch_name, state in switch_states.items():
+        canonical_name = _canonical_switch_name(switch_name)
+        if canonical_name not in ordered:
+            ordered[canonical_name] = state
     return ordered
 
 
@@ -266,6 +336,7 @@ class ManagedShuttle:
     pending_spawn: object | None = None
     last_gazebo_set_pose_time: object | None = None
     gazebo_spawned: bool = False
+    deployed: bool = True
     blocked_by: str | None = None
     collision_distance_m: float | None = None
     enabled: bool = True
@@ -280,13 +351,15 @@ class Room315KinematicShuttleNode(Node):
         super().__init__('room_315_kinematic_shuttle')
 
         self.declare_parameter('network_yaml', str(_default_network_path()))
+        self.declare_parameter('rail_side', 'right')
         self.declare_parameter('path_backend', CUBIC_HERMITE_PATH_BACKEND)
         self.declare_parameter('arc_length_samples_per_edge', 16)
         self.declare_parameter('shuttle_count', 1)
+        self.declare_parameter('start_enabled', False)
         self.declare_parameter('start_slot', 2)
         self.declare_parameter('start_slots', '')
         self.declare_parameter('start_snap_tolerance_m', 0.25)
-        self.declare_parameter('initial_segment', 'A14')
+        self.declare_parameter('initial_segment', 'A23')
         self.declare_parameter('initial_s', 0.0)
         self.declare_parameter('speed', 0.25)
         self.declare_parameter('update_rate_hz', 30.0)
@@ -320,6 +393,7 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('start_slot_occupancy_radius_m', 0.33)
         self.declare_parameter('gazebo_entity_name', 'room315_shuttle_1')
         self.declare_parameter('gazebo_entity_names', '')
+        self.declare_parameter('entity_name_prefix', 'room315_shuttle_')
         self.declare_parameter('gazebo_set_pose_rate_hz', 10.0)
         self.declare_parameter('publish_visual_switch_commands', True)
         self.declare_parameter('enable_gazebo_pose_transform', True)
@@ -335,16 +409,32 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('pose_scale_y', 1.0)
         self.declare_parameter('pose_scale_origin_x', -15.855195431322)
         self.declare_parameter('pose_scale_origin_y', -4.525523413467)
+        self.declare_parameter('pose_rotation_deg', 0.0)
+        self.declare_parameter('pose_rotation_origin_x', -15.855195431322)
+        self.declare_parameter('pose_rotation_origin_y', -4.525523413467)
         self.declare_parameter('pose_offset_x', 0.0)
         self.declare_parameter('pose_offset_y', 0.0)
         self.declare_parameter('pose_offset_z', 0.0)
 
-        network_path = Path(str(self.get_parameter('network_yaml').value))
+        self.rail_side = _normalize_rail_side(
+            str(self.get_parameter('rail_side').value)
+        )
+        self.active_visual_switch_selector_map = VISUAL_SWITCH_SELECTOR_MAP_BY_SIDE[
+            self.rail_side
+        ]
+        self.active_visual_group_selector = VISUAL_GROUP_SELECTOR_BY_SIDE[self.rail_side]
+        self.active_visual_selector_suffix = VISUAL_SELECTOR_SUFFIX_BY_SIDE[
+            self.rail_side
+        ]
+        network_path = self._side_default_path(
+            Path(str(self.get_parameter('network_yaml').value))
+        )
         path_backend = str(self.get_parameter('path_backend').value)
         arc_length_samples_per_edge = int(
             self.get_parameter('arc_length_samples_per_edge').value
         )
         shuttle_count = int(self.get_parameter('shuttle_count').value)
+        start_enabled = bool(self.get_parameter('start_enabled').value)
         start_slot = self.get_parameter('start_slot').value
         start_slots = str(self.get_parameter('start_slots').value)
         start_snap_tolerance_m = float(
@@ -363,25 +453,65 @@ class Room315KinematicShuttleNode(Node):
         self.collision_search_iterations = int(
             self.get_parameter('collision_search_iterations').value
         )
-        pose_topic = str(self.get_parameter('pose_topic').value)
-        self.pose_topic_prefix = str(
-            self.get_parameter('pose_topic_prefix').value
+        pose_topic = self._side_default_string(
+            str(self.get_parameter('pose_topic').value),
+            'pose_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
+        )
+        self.pose_topic_prefix = self._side_default_string(
+            str(self.get_parameter('pose_topic_prefix').value).rstrip('/'),
+            'pose_topic_prefix',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
         ).rstrip('/')
-        state_topic = str(self.get_parameter('state_topic').value)
-        add_shuttle_command_topic = str(
-            self.get_parameter('add_shuttle_command_topic').value
+        state_topic = self._side_default_string(
+            str(self.get_parameter('state_topic').value),
+            'state_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
         )
-        shuttle_control_command_topic = str(
-            self.get_parameter('shuttle_control_command_topic').value
+        add_shuttle_command_topic = self._side_default_string(
+            str(self.get_parameter('add_shuttle_command_topic').value),
+            'add_shuttle_command_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
         )
-        switch_command_topic = str(self.get_parameter('switch_command_topic').value)
-        stopper_command_topic = str(self.get_parameter('stopper_command_topic').value)
-        sensor_state_topic = str(self.get_parameter('sensor_state_topic').value)
-        position_sensor_state_topic = str(
-            self.get_parameter('position_sensor_state_topic').value
+        shuttle_control_command_topic = self._side_default_string(
+            str(self.get_parameter('shuttle_control_command_topic').value),
+            'shuttle_control_command_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
         )
-        pose_offset_command_topic = str(
-            self.get_parameter('pose_offset_command_topic').value
+        switch_command_topic = self._side_default_string(
+            str(self.get_parameter('switch_command_topic').value),
+            'switch_command_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
+        )
+        stopper_command_topic = self._side_default_string(
+            str(self.get_parameter('stopper_command_topic').value),
+            'stopper_command_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
+        )
+        sensor_state_topic = self._side_default_string(
+            str(self.get_parameter('sensor_state_topic').value),
+            'sensor_state_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
+        )
+        position_sensor_state_topic = self._side_default_string(
+            str(self.get_parameter('position_sensor_state_topic').value),
+            'position_sensor_state_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
+        )
+        pose_offset_command_topic = self._side_default_string(
+            str(self.get_parameter('pose_offset_command_topic').value),
+            'pose_offset_command_topic',
+            right_defaults=RIGHT_TOPIC_DEFAULTS,
+            left_defaults=LEFT_TOPIC_DEFAULTS,
         )
         visual_switch_command_topic = str(
             self.get_parameter('visual_switch_command_topic').value
@@ -412,15 +542,38 @@ class Room315KinematicShuttleNode(Node):
             suffix='remove',
         )
         self.shuttle_model_sdf = Path(str(self.get_parameter('shuttle_model_sdf').value))
-        self.preloaded_shuttle_count = int(self.get_parameter('preloaded_shuttle_count').value)
+        self.preloaded_shuttle_count = int(
+            self._side_default_numeric(
+                int(self.get_parameter('preloaded_shuttle_count').value),
+                'preloaded_shuttle_count',
+                right_defaults=RIGHT_ENTITY_DEFAULTS,
+                left_defaults=LEFT_ENTITY_DEFAULTS,
+            )
+        )
         self.reject_occupied_start_slots = bool(
             self.get_parameter('reject_occupied_start_slots').value
         )
         self.start_slot_occupancy_radius_m = float(
             self.get_parameter('start_slot_occupancy_radius_m').value
         )
-        self.gazebo_entity_name = str(self.get_parameter('gazebo_entity_name').value)
+        self.gazebo_entity_name = self._side_default_string(
+            str(self.get_parameter('gazebo_entity_name').value),
+            'gazebo_entity_name',
+            right_defaults=RIGHT_ENTITY_DEFAULTS,
+            left_defaults=LEFT_ENTITY_DEFAULTS,
+        )
         gazebo_entity_names = str(self.get_parameter('gazebo_entity_names').value)
+        self.entity_name_prefix = self._normalize_entity_name_prefix(
+            self._side_default_string(
+                str(self.get_parameter('entity_name_prefix').value),
+                'entity_name_prefix',
+                right_defaults=RIGHT_ENTITY_DEFAULTS,
+                left_defaults=LEFT_ENTITY_DEFAULTS,
+            )
+        )
+        self.preloaded_entity_pattern = re.compile(
+            rf'^{re.escape(self.entity_name_prefix)}(\d+)$'
+        )
         gazebo_set_pose_rate_hz = float(self.get_parameter('gazebo_set_pose_rate_hz').value)
         self.gazebo_set_pose_period = 1.0 / max(gazebo_set_pose_rate_hz, 1.0)
         self.publish_visual_switch_commands = bool(
@@ -429,25 +582,162 @@ class Room315KinematicShuttleNode(Node):
         self.enable_gazebo_pose_transform = bool(
             self.get_parameter('enable_gazebo_pose_transform').value
         )
-        self.pose_transform_a = float(self.get_parameter('pose_transform_a').value)
-        self.pose_transform_b = float(self.get_parameter('pose_transform_b').value)
-        self.pose_transform_tx = float(self.get_parameter('pose_transform_tx').value)
-        self.pose_transform_c = float(self.get_parameter('pose_transform_c').value)
-        self.pose_transform_d = float(self.get_parameter('pose_transform_d').value)
-        self.pose_transform_ty = float(self.get_parameter('pose_transform_ty').value)
+        self.pose_transform_a = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_a').value),
+                'pose_transform_a',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_transform_b = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_b').value),
+                'pose_transform_b',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_transform_tx = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_tx').value),
+                'pose_transform_tx',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_transform_c = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_c').value),
+                'pose_transform_c',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_transform_d = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_d').value),
+                'pose_transform_d',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_transform_ty = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_ty').value),
+                'pose_transform_ty',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
         self.pose_transform_z_offset = float(
-            self.get_parameter('pose_transform_z_offset').value
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_z_offset').value),
+                'pose_transform_z_offset',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
         )
         self.pose_transform_yaw_offset = float(
-            self.get_parameter('pose_transform_yaw_offset').value
+            self._side_default_numeric(
+                float(self.get_parameter('pose_transform_yaw_offset').value),
+                'pose_transform_yaw_offset',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
         )
-        self.pose_scale_x = float(self.get_parameter('pose_scale_x').value)
-        self.pose_scale_y = float(self.get_parameter('pose_scale_y').value)
-        self.pose_scale_origin_x = float(self.get_parameter('pose_scale_origin_x').value)
-        self.pose_scale_origin_y = float(self.get_parameter('pose_scale_origin_y').value)
-        self.pose_offset_x = float(self.get_parameter('pose_offset_x').value)
-        self.pose_offset_y = float(self.get_parameter('pose_offset_y').value)
-        self.pose_offset_z = float(self.get_parameter('pose_offset_z').value)
+        self.pose_scale_x = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_scale_x').value),
+                'pose_scale_x',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_scale_y = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_scale_y').value),
+                'pose_scale_y',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_scale_origin_x = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_scale_origin_x').value),
+                'pose_scale_origin_x',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_scale_origin_y = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_scale_origin_y').value),
+                'pose_scale_origin_y',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_rotation_deg = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_rotation_deg').value),
+                'pose_rotation_deg',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_rotation_origin_x = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_rotation_origin_x').value),
+                'pose_rotation_origin_x',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_rotation_origin_y = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_rotation_origin_y').value),
+                'pose_rotation_origin_y',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_offset_x = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_offset_x').value),
+                'pose_offset_x',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_offset_y = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_offset_y').value),
+                'pose_offset_y',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_offset_z = float(
+            self._side_default_numeric(
+                float(self.get_parameter('pose_offset_z').value),
+                'pose_offset_z',
+                right_defaults=RIGHT_CALIBRATION_DEFAULTS,
+                left_defaults=LEFT_CALIBRATION_DEFAULTS,
+            )
+        )
+        self.pose_calibration_defaults = {
+            'pose_scale_x': self.pose_scale_x,
+            'pose_scale_y': self.pose_scale_y,
+            'pose_scale_origin_x': self.pose_scale_origin_x,
+            'pose_scale_origin_y': self.pose_scale_origin_y,
+            'pose_rotation_deg': self.pose_rotation_deg,
+            'pose_rotation_origin_x': self.pose_rotation_origin_x,
+            'pose_rotation_origin_y': self.pose_rotation_origin_y,
+            'pose_offset_x': self.pose_offset_x,
+            'pose_offset_y': self.pose_offset_y,
+            'pose_offset_z': self.pose_offset_z,
+        }
         self.start_snap_tolerance_m = start_snap_tolerance_m
         self.default_shuttle_speed = speed
         self.spawn_warning_logged = False
@@ -481,6 +771,8 @@ class Room315KinematicShuttleNode(Node):
                     entity_name=entity_name,
                     slot=slot,
                     speed=speed,
+                    enabled=start_enabled,
+                    deployed=start_enabled,
                     pose_topic_override=pose_topic if shuttle_index == 0 else None,
                 )
             )
@@ -558,7 +850,7 @@ class Room315KinematicShuttleNode(Node):
 
         self.get_logger().info(
             'Room 315 kinematic shuttle started with '
-            f'network={network_path}, path_backend={path_backend}, '
+            f'rail_side={self.rail_side}, network={network_path}, path_backend={path_backend}, '
             f'pose_topic={pose_topic}, '
             f'gazebo_world={self.gazebo_world_name}, '
             f'add_shuttle_topic={add_shuttle_command_topic}, '
@@ -570,6 +862,7 @@ class Room315KinematicShuttleNode(Node):
             f'offset_topic={pose_offset_command_topic}, '
             f'visual_switch_topic={visual_switch_command_topic}, '
             f'visual_switch_state_topic={visual_switch_state_topic}, '
+            f'entity_prefix={self.entity_name_prefix}, '
             f'spawn_service={gazebo_spawn_service}, '
             f'delete_service={gazebo_delete_service}, '
             f'shuttles={self._shuttle_summary()}'
@@ -595,6 +888,46 @@ class Room315KinematicShuttleNode(Node):
             )
         return f'/world/{world_name}/{suffix}'
 
+    @staticmethod
+    def _normalize_entity_name_prefix(raw_value: str) -> str:
+        prefix = str(raw_value).strip()
+        if prefix:
+            return prefix
+        raise ValueError('entity_name_prefix must not be empty.')
+
+    def _side_default_path(self, configured_path: Path) -> Path:
+        if self.rail_side != 'left':
+            return configured_path
+
+        right_default = _default_network_path().resolve()
+        if configured_path.resolve() == right_default:
+            return _default_left_network_path()
+        return configured_path
+
+    def _side_default_string(
+        self,
+        configured_value: str,
+        key: str,
+        *,
+        right_defaults: Dict[str, str],
+        left_defaults: Dict[str, str],
+    ) -> str:
+        if self.rail_side == 'left' and configured_value == right_defaults[key]:
+            return left_defaults[key]
+        return configured_value
+
+    def _side_default_numeric(
+        self,
+        configured_value,
+        key: str,
+        *,
+        right_defaults: Dict[str, float] | Dict[str, int],
+        left_defaults: Dict[str, float] | Dict[str, int],
+    ):
+        if self.rail_side == 'left' and configured_value == right_defaults[key]:
+            return left_defaults[key]
+        return configured_value
+
     def _load_allowed_start_poses(self) -> Dict[str, AllowedStartPose]:
         raw_slots = self.network.config.get('start_slots') or {}
         if not raw_slots:
@@ -619,8 +952,8 @@ class Room315KinematicShuttleNode(Node):
         raw_configs = self.network.config.get('stoppers', {}) or {}
         for raw_name, raw_config in raw_configs.items():
             internal_name = str(raw_name).strip().upper()
-            name = _public_switch_name(internal_name)
-            before_switch = _public_switch_name(
+            name = _canonical_switch_name(internal_name)
+            before_switch = _canonical_switch_name(
                 str(raw_config.get('before_switch', internal_name)).strip().upper()
             )
             default_state = self._normalize_stopper_state(
@@ -756,7 +1089,7 @@ class Room315KinematicShuttleNode(Node):
                 )
 
             internal_name = str(raw_name).strip().upper()
-            name = _public_sensor_name(internal_name)
+            name = _canonical_sensor_name(internal_name)
             branch_state, normalized_loop_side = self._normalize_position_sensor_branch(
                 raw_config.get('branch')
             )
@@ -773,7 +1106,7 @@ class Room315KinematicShuttleNode(Node):
             )
             public_aliases: list[str] = []
             for alias in configured_aliases:
-                public_alias = _public_sensor_name(alias)
+                public_alias = _canonical_sensor_name(alias)
                 if public_alias != name:
                     public_aliases.append(public_alias)
             aliases = _dedupe_aliases(tuple(public_aliases))
@@ -782,7 +1115,7 @@ class Room315KinematicShuttleNode(Node):
                 sensor_kind=str(raw_config.get('kind', 'position')).strip().lower(),
                 points=self._position_sensor_points_from_config(name, raw_config),
                 switch_name=(
-                    _public_switch_name(str(switch_name).strip().upper())
+                    _canonical_switch_name(str(switch_name).strip().upper())
                     if switch_name is not None
                     else None
                 ),
@@ -842,7 +1175,10 @@ class Room315KinematicShuttleNode(Node):
             entity_names = (
                 [default_entity_name]
                 if shuttle_count == 1
-                else [f'room315_shuttle_{index}' for index in range(1, shuttle_count + 1)]
+                else [
+                    self._auto_entity_name(index)
+                    for index in range(1, shuttle_count + 1)
+                ]
             )
         if len(entity_names) != shuttle_count:
             raise ValueError(
@@ -865,7 +1201,7 @@ class Room315KinematicShuttleNode(Node):
             return 'none'
         return ', '.join(
             f'{shuttle.entity_name}:slot{shuttle.start_slot}:'
-            f'{shuttle.core.state.current_segment}@{shuttle.core.state.s:.3f}:'
+            f'{self._public_segment_name(shuttle.core.state.current_segment)}@{shuttle.core.state.s:.3f}:'
             f'snap={shuttle.start_snap_distance_m:.3f}m'
             for shuttle in self.shuttles
         )
@@ -875,6 +1211,8 @@ class Room315KinematicShuttleNode(Node):
         entity_name: str,
         slot,
         speed: float,
+        enabled: bool = True,
+        deployed: bool = True,
         pose_topic_override: str | None = None,
     ) -> ManagedShuttle:
         (
@@ -900,12 +1238,16 @@ class Room315KinematicShuttleNode(Node):
                     current_segment=initial_segment,
                     s=initial_s,
                     speed=speed,
-                    mode=MOVING,
+                    mode=MOVING if enabled and deployed and speed > 0.0 else WAITING,
                 ),
             ),
             pose_publisher=self.create_publisher(PoseStamped, pose_topic, 10),
             last_gazebo_set_pose_time=self.get_clock().now(),
             gazebo_spawned=self._is_preloaded_shuttle_entity(entity_name),
+            deployed=deployed,
+            enabled=enabled,
+            stopped_by=None if deployed else 'NOT_DEPLOYED',
+            stopper_distance_m=None if deployed else 0.0,
         )
 
     def _on_add_shuttle_command(self, message: String) -> None:
@@ -1022,12 +1364,17 @@ class Room315KinematicShuttleNode(Node):
         used_entities.update(self.deleting_entity_names)
         index = 1
         while True:
-            entity_name = f'room315_shuttle_{index}'
+            entity_name = self._auto_entity_name(index)
             if entity_name not in used_entities:
                 return entity_name
             index += 1
 
+    def _auto_entity_name(self, index: int) -> str:
+        return f'{self.entity_name_prefix}{index}'
+
     def _request_spawn_if_needed(self, shuttle: ManagedShuttle) -> None:
+        if not shuttle.deployed:
+            return
         if not self.enable_gazebo_spawn:
             return
         if self.spawn_client is None:
@@ -1056,7 +1403,7 @@ class Room315KinematicShuttleNode(Node):
         self.get_logger().info(f'Requested Gazebo spawn for {shuttle.entity_name}')
 
     def _is_preloaded_shuttle_entity(self, entity_name: str) -> bool:
-        match = re.match(r'^room315_shuttle_(\d+)$', entity_name)
+        match = self.preloaded_entity_pattern.match(entity_name)
         return bool(
             match
             and int(match.group(1)) <= self.preloaded_shuttle_count
@@ -1082,6 +1429,8 @@ class Room315KinematicShuttleNode(Node):
         return factory
 
     def _spawn_ready_for_motion(self, shuttle: ManagedShuttle) -> bool:
+        if not shuttle.deployed:
+            return False
         if shuttle.pending_spawn is None:
             needs_spawn = self.enable_gazebo_spawn and not shuttle.gazebo_spawned
             self._request_spawn_if_needed(shuttle)
@@ -1195,14 +1544,36 @@ class Room315KinematicShuttleNode(Node):
 
         base_x = self.pose_transform_a * x + self.pose_transform_b * y + self.pose_transform_tx
         base_y = self.pose_transform_c * x + self.pose_transform_d * y + self.pose_transform_ty
-        return (
+        scaled_x = (
             self.pose_scale_origin_x
             + (base_x - self.pose_scale_origin_x) * self.pose_scale_x
-            + self.pose_offset_x,
+        )
+        scaled_y = (
             self.pose_scale_origin_y
             + (base_y - self.pose_scale_origin_y) * self.pose_scale_y
-            + self.pose_offset_y,
+        )
+        rotated_x, rotated_y = self._apply_planar_rotation(scaled_x, scaled_y)
+        return (
+            rotated_x + self.pose_offset_x,
+            rotated_y + self.pose_offset_y,
             z + self.pose_transform_z_offset + self.pose_offset_z,
+        )
+
+    def _pose_rotation_rad(self) -> float:
+        return math.radians(self.pose_rotation_deg)
+
+    def _apply_planar_rotation(self, x: float, y: float) -> tuple[float, float]:
+        rotation_rad = self._pose_rotation_rad()
+        if abs(rotation_rad) <= 1e-12:
+            return x, y
+
+        dx = x - self.pose_rotation_origin_x
+        dy = y - self.pose_rotation_origin_y
+        cos_theta = math.cos(rotation_rad)
+        sin_theta = math.sin(rotation_rad)
+        return (
+            self.pose_rotation_origin_x + cos_theta * dx - sin_theta * dy,
+            self.pose_rotation_origin_y + sin_theta * dx + cos_theta * dy,
         )
 
     def _on_pose_offset_command(self, message: String) -> None:
@@ -1226,6 +1597,7 @@ class Room315KinematicShuttleNode(Node):
             'Updated pose calibration: '
             f'scale_x={self.pose_scale_x:.6f}, '
             f'scale_y={self.pose_scale_y:.6f}, '
+            f'rotation_deg={self.pose_rotation_deg:.3f}, '
             f'offset_x={self.pose_offset_x:.4f}, '
             f'offset_y={self.pose_offset_y:.4f}, '
             f'offset_z={self.pose_offset_z:.4f}'
@@ -1237,21 +1609,20 @@ class Room315KinematicShuttleNode(Node):
             raise ValueError('Empty pose offset command')
 
         if command.lower() in {'reset', 'zero', '0'}:
-            return {
-                'pose_scale_x': 1.0,
-                'pose_scale_y': 1.0,
-                'pose_offset_x': 0.0,
-                'pose_offset_y': 0.0,
-                'pose_offset_z': 0.0,
-            }
+            return dict(self.pose_calibration_defaults)
 
         if command.startswith('{'):
             payload = json.loads(command)
             assignments = [(str(key), str(value)) for key, value in payload.items()]
+            reset_requested = False
         else:
             assignments = []
+            reset_requested = False
             for token in re.split(r'[\s,;]+', command.replace(':', '=')):
                 if not token:
+                    continue
+                if token.strip().lower() in {'reset', 'zero', '0'}:
+                    reset_requested = True
                     continue
                 if '=' not in token:
                     raise ValueError(
@@ -1260,13 +1631,47 @@ class Room315KinematicShuttleNode(Node):
                 key, raw_value = token.split('=', 1)
                 assignments.append((key, raw_value))
 
-        next_x = self.pose_offset_x
-        next_y = self.pose_offset_y
-        next_z = self.pose_offset_z
-        next_scale_x = self.pose_scale_x
-        next_scale_y = self.pose_scale_y
-        next_origin_x = self.pose_scale_origin_x
-        next_origin_y = self.pose_scale_origin_y
+        default_calibration = self.pose_calibration_defaults
+        next_x = (
+            default_calibration['pose_offset_x']
+            if reset_requested else self.pose_offset_x
+        )
+        next_y = (
+            default_calibration['pose_offset_y']
+            if reset_requested else self.pose_offset_y
+        )
+        next_z = (
+            default_calibration['pose_offset_z']
+            if reset_requested else self.pose_offset_z
+        )
+        next_scale_x = (
+            default_calibration['pose_scale_x']
+            if reset_requested else self.pose_scale_x
+        )
+        next_scale_y = (
+            default_calibration['pose_scale_y']
+            if reset_requested else self.pose_scale_y
+        )
+        next_origin_x = (
+            default_calibration['pose_scale_origin_x']
+            if reset_requested else self.pose_scale_origin_x
+        )
+        next_origin_y = (
+            default_calibration['pose_scale_origin_y']
+            if reset_requested else self.pose_scale_origin_y
+        )
+        next_rotation_deg = (
+            default_calibration['pose_rotation_deg']
+            if reset_requested else self.pose_rotation_deg
+        )
+        next_rotation_origin_x = (
+            default_calibration['pose_rotation_origin_x']
+            if reset_requested else self.pose_rotation_origin_x
+        )
+        next_rotation_origin_y = (
+            default_calibration['pose_rotation_origin_y']
+            if reset_requested else self.pose_rotation_origin_y
+        )
         for raw_key, raw_value in assignments:
             key = raw_key.strip().lower()
             value = float(raw_value)
@@ -1294,11 +1699,39 @@ class Room315KinematicShuttleNode(Node):
                 next_origin_x = value
             elif key in {'origin_y', 'scale_origin_y', 'pose_scale_origin_y'}:
                 next_origin_y = value
+            elif key in {
+                'rot',
+                'rotation',
+                'rotation_deg',
+                'rot_deg',
+                'deg',
+                'pose_rotation_deg',
+            }:
+                next_rotation_deg = value
+            elif key in {'drot', 'drotation', 'drotation_deg', 'drot_deg', 'ddeg'}:
+                next_rotation_deg += value
+            elif key in {'rotation_rad', 'rot_rad', 'rad', 'pose_rotation_rad'}:
+                next_rotation_deg = math.degrees(value)
+            elif key in {'drotation_rad', 'drot_rad', 'drad'}:
+                next_rotation_deg += math.degrees(value)
+            elif key in {
+                'rot_origin_x',
+                'rotation_origin_x',
+                'pose_rotation_origin_x',
+            }:
+                next_rotation_origin_x = value
+            elif key in {
+                'rot_origin_y',
+                'rotation_origin_y',
+                'pose_rotation_origin_y',
+            }:
+                next_rotation_origin_y = value
             else:
                 raise ValueError(
                     f'Unknown pose calibration key {raw_key!r}; use x/y/z for offsets, '
-                    'dx/dy/dz for incremental offsets, sx/sy for scale, or dsx/dsy '
-                    'for incremental scale.'
+                    'dx/dy/dz for incremental offsets, sx/sy for scale, dsx/dsy '
+                    'for incremental scale, and rot_deg/deg or rot_rad for planar '
+                    'rotation.'
                 )
 
         return {
@@ -1306,6 +1739,9 @@ class Room315KinematicShuttleNode(Node):
             'pose_scale_y': next_scale_y,
             'pose_scale_origin_x': next_origin_x,
             'pose_scale_origin_y': next_origin_y,
+            'pose_rotation_deg': next_rotation_deg,
+            'pose_rotation_origin_x': next_rotation_origin_x,
+            'pose_rotation_origin_y': next_rotation_origin_y,
             'pose_offset_x': next_x,
             'pose_offset_y': next_y,
             'pose_offset_z': next_z,
@@ -1454,11 +1890,18 @@ class Room315KinematicShuttleNode(Node):
         shuttle.collision_distance_m = None
         if not enabled:
             shuttle.core.state.mode = WAITING
-            shuttle.stopped_by = 'DISABLED'
+            shuttle.stopped_by = 'NOT_DEPLOYED' if not shuttle.deployed else 'DISABLED'
             shuttle.stopper_distance_m = 0.0
             return
 
-        if shuttle.stopped_by == 'DISABLED':
+        if not shuttle.deployed:
+            shuttle.deployed = True
+            shuttle.pending_set_pose = None
+            shuttle.last_gazebo_set_pose_time = None
+            shuttle.stopped_by = None
+            shuttle.stopper_distance_m = None
+
+        if shuttle.stopped_by in {'DISABLED', 'NOT_DEPLOYED'}:
             shuttle.stopped_by = None
             shuttle.stopper_distance_m = None
         if shuttle.core.state.mode in {WAITING, FALLING} and shuttle.core.state.speed > 0.0:
@@ -1505,7 +1948,7 @@ class Room315KinematicShuttleNode(Node):
             shuttle.stopped_by = None
             shuttle.stopper_distance_m = None
         else:
-            shuttle.stopped_by = 'DISABLED'
+            shuttle.stopped_by = 'NOT_DEPLOYED' if not shuttle.deployed else 'DISABLED'
             shuttle.stopper_distance_m = 0.0
 
         self.get_logger().info(
@@ -1577,7 +2020,7 @@ class Room315KinematicShuttleNode(Node):
             )
             return
 
-        match = re.match(r'^room315_shuttle_(\d+)$', entity_name)
+        match = self.preloaded_entity_pattern.match(entity_name)
         if match and int(match.group(1)) <= self.preloaded_shuttle_count:
             self.deleted_preloaded_entity_names.add(entity_name)
         self.get_logger().info(f'Gazebo removed {entity_name}.')
@@ -1622,7 +2065,7 @@ class Room315KinematicShuttleNode(Node):
         if updates:
             self.switch_states.update(updates)
             self.get_logger().info(
-                f'Updated route switch states: {_public_switch_states(self.switch_states)}'
+                f'Updated route switch states: {self._public_switch_state_map(self.switch_states)}'
             )
 
         if self.publish_visual_switch_commands and visual_command:
@@ -1645,7 +2088,7 @@ class Room315KinematicShuttleNode(Node):
         if changed:
             self.get_logger().info(
                 'Synced route switch states from visual controller: '
-                f'{_public_switch_states(self.switch_states)}'
+                f'{_ordered_switch_states(self.switch_states)}'
             )
 
     def _parse_visual_switch_state_summary(self, raw_summary: str) -> Dict[str, str]:
@@ -1669,13 +2112,14 @@ class Room315KinematicShuttleNode(Node):
 
         updates: Dict[str, str] = {}
         for station, states_by_side in candidates.items():
-            # The calibrated shuttle path currently follows the droit/right rail set.
-            if 'right' in states_by_side:
-                updates[station] = states_by_side['right']
+            if self.rail_side in states_by_side:
+                updates[station] = states_by_side[self.rail_side]
             elif 'station' in states_by_side:
                 updates[station] = states_by_side['station']
-            elif 'left' in states_by_side:
-                updates[station] = states_by_side['left']
+            else:
+                other_side = 'left' if self.rail_side == 'right' else 'right'
+                if other_side in states_by_side:
+                    updates[station] = states_by_side[other_side]
         return updates
 
     @staticmethod
@@ -1687,14 +2131,15 @@ class Room315KinematicShuttleNode(Node):
         station_match = re.match(r'^(A[1-4])$', name)
         if station_match:
             station = station_match.group(1)
-            return LOGICAL_SWITCH_SELECTOR_MAP.get(station, station), 'station'
+            return station, 'station'
 
         mapped_selector = RIGHT_VISUAL_SWITCH_SELECTOR_MAP.get(name)
         if mapped_selector is not None:
             return mapped_selector, 'right'
 
-        if name in LEFT_VISUAL_SWITCH_SELECTORS:
-            return None, 'left'
+        mapped_selector = LEFT_VISUAL_SWITCH_SELECTOR_MAP.get(name)
+        if mapped_selector is not None:
+            return mapped_selector, 'left'
 
         return None, 'unknown'
 
@@ -1749,34 +2194,35 @@ class Room315KinematicShuttleNode(Node):
         return self.network.normalized_switch_state(state)
 
     def _logic_targets_for_selector(self, selector_name: str) -> list[str]:
-        if selector_name in {'ALL', 'RIGHT'}:
+        if selector_name == 'ALL':
             return sorted(self.network.switches)
-        if selector_name == 'LEFT':
+        if selector_name == self.active_visual_group_selector:
+            return sorted(self.network.switches)
+        if selector_name in {'RIGHT', 'LEFT'}:
             return []
 
         station_match = re.match(r'^(A[1-4])$', selector_name)
         if station_match:
             station = station_match.group(1)
-            return [LOGICAL_SWITCH_SELECTOR_MAP.get(station, station)]
+            return [station]
 
-        mapped_selector = RIGHT_VISUAL_SWITCH_SELECTOR_MAP.get(selector_name)
+        mapped_selector = self.active_visual_switch_selector_map.get(selector_name)
         if mapped_selector is not None:
             return [mapped_selector]
-
-        if selector_name in LEFT_VISUAL_SWITCH_SELECTORS:
-            return []
 
         return []
 
     def _visual_selector_for_selector(self, selector_name: str) -> str | None:
-        if selector_name in {'ALL', 'RIGHT', 'LEFT'}:
-            return selector_name
+        if selector_name == 'ALL':
+            return self.active_visual_group_selector
+        if selector_name in {'RIGHT', 'LEFT'}:
+            return selector_name if selector_name == self.active_visual_group_selector else None
 
         station_match = re.match(r'^(A[1-4])$', selector_name)
         if station_match:
-            return selector_name
+            return f'{station_match.group(1)}{self.active_visual_selector_suffix}'
 
-        if selector_name in VISUAL_SWITCH_SELECTOR_MAP:
+        if selector_name in self.active_visual_switch_selector_map:
             return selector_name
 
         return None
@@ -1799,6 +2245,9 @@ class Room315KinematicShuttleNode(Node):
             'pose_scale_y',
             'pose_scale_origin_x',
             'pose_scale_origin_y',
+            'pose_rotation_deg',
+            'pose_rotation_origin_x',
+            'pose_rotation_origin_y',
             'pose_offset_x',
             'pose_offset_y',
             'pose_offset_z',
@@ -1847,8 +2296,18 @@ class Room315KinematicShuttleNode(Node):
         occupied_poses = {
             shuttle.entity_name: self._to_gazebo_pose(shuttle.core.pose())
             for shuttle in self.shuttles
+            if shuttle.deployed
         }
         for shuttle in self.shuttles:
+            if not shuttle.deployed:
+                shuttle.blocked_by = None
+                shuttle.collision_distance_m = None
+                shuttle.stopped_by = 'NOT_DEPLOYED'
+                shuttle.stopper_distance_m = 0.0
+                raw_poses.append(shuttle.core.pose())
+                gazebo_poses.append(self._hidden_gazebo_pose(shuttle))
+                continue
+
             if not self._spawn_ready_for_motion(shuttle):
                 pose = shuttle.core.pose()
                 gazebo_pose = self._to_gazebo_pose(pose)
@@ -1872,12 +2331,24 @@ class Room315KinematicShuttleNode(Node):
             if pose.mode == FALLING:
                 self.get_logger().error(
                     f'Shuttle {shuttle.entity_name} entered FALLING mode at '
-                    f'segment={pose.current_segment}, s={pose.s:.3f}'
+                    f'segment={self._public_segment_name(pose.current_segment)}, s={pose.s:.3f}'
                 )
 
         self._publish_state(raw_poses, gazebo_poses)
         self._publish_sensor_state()
         self._publish_position_sensor_state()
+
+    @staticmethod
+    def _hidden_gazebo_pose(shuttle: ManagedShuttle) -> ShuttlePose:
+        return ShuttlePose(
+            x=0.0,
+            y=0.0,
+            z=-10.0,
+            yaw=0.0,
+            current_segment=shuttle.core.state.current_segment,
+            s=shuttle.core.state.s,
+            mode=WAITING,
+        )
 
     def _step_with_motion_guards(
         self,
@@ -2067,13 +2538,14 @@ class Room315KinematicShuttleNode(Node):
         x = (
             self.pose_scale_origin_x
             + (base_x - self.pose_scale_origin_x) * self.pose_scale_x
-            + self.pose_offset_x
         )
         y = (
             self.pose_scale_origin_y
             + (base_y - self.pose_scale_origin_y) * self.pose_scale_y
-            + self.pose_offset_y
         )
+        x, y = self._apply_planar_rotation(x, y)
+        x += self.pose_offset_x
+        y += self.pose_offset_y
 
         raw_direction_x = math.cos(pose.yaw)
         raw_direction_y = math.sin(pose.yaw)
@@ -2089,6 +2561,7 @@ class Room315KinematicShuttleNode(Node):
             transformed_direction_y * self.pose_scale_y,
             transformed_direction_x * self.pose_scale_x,
         )
+        yaw += self._pose_rotation_rad()
         yaw += self.pose_transform_yaw_offset
 
         return ShuttlePose(
@@ -2149,6 +2622,8 @@ class Room315KinematicShuttleNode(Node):
     def _sensor_events(self) -> list[dict]:
         events = []
         for shuttle in self.shuttles:
+            if not shuttle.deployed:
+                continue
             state = shuttle.core.state
             for stopper_name, stopper_config in self.stopper_configs.items():
                 for stop_point in stopper_config.stop_points:
@@ -2158,11 +2633,13 @@ class Room315KinematicShuttleNode(Node):
                     if 0.0 <= distance_m <= stop_point.sensor_distance_m:
                         events.append(
                             {
-                                'sensor': f'{stopper_name}_APPROACH',
-                                'stopper': stopper_name,
-                                'before_switch': stopper_config.before_switch,
+                                'sensor': self._public_sensor_name(f'{stopper_name}_APPROACH'),
+                                'stopper': self._public_switch_name(stopper_name),
+                                'before_switch': self._public_switch_name(
+                                    stopper_config.before_switch
+                                ),
                                 'entity_name': shuttle.entity_name,
-                                'segment': _public_segment_name(state.current_segment),
+                                'segment': self._public_segment_name(state.current_segment),
                                 'distance_m': distance_m,
                                 'stopper_state': self.stopper_states.get(stopper_name, '0'),
                                 'workflow': 'sensor -> stop shuttle -> move switch -> unstop shuttle',
@@ -2173,6 +2650,8 @@ class Room315KinematicShuttleNode(Node):
     def _position_sensor_events(self) -> list[dict]:
         events = []
         for shuttle in self.shuttles:
+            if not shuttle.deployed:
+                continue
             state = shuttle.core.state
             for sensor_name, sensor_config in self.position_sensor_configs.items():
                 for point in sensor_config.points:
@@ -2183,14 +2662,14 @@ class Room315KinematicShuttleNode(Node):
                         continue
 
                     event = {
-                        'sensor': sensor_name,
+                        'sensor': self._public_sensor_name(sensor_name),
                         'sensor_kind': sensor_config.sensor_kind,
                         'entity_name': shuttle.entity_name,
-                        'segment': _public_segment_name(state.current_segment),
+                        'segment': self._public_segment_name(state.current_segment),
                         'distance_m': distance_m,
                     }
                     if sensor_config.switch_name is not None:
-                        event['switch'] = sensor_config.switch_name
+                        event['switch'] = self._public_switch_name(sensor_config.switch_name)
                     if sensor_config.branch_state is not None:
                         event['branch_state'] = sensor_config.branch_state
                     if sensor_config.loop_side is not None:
@@ -2200,7 +2679,9 @@ class Room315KinematicShuttleNode(Node):
                     if sensor_config.start_slot is not None:
                         event['start_slot'] = sensor_config.start_slot
                     if sensor_config.aliases:
-                        event['aliases'] = list(sensor_config.aliases)
+                        event['aliases'] = [
+                            self._public_sensor_name(alias) for alias in sensor_config.aliases
+                        ]
                     events.append(event)
                     break
         return events
@@ -2210,7 +2691,7 @@ class Room315KinematicShuttleNode(Node):
         message.data = json.dumps(
             {
                 'sensors': self._sensor_events(),
-                'stopper_states': self.stopper_states,
+                'stopper_states': self._public_switch_state_map(self.stopper_states),
             },
             sort_keys=True,
         )
@@ -2226,6 +2707,21 @@ class Room315KinematicShuttleNode(Node):
         )
         self.position_sensor_state_publisher.publish(message)
 
+    def _public_switch_name(self, name: str) -> str:
+        return _canonical_switch_name(name)
+
+    def _public_segment_name(self, name: str) -> str:
+        canonical_name = _canonical_segment_name(name)
+        if self.rail_side != 'left':
+            return canonical_name
+        return LEFT_PUBLIC_SEGMENT_NAME_MAP.get(canonical_name, canonical_name)
+
+    def _public_sensor_name(self, name: str) -> str:
+        return _canonical_sensor_name(name)
+
+    def _public_switch_state_map(self, raw_states: Dict[str, str]) -> Dict[str, str]:
+        return _ordered_switch_states(raw_states)
+
     def _publish_state(
         self,
         raw_poses: list[ShuttlePose],
@@ -2234,9 +2730,9 @@ class Room315KinematicShuttleNode(Node):
         shuttles_payload = []
         for shuttle, pose, gazebo_pose in zip(self.shuttles, raw_poses, gazebo_poses):
             pose_payload = asdict(pose)
-            pose_payload['current_segment'] = _public_segment_name(pose.current_segment)
+            pose_payload['current_segment'] = self._public_segment_name(pose.current_segment)
             gazebo_pose_payload = asdict(gazebo_pose)
-            gazebo_pose_payload['current_segment'] = _public_segment_name(
+            gazebo_pose_payload['current_segment'] = self._public_segment_name(
                 gazebo_pose.current_segment
             )
             shuttles_payload.append(
@@ -2249,6 +2745,7 @@ class Room315KinematicShuttleNode(Node):
                     'stopped_by': shuttle.stopped_by,
                     'stopper_distance_m': shuttle.stopper_distance_m,
                     'gazebo_spawned': shuttle.gazebo_spawned,
+                    'deployed': shuttle.deployed,
                     'gazebo_pose': gazebo_pose_payload,
                     'start_slot': shuttle.start_slot,
                     'start_snap_distance_m': shuttle.start_snap_distance_m,
@@ -2275,11 +2772,11 @@ class Room315KinematicShuttleNode(Node):
             first_pose = raw_poses[0]
             first_gazebo_pose = gazebo_poses[0]
             first_pose_payload = asdict(first_pose)
-            first_pose_payload['current_segment'] = _public_segment_name(
+            first_pose_payload['current_segment'] = self._public_segment_name(
                 first_pose.current_segment
             )
             first_gazebo_pose_payload = asdict(first_gazebo_pose)
-            first_gazebo_pose_payload['current_segment'] = _public_segment_name(
+            first_gazebo_pose_payload['current_segment'] = self._public_segment_name(
                 first_gazebo_pose.current_segment
             )
             primary_payload.update(first_pose_payload)
@@ -2308,14 +2805,19 @@ class Room315KinematicShuttleNode(Node):
                     'origin_x': self.pose_scale_origin_x,
                     'origin_y': self.pose_scale_origin_y,
                 },
+                'pose_rotation': {
+                    'deg': self.pose_rotation_deg,
+                    'origin_x': self.pose_rotation_origin_x,
+                    'origin_y': self.pose_rotation_origin_y,
+                },
                 'shuttle_count': len(self.shuttles),
                 'collision_avoidance': {
                     'enabled': self.enable_collision_avoidance,
                     'distance_m': self.shuttle_collision_distance_m,
                 },
                 'shuttles': shuttles_payload,
-                'switch_states': _public_switch_states(self.switch_states),
-                'stopper_states': self.stopper_states,
+                'switch_states': self._public_switch_state_map(self.switch_states),
+                'stopper_states': self._public_switch_state_map(self.stopper_states),
                 'sensor_events': self._sensor_events(),
                 'position_sensor_events': self._position_sensor_events(),
             },
