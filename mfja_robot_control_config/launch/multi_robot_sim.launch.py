@@ -267,6 +267,9 @@ def _launch_setup(context, *args, **kwargs):
     )
     enable_gui = LaunchConfiguration('gui').perform(context).lower() == 'true'
     start_paused = LaunchConfiguration('start_paused').perform(context).lower() == 'true'
+    pause_during_switch_update = (
+        LaunchConfiguration('pause_during_switch_update').perform(context).lower() == 'true'
+    )
     robot_config = LaunchConfiguration('robot_config').perform(context)
     selected_robots = _parse_selected_robots(
         LaunchConfiguration('robots').perform(context)
@@ -294,6 +297,8 @@ def _launch_setup(context, *args, **kwargs):
     ]
     if start_paused:
         conveyor_controller_arguments.append('--keep-paused-after-initial-loop')
+    if not pause_during_switch_update:
+        conveyor_controller_arguments.append('--no-pause-during-switch-update')
 
     gz_server_args = f'-s {world}' if start_paused else f'-r -s {world}'
 
@@ -473,6 +478,12 @@ def generate_launch_description():
             'initial_loop_mode',
             default_value='auto',
             description='Startup loop mode: auto, PETIT_BOUCLE, or GRAND_BOUCLE.',
+        ),
+        DeclareLaunchArgument(
+            'pause_during_switch_update',
+            default_value='false',
+            choices=['true', 'false'],
+            description='Pause Gazebo while applying visual switch pose updates.',
         ),
         OpaqueFunction(function=_launch_setup),
     ])

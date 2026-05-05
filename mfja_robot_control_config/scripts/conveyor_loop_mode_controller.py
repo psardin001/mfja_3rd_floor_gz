@@ -347,6 +347,7 @@ class ConveyorLoopModeController(Node):
         self.retries = args.retries
         self.initial_loop_mode = _normalize_initial_loop_mode(args.initial_loop_mode)
         self.keep_paused_after_initial_loop = args.keep_paused_after_initial_loop
+        self.pause_during_switch_update = args.pause_during_switch_update
         if self.initial_loop_mode is None and args.initial_loop_mode.strip().lower() not in (
             '',
             'auto',
@@ -602,15 +603,16 @@ class ConveyorLoopModeController(Node):
         )
 
         world_was_paused_by_controller = False
-        pause_ok, pause_output = self._set_world_pause(True)
-        if pause_ok:
-            world_was_paused_by_controller = True
-        else:
-            pause_details = pause_output or 'no diagnostic output returned by gz service'
-            self.get_logger().warning(
-                'Failed to pause the Gazebo world before switching modes. '
-                f'Continuing anyway: {pause_details}'
-            )
+        if self.pause_during_switch_update:
+            pause_ok, pause_output = self._set_world_pause(True)
+            if pause_ok:
+                world_was_paused_by_controller = True
+            else:
+                pause_details = pause_output or 'no diagnostic output returned by gz service'
+                self.get_logger().warning(
+                    'Failed to pause the Gazebo world before switching modes. '
+                    f'Continuing anyway: {pause_details}'
+                )
 
         try:
             failures = self._set_switch_poses_parallel(targeted_switches)
@@ -899,6 +901,13 @@ def main():
         action='store_true',
         help='Leave Gazebo paused after applying --initial-loop-mode at startup.',
     )
+    parser.add_argument(
+        '--no-pause-during-switch-update',
+        dest='pause_during_switch_update',
+        action='store_false',
+        help='Move visual switches without pausing the Gazebo world.',
+    )
+    parser.set_defaults(pause_during_switch_update=False)
     args, ros_args = parser.parse_known_args()
 
     rclpy.init(args=ros_args)
