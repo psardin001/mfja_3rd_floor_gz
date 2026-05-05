@@ -58,6 +58,12 @@ def generate_launch_description():
             default_value='auto',
             description='Startup loop mode: auto, PETIT_BOUCLE, or GRAND_BOUCLE.',
         ),
+        DeclareLaunchArgument(
+            'pause_during_switch_update',
+            default_value='false',
+            choices=['true', 'false'],
+            description='Pause Gazebo while applying visual switch pose updates.',
+        ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(base_launch),
             launch_arguments={
@@ -69,6 +75,7 @@ def generate_launch_description():
                 'gui': LaunchConfiguration('gui'),
                 'start_paused': LaunchConfiguration('start_paused'),
                 'initial_loop_mode': LaunchConfiguration('initial_loop_mode'),
+                'pause_during_switch_update': LaunchConfiguration('pause_during_switch_update'),
             }.items(),
         ),
     ])
