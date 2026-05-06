@@ -3,11 +3,13 @@
 import json
 import math
 import re
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict
 
 import rclpy
+import yaml
 from geometry_msgs.msg import PoseStamped
 from rcl_interfaces.msg import SetParametersResult
 from rclpy.executors import ExternalShutdownException
@@ -55,6 +57,14 @@ def _default_network_path() -> Path:
 
 def _default_left_network_path() -> Path:
     return _default_network_path().with_name('rail_network_left.yaml')
+
+
+def _default_right_devices_path() -> Path:
+    return _default_network_path().with_name('rail_devices_right.yaml')
+
+
+def _default_left_devices_path() -> Path:
+    return _default_network_path().with_name('rail_devices_left.yaml')
 
 
 def _default_shuttle_model_sdf_path() -> Path:
@@ -240,6 +250,33 @@ LEFT_PUBLIC_SEGMENT_NAME_MAP = {
     'A34I': 'A12I',
 }
 
+DEVICE_MARKER_STYLES = {
+    'slot': {
+        'shape': 'sphere',
+        'radius': 0.055,
+        'length': 0.0,
+        'rgba': (0.0, 0.8, 0.1, 0.85),
+    },
+    'position_sensor': {
+        'shape': 'sphere',
+        'radius': 0.04,
+        'length': 0.0,
+        'rgba': (0.05, 0.2, 1.0, 0.85),
+    },
+    'approach_sensor': {
+        'shape': 'sphere',
+        'radius': 0.04,
+        'length': 0.0,
+        'rgba': (0.0, 0.9, 0.95, 0.85),
+    },
+    'stopper': {
+        'shape': 'cylinder',
+        'radius': 0.045,
+        'length': 0.09,
+        'rgba': (1.0, 0.05, 0.02, 0.9),
+    },
+}
+
 
 def _canonical_switch_name(name: str) -> str:
     return str(name).strip().upper()
@@ -251,6 +288,11 @@ def _canonical_segment_name(name: str) -> str:
 
 def _canonical_sensor_name(name: str) -> str:
     return str(name).strip().upper()
+
+
+def _canonical_slot_name(name: str) -> str:
+    slot = str(name).strip().lower().replace('-', '_')
+    return re.sub(r'^(slot|start|start_slot)_?', '', slot)
 
 
 def _normalize_rail_side(raw_value: str) -> str:
@@ -294,6 +336,7 @@ class StopPoint:
     segment: str
     stop_s: float
     sensor_distance_m: float
+    sensor_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -324,6 +367,256 @@ class PositionSensorConfig:
     aliases: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class RailDevice:
+    name: str
+    device_type: str
+    segment: str
+    s_ratio: float
+    s: float
+    x: float
+    y: float
+    z: float
+    yaw: float
+    radius_m: float | None = None
+    distance_m: float | None = None
+    default_state: str | None = None
+    metadata: dict | None = None
+
+
+@dataclass(frozen=True)
+class RailDeviceSet:
+    path: Path
+    slots: Dict[str, RailDevice]
+    position_sensors: Dict[str, tuple[RailDevice, ...]]
+    approach_sensors: Dict[str, tuple[RailDevice, ...]]
+    stoppers: Dict[str, tuple[RailDevice, ...]]
+
+
+def _require_mapping(value, context: str) -> dict:
+    if not isinstance(value, dict):
+        raise ValueError(f'{context} must be a mapping, got {type(value)!r}.')
+    return value
+
+
+def _category_entries(config: dict, category: str) -> list[tuple[str, dict]]:
+    raw_category = config.get(category, [])
+    if raw_category is None:
+        return []
+
+    entries: list[tuple[str, dict]] = []
+    if isinstance(raw_category, list):
+        for index, raw_entry in enumerate(raw_category):
+            entry = _require_mapping(raw_entry, f'{category}[{index}]')
+            if 'name' not in entry:
+                raise ValueError(f'{category}[{index}] must define name.')
+            entries.append((str(entry['name']), entry))
+        return entries
+
+    if isinstance(raw_category, dict):
+        for raw_name, raw_entry in raw_category.items():
+            entry = _require_mapping(raw_entry, f'{category}.{raw_name}')
+            entry = {'name': raw_name, **entry}
+            entries.append((str(raw_name), entry))
+        return entries
+
+    raise ValueError(f'{category} must be a list or mapping, got {type(raw_category)!r}.')
+
+
+def _device_name_key(category: str, raw_name: str) -> str:
+    if category == 'slots':
+        key = _canonical_slot_name(raw_name)
+        if not key:
+            raise ValueError(f'{category} name {raw_name!r} does not resolve to a slot id.')
+        return key
+    if category in {'position_sensors', 'approach_sensors'}:
+        return _canonical_sensor_name(raw_name)
+    if category == 'stoppers':
+        return _canonical_switch_name(raw_name)
+    return str(raw_name).strip()
+
+
+def _device_points(raw_entry: dict, category: str, name: str) -> list[dict]:
+    if 'points' not in raw_entry:
+        return [raw_entry]
+
+    raw_points = raw_entry['points']
+    if not isinstance(raw_points, list) or not raw_points:
+        raise ValueError(f'{category}.{name}.points must be a non-empty list.')
+
+    inherited = {
+        key: value
+        for key, value in raw_entry.items()
+        if key not in {'points', 'segment', 's_ratio'}
+    }
+    points = []
+    for index, raw_point in enumerate(raw_points):
+        point = _require_mapping(raw_point, f'{category}.{name}.points[{index}]')
+        points.append({**inherited, **point})
+    return points
+
+
+def _require_device_fields(point: dict, category: str, name: str, index: int) -> None:
+    context = f'{category}.{name}'
+    if index > 0:
+        context += f'.points[{index}]'
+
+    required = ['segment', 's_ratio']
+    if category == 'position_sensors':
+        required.append('radius_m')
+    elif category == 'approach_sensors':
+        required.append('distance_m')
+    elif category == 'stoppers':
+        required.append('default_state')
+
+    missing = [field for field in required if field not in point]
+    if missing:
+        raise ValueError(f'{context} is missing required field(s): {missing}.')
+
+
+def _rail_device_from_point(
+    *,
+    name: str,
+    device_type: str,
+    point: dict,
+    rail_network: RailNetwork,
+) -> RailDevice:
+    segment_name = str(point['segment']).strip()
+    if segment_name not in rail_network.segments:
+        raise ValueError(
+            f'{device_type}.{name} references unknown segment {segment_name!r}.'
+        )
+
+    try:
+        s_ratio = float(point['s_ratio'])
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            f'{device_type}.{name}.s_ratio must be a number between 0.0 and 1.0.'
+        ) from error
+    if not 0.0 <= s_ratio <= 1.0:
+        raise ValueError(
+            f'{device_type}.{name}.s_ratio={s_ratio:.6f} is outside [0.0, 1.0].'
+        )
+
+    segment = rail_network.segments[segment_name]
+    s = s_ratio * segment.length
+    sample_point, yaw = segment.sample(s)
+    metadata = {
+        key: value
+        for key, value in point.items()
+        if key not in {
+            'name',
+            'segment',
+            's_ratio',
+            'radius_m',
+            'distance_m',
+            'default_state',
+        }
+    }
+    return RailDevice(
+        name=name,
+        device_type=device_type,
+        segment=segment_name,
+        s_ratio=s_ratio,
+        s=s,
+        x=sample_point.x,
+        y=sample_point.y,
+        z=sample_point.z,
+        yaw=yaw,
+        radius_m=(
+            float(point['radius_m'])
+            if 'radius_m' in point and point['radius_m'] is not None
+            else None
+        ),
+        distance_m=(
+            float(point['distance_m'])
+            if 'distance_m' in point and point['distance_m'] is not None
+            else None
+        ),
+        default_state=(
+            str(point['default_state'])
+            if 'default_state' in point and point['default_state'] is not None
+            else None
+        ),
+        metadata=metadata,
+    )
+
+
+def _load_grouped_rail_devices(
+    config: dict,
+    category: str,
+    rail_network: RailNetwork,
+) -> Dict[str, tuple[RailDevice, ...]]:
+    devices: Dict[str, tuple[RailDevice, ...]] = {}
+    seen_names: set[str] = set()
+    for raw_name, raw_entry in _category_entries(config, category):
+        name_key = _device_name_key(category, raw_name)
+        device_name = str(raw_name).strip() or name_key
+        if name_key in seen_names:
+            raise ValueError(f'Duplicate {category} name {raw_name!r}.')
+        seen_names.add(name_key)
+
+        points = []
+        for index, point in enumerate(_device_points(raw_entry, category, raw_name)):
+            _require_device_fields(point, category, raw_name, index)
+            points.append(
+                _rail_device_from_point(
+                    name=device_name,
+                    device_type=category,
+                    point=point,
+                    rail_network=rail_network,
+                )
+            )
+        devices[name_key] = tuple(points)
+    return devices
+
+
+def load_rail_devices(path: Path, rail_network: RailNetwork) -> RailDeviceSet:
+    path = path.resolve()
+    with path.open() as handle:
+        config = yaml.safe_load(handle) or {}
+    if not isinstance(config, dict):
+        raise ValueError(f'{path} must contain a YAML mapping.')
+
+    slots_grouped = _load_grouped_rail_devices(config, 'slots', rail_network)
+    position_sensors = _load_grouped_rail_devices(
+        config,
+        'position_sensors',
+        rail_network,
+    )
+    approach_sensors = _load_grouped_rail_devices(
+        config,
+        'approach_sensors',
+        rail_network,
+    )
+    stoppers = _load_grouped_rail_devices(config, 'stoppers', rail_network)
+    missing_categories = [
+        category
+        for category, devices in (
+            ('slots', slots_grouped),
+            ('position_sensors', position_sensors),
+            ('approach_sensors', approach_sensors),
+            ('stoppers', stoppers),
+        )
+        if not devices
+    ]
+    if missing_categories:
+        raise ValueError(
+            f'{path} must define non-empty device categories: {missing_categories}.'
+        )
+
+    return RailDeviceSet(
+        path=path,
+        slots={
+            name: devices[0]
+            for name, devices in slots_grouped.items()
+        },
+        position_sensors=position_sensors,
+        approach_sensors=approach_sensors,
+        stoppers=stoppers,
+    )
+
+
 @dataclass
 class ManagedShuttle:
     entity_name: str
@@ -346,11 +639,27 @@ class ManagedShuttle:
     spawn_failure_logged: bool = False
 
 
+@dataclass
+class DeviceMarker:
+    entity_name: str
+    device_type: str
+    device_name: str
+    segment: str
+    pose: ShuttlePose
+    sdf: str
+    pending_spawn: object | None = None
+    spawned: bool = False
+    spawn_failure_logged: bool = False
+    spawn_attempts: int = 0
+    next_spawn_attempt_time: float = 0.0
+
+
 class Room315KinematicShuttleNode(Node):
     def __init__(self) -> None:
         super().__init__('room_315_kinematic_shuttle')
 
         self.declare_parameter('network_yaml', str(_default_network_path()))
+        self.declare_parameter('devices_yaml', '')
         self.declare_parameter('rail_side', 'right')
         self.declare_parameter('path_backend', CUBIC_HERMITE_PATH_BACKEND)
         self.declare_parameter('arc_length_samples_per_edge', 16)
@@ -387,6 +696,12 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('gazebo_spawn_service', '')
         self.declare_parameter('enable_gazebo_delete', True)
         self.declare_parameter('gazebo_delete_service', '')
+        self.declare_parameter('enable_device_markers', True)
+        self.declare_parameter('device_marker_scale', 1.0)
+        self.declare_parameter('device_marker_z_offset_m', 0.0)
+        self.declare_parameter('device_marker_spawn_interval_s', 0.05)
+        self.declare_parameter('device_marker_retry_interval_s', 0.5)
+        self.declare_parameter('device_marker_max_spawn_attempts', 8)
         self.declare_parameter('shuttle_model_sdf', str(_default_shuttle_model_sdf_path()))
         self.declare_parameter('preloaded_shuttle_count', 4)
         self.declare_parameter('reject_occupied_start_slots', True)
@@ -428,6 +743,10 @@ class Room315KinematicShuttleNode(Node):
         ]
         network_path = self._side_default_path(
             Path(str(self.get_parameter('network_yaml').value))
+        )
+        devices_path = self._devices_path(
+            str(self.get_parameter('devices_yaml').value),
+            network_path,
         )
         path_backend = str(self.get_parameter('path_backend').value)
         arc_length_samples_per_edge = int(
@@ -540,6 +859,28 @@ class Room315KinematicShuttleNode(Node):
         gazebo_delete_service = self._resolve_world_service(
             raw_service=str(self.get_parameter('gazebo_delete_service').value),
             suffix='remove',
+        )
+        self.enable_device_markers = bool(
+            self.get_parameter('enable_device_markers').value
+        )
+        self.device_marker_scale = max(
+            0.05,
+            float(self.get_parameter('device_marker_scale').value),
+        )
+        self.device_marker_z_offset_m = float(
+            self.get_parameter('device_marker_z_offset_m').value
+        )
+        self.device_marker_spawn_interval_s = max(
+            0.0,
+            float(self.get_parameter('device_marker_spawn_interval_s').value),
+        )
+        self.device_marker_retry_interval_s = max(
+            0.05,
+            float(self.get_parameter('device_marker_retry_interval_s').value),
+        )
+        self.device_marker_max_spawn_attempts = max(
+            0,
+            int(self.get_parameter('device_marker_max_spawn_attempts').value),
         )
         self.shuttle_model_sdf = Path(str(self.get_parameter('shuttle_model_sdf').value))
         self.preloaded_shuttle_count = int(
@@ -741,6 +1082,8 @@ class Room315KinematicShuttleNode(Node):
         self.start_snap_tolerance_m = start_snap_tolerance_m
         self.default_shuttle_speed = speed
         self.spawn_warning_logged = False
+        self.device_marker_spawn_warning_logged = False
+        self.next_device_marker_spawn_time = 0.0
         self.deleted_preloaded_entity_names: set[str] = set()
         self.deleting_entity_names: set[str] = set()
 
@@ -748,6 +1091,12 @@ class Room315KinematicShuttleNode(Node):
             network_path,
             path_backend=path_backend,
             arc_length_samples_per_edge=arc_length_samples_per_edge,
+        )
+        self.rail_devices = load_rail_devices(devices_path, self.network)
+        self.device_markers = (
+            self._make_device_markers()
+            if self.enable_device_markers
+            else []
         )
         self.allowed_start_poses = self._load_allowed_start_poses()
         self.switch_states: Dict[str, str] = self.network.default_switch_states()
@@ -834,11 +1183,13 @@ class Room315KinematicShuttleNode(Node):
         if self.enable_gazebo_set_pose:
             self.set_pose_client = self.create_client(SetEntityPose, gazebo_set_pose_service)
         self.spawn_client = None
-        if self.enable_gazebo_spawn:
+        if self.enable_gazebo_spawn or self.enable_device_markers:
             self.spawn_client = self.create_client(SpawnEntity, gazebo_spawn_service)
         self.delete_client = None
         if self.enable_gazebo_delete:
             self.delete_client = self.create_client(DeleteEntity, gazebo_delete_service)
+
+        self._update_device_markers()
 
         for shuttle in self.shuttles:
             self._request_spawn_if_needed(shuttle)
@@ -851,6 +1202,7 @@ class Room315KinematicShuttleNode(Node):
         self.get_logger().info(
             'Room 315 kinematic shuttle started with '
             f'rail_side={self.rail_side}, network={network_path}, path_backend={path_backend}, '
+            f'devices={self.rail_devices.path}, '
             f'pose_topic={pose_topic}, '
             f'gazebo_world={self.gazebo_world_name}, '
             f'add_shuttle_topic={add_shuttle_command_topic}, '
@@ -865,6 +1217,7 @@ class Room315KinematicShuttleNode(Node):
             f'entity_prefix={self.entity_name_prefix}, '
             f'spawn_service={gazebo_spawn_service}, '
             f'delete_service={gazebo_delete_service}, '
+            f'device_markers={len(self.device_markers)}, '
             f'shuttles={self._shuttle_summary()}'
         )
 
@@ -904,6 +1257,20 @@ class Room315KinematicShuttleNode(Node):
             return _default_left_network_path()
         return configured_path
 
+    def _devices_path(self, raw_value: str, network_path: Path) -> Path:
+        configured_value = raw_value.strip()
+        if not configured_value:
+            return (
+                _default_left_devices_path()
+                if self.rail_side == 'left'
+                else _default_right_devices_path()
+            )
+
+        configured_path = Path(configured_value)
+        if configured_path.is_absolute():
+            return configured_path
+        return network_path.parent / configured_path
+
     def _side_default_string(
         self,
         configured_value: str,
@@ -929,6 +1296,30 @@ class Room315KinematicShuttleNode(Node):
         return configured_value
 
     def _load_allowed_start_poses(self) -> Dict[str, AllowedStartPose]:
+        if self.rail_devices.slots:
+            allowed: Dict[str, AllowedStartPose] = {}
+            for slot, device in self.rail_devices.slots.items():
+                gazebo_pose = self._to_gazebo_pose(
+                    ShuttlePose(
+                        x=device.x,
+                        y=device.y,
+                        z=device.z,
+                        yaw=device.yaw,
+                        current_segment=device.segment,
+                        s=device.s,
+                        mode=WAITING,
+                    )
+                )
+                allowed[slot] = AllowedStartPose(
+                    x=gazebo_pose.x,
+                    y=gazebo_pose.y,
+                    z=gazebo_pose.z,
+                    roll=0.0,
+                    pitch=0.0,
+                    yaw=gazebo_pose.yaw,
+                )
+            return allowed
+
         raw_slots = self.network.config.get('start_slots') or {}
         if not raw_slots:
             return dict(ALLOWED_START_POSES)
@@ -944,10 +1335,13 @@ class Room315KinematicShuttleNode(Node):
             allowed[slot] = AllowedStartPose(*[float(value) for value in pose_values])
 
         if not allowed:
-            raise ValueError('rail_network_right.yaml start_slots must not be empty.')
+            raise ValueError('rail device slots must not be empty.')
         return allowed
 
     def _load_stopper_configs(self) -> Dict[str, StopperConfig]:
+        if self.rail_devices.stoppers:
+            return self._load_stopper_configs_from_devices()
+
         configs: Dict[str, StopperConfig] = {}
         raw_configs = self.network.config.get('stoppers', {}) or {}
         for raw_name, raw_config in raw_configs.items():
@@ -994,6 +1388,7 @@ class Room315KinematicShuttleNode(Node):
                         segment=segment_name,
                         stop_s=stop_s,
                         sensor_distance_m=max(0.0, sensor_distance_m),
+                        sensor_name=f'{name}_APPROACH',
                     )
                 )
 
@@ -1001,6 +1396,65 @@ class Room315KinematicShuttleNode(Node):
                 raise ValueError(f'Stopper {name} must define at least one stop point.')
             configs[name] = StopperConfig(
                 name=name,
+                before_switch=before_switch,
+                default_state=default_state,
+                stop_points=tuple(stop_points),
+            )
+        return configs
+
+    def _approach_sensor_lookup(self) -> Dict[tuple[str, str], RailDevice]:
+        approach_by_stopper_segment: Dict[tuple[str, str], RailDevice] = {}
+        for approach_name, approach_devices in self.rail_devices.approach_sensors.items():
+            for approach_device in approach_devices:
+                metadata = approach_device.metadata or {}
+                stopper_name = _canonical_switch_name(
+                    str(metadata.get('stopper', approach_name)).replace('_APPROACH', '')
+                )
+                key = (stopper_name, approach_device.segment)
+                if key in approach_by_stopper_segment:
+                    raise ValueError(
+                        f'Multiple approach sensors target stopper {stopper_name} '
+                        f'on segment {approach_device.segment}.'
+                    )
+                approach_by_stopper_segment[key] = approach_device
+        return approach_by_stopper_segment
+
+    def _load_stopper_configs_from_devices(self) -> Dict[str, StopperConfig]:
+        configs: Dict[str, StopperConfig] = {}
+        approach_by_stopper_segment = self._approach_sensor_lookup()
+        for stopper_name, stopper_devices in self.rail_devices.stoppers.items():
+            if not stopper_devices:
+                raise ValueError(f'Stopper {stopper_name} must define at least one point.')
+
+            first_device = stopper_devices[0]
+            metadata = first_device.metadata or {}
+            before_switch = _canonical_switch_name(
+                str(metadata.get('before_switch', stopper_name))
+            )
+            default_state = self._normalize_stopper_state(
+                str(first_device.default_state)
+            )
+            stop_points: list[StopPoint] = []
+            for stopper_device in stopper_devices:
+                approach_device = approach_by_stopper_segment.get(
+                    (stopper_name, stopper_device.segment)
+                )
+                sensor_distance_m = 0.0
+                sensor_name = f'{stopper_name}_APPROACH'
+                if approach_device is not None:
+                    sensor_name = approach_device.name
+                    sensor_distance_m = float(approach_device.distance_m or 0.0)
+                stop_points.append(
+                    StopPoint(
+                        segment=stopper_device.segment,
+                        stop_s=stopper_device.s,
+                        sensor_distance_m=max(0.0, sensor_distance_m),
+                        sensor_name=sensor_name,
+                    )
+                )
+
+            configs[stopper_name] = StopperConfig(
+                name=stopper_name,
                 before_switch=before_switch,
                 default_state=default_state,
                 stop_points=tuple(stop_points),
@@ -1080,6 +1534,9 @@ class Room315KinematicShuttleNode(Node):
         return tuple(points)
 
     def _load_position_sensor_configs(self) -> Dict[str, PositionSensorConfig]:
+        if self.rail_devices.position_sensors:
+            return self._load_position_sensor_configs_from_devices()
+
         configs: Dict[str, PositionSensorConfig] = {}
         raw_configs = self.network.config.get('position_sensors', {}) or {}
         for raw_name, raw_config in raw_configs.items():
@@ -1128,6 +1585,65 @@ class Room315KinematicShuttleNode(Node):
                     else None
                 ),
                 aliases=aliases,
+            )
+        return configs
+
+    def _load_position_sensor_configs_from_devices(self) -> Dict[str, PositionSensorConfig]:
+        configs: Dict[str, PositionSensorConfig] = {}
+        for sensor_name, sensor_devices in self.rail_devices.position_sensors.items():
+            if not sensor_devices:
+                raise ValueError(
+                    f'Position sensor {sensor_name} must define at least one point.'
+                )
+
+            first_device = sensor_devices[0]
+            metadata = first_device.metadata or {}
+            branch_state, normalized_loop_side = self._normalize_position_sensor_branch(
+                metadata.get('branch')
+            )
+            explicit_loop_side = metadata.get('loop_side')
+            if explicit_loop_side is not None:
+                normalized_loop_side = str(explicit_loop_side).strip().upper()
+            switch_name = metadata.get('switch')
+            index_zone = metadata.get('index_zone')
+            start_slot = metadata.get('start_slot', metadata.get('slot'))
+            configured_aliases = tuple(
+                str(alias).strip().upper()
+                for alias in metadata.get('aliases', [])
+                if str(alias).strip()
+            )
+            public_aliases: list[str] = []
+            for alias in configured_aliases:
+                public_alias = _canonical_sensor_name(alias)
+                if public_alias != sensor_name:
+                    public_aliases.append(public_alias)
+
+            points = tuple(
+                PositionSensorPoint(
+                    segment=device.segment,
+                    sensor_s=device.s,
+                    sensor_distance_m=max(0.0, float(device.radius_m or 0.0)),
+                )
+                for device in sensor_devices
+            )
+            configs[sensor_name] = PositionSensorConfig(
+                name=sensor_name,
+                sensor_kind=str(metadata.get('kind', 'position')).strip().lower(),
+                points=points,
+                switch_name=(
+                    _canonical_switch_name(str(switch_name).strip().upper())
+                    if switch_name is not None
+                    else None
+                ),
+                branch_state=branch_state,
+                loop_side=normalized_loop_side,
+                index_zone=str(index_zone).strip() if index_zone is not None else None,
+                start_slot=(
+                    self._normalize_start_slot(start_slot)
+                    if start_slot is not None
+                    else None
+                ),
+                aliases=_dedupe_aliases(tuple(public_aliases)),
             )
         return configs
 
@@ -1428,6 +1944,216 @@ class Room315KinematicShuttleNode(Node):
         factory.pose.orientation.w = qw
         return factory
 
+    def _make_device_markers(self) -> list[DeviceMarker]:
+        markers: list[DeviceMarker] = []
+        marker_specs = [
+            ('slots', 'slot', self.rail_devices.slots),
+            ('position_sensors', 'position_sensor', self.rail_devices.position_sensors),
+            ('approach_sensors', 'approach_sensor', self.rail_devices.approach_sensors),
+            ('stoppers', 'stopper', self.rail_devices.stoppers),
+        ]
+        for category, marker_type, grouped_devices in marker_specs:
+            for public_name, raw_devices in grouped_devices.items():
+                devices = (
+                    (raw_devices,)
+                    if isinstance(raw_devices, RailDevice)
+                    else tuple(raw_devices)
+                )
+                for index, device in enumerate(devices):
+                    entity_name = self._device_marker_entity_name(
+                        category=category,
+                        marker_type=marker_type,
+                        public_name=public_name,
+                        device=device,
+                        duplicate_suffix=device.segment if len(devices) > 1 else '',
+                    )
+                    raw_pose = ShuttlePose(
+                        x=device.x,
+                        y=device.y,
+                        z=device.z,
+                        yaw=device.yaw,
+                        current_segment=device.segment,
+                        s=device.s,
+                        mode=WAITING,
+                    )
+                    gazebo_pose = self._to_gazebo_pose(raw_pose)
+                    marker_pose = ShuttlePose(
+                        x=gazebo_pose.x,
+                        y=gazebo_pose.y,
+                        z=gazebo_pose.z + self.device_marker_z_offset_m,
+                        yaw=gazebo_pose.yaw,
+                        current_segment=gazebo_pose.current_segment,
+                        s=gazebo_pose.s,
+                        mode=gazebo_pose.mode,
+                    )
+                    markers.append(
+                        DeviceMarker(
+                            entity_name=entity_name,
+                            device_type=marker_type,
+                            device_name=device.name,
+                            segment=device.segment,
+                            pose=marker_pose,
+                            sdf=self._device_marker_sdf(entity_name, marker_type),
+                        )
+                    )
+        return markers
+
+    def _device_marker_entity_name(
+        self,
+        *,
+        category: str,
+        marker_type: str,
+        public_name: str,
+        device: RailDevice,
+        duplicate_suffix: str,
+    ) -> str:
+        if category == 'slots':
+            raw_name = f'marker_{self.rail_side}_slot_{public_name}'
+        elif marker_type == 'position_sensor':
+            raw_name = f'marker_{self.rail_side}_{device.name}'
+        elif marker_type == 'approach_sensor':
+            raw_name = f'marker_{self.rail_side}_approach_{device.name}'
+        elif marker_type == 'stopper':
+            raw_name = f'marker_{self.rail_side}_stopper_{public_name}'
+        else:
+            raw_name = f'marker_{self.rail_side}_{marker_type}_{device.name}'
+
+        if duplicate_suffix:
+            raw_name = f'{raw_name}_{duplicate_suffix}'
+        return re.sub(r'[^A-Za-z0-9_]+', '_', raw_name).strip('_')
+
+    def _device_marker_sdf(self, entity_name: str, marker_type: str) -> str:
+        style = DEVICE_MARKER_STYLES[marker_type]
+        radius = style['radius'] * self.device_marker_scale
+        length = style['length'] * self.device_marker_scale
+        red, green, blue, alpha = style['rgba']
+        if style['shape'] == 'cylinder':
+            geometry = (
+                '<cylinder>'
+                f'<radius>{radius:.6f}</radius>'
+                f'<length>{length:.6f}</length>'
+                '</cylinder>'
+            )
+        else:
+            geometry = f'<sphere><radius>{radius:.6f}</radius></sphere>'
+
+        material = (
+            '<material>'
+            f'<ambient>{red:.3f} {green:.3f} {blue:.3f} {alpha:.3f}</ambient>'
+            f'<diffuse>{red:.3f} {green:.3f} {blue:.3f} {alpha:.3f}</diffuse>'
+            '</material>'
+        )
+        return (
+            '<sdf version="1.9">'
+            f'<model name="{entity_name}">'
+            '<static>true</static>'
+            '<link name="link">'
+            '<visual name="visual">'
+            '<cast_shadows>false</cast_shadows>'
+            f'<geometry>{geometry}</geometry>'
+            f'{material}'
+            '</visual>'
+            '</link>'
+            '</model>'
+            '</sdf>'
+        )
+
+    def _make_device_marker_factory(self, marker: DeviceMarker) -> EntityFactory:
+        factory = EntityFactory()
+        factory.name = marker.entity_name
+        factory.allow_renaming = False
+        factory.sdf = marker.sdf
+        factory.relative_to = 'world'
+        factory.pose.position.x = marker.pose.x
+        factory.pose.position.y = marker.pose.y
+        factory.pose.position.z = marker.pose.z
+        qx, qy, qz, qw = _yaw_to_quaternion(marker.pose.yaw)
+        factory.pose.orientation.x = qx
+        factory.pose.orientation.y = qy
+        factory.pose.orientation.z = qz
+        factory.pose.orientation.w = qw
+        return factory
+
+    def _update_device_markers(self) -> None:
+        if not self.enable_device_markers or not self.device_markers:
+            return
+        self._process_device_marker_futures()
+        self._request_device_marker_spawns()
+
+    def _process_device_marker_futures(self) -> None:
+        now = time.monotonic()
+        for marker in self.device_markers:
+            if marker.pending_spawn is None or not marker.pending_spawn.done():
+                continue
+
+            try:
+                response = marker.pending_spawn.result()
+            except Exception as error:
+                marker.pending_spawn = None
+                marker.next_spawn_attempt_time = now + self.device_marker_retry_interval_s
+                if self._marker_spawn_attempts_exhausted(marker):
+                    if not marker.spawn_failure_logged:
+                        self.get_logger().warn(
+                            f'Gazebo marker spawn request for {marker.entity_name} '
+                            f'failed after {marker.spawn_attempts} attempt(s): {error}'
+                        )
+                        marker.spawn_failure_logged = True
+                continue
+
+            marker.pending_spawn = None
+            if response.success:
+                marker.spawned = True
+                continue
+
+            marker.next_spawn_attempt_time = now + self.device_marker_retry_interval_s
+            if self._marker_spawn_attempts_exhausted(marker):
+                if not marker.spawn_failure_logged:
+                    self.get_logger().warn(
+                        f'Gazebo marker spawn service rejected {marker.entity_name} '
+                        f'after {marker.spawn_attempts} attempt(s). If this marker '
+                        'already exists in Gazebo, restart the Gazebo world to refresh it.'
+                    )
+                    marker.spawn_failure_logged = True
+
+    def _marker_spawn_attempts_exhausted(self, marker: DeviceMarker) -> bool:
+        return (
+            self.device_marker_max_spawn_attempts > 0
+            and marker.spawn_attempts >= self.device_marker_max_spawn_attempts
+        )
+
+    def _request_device_marker_spawns(self) -> None:
+        if self.spawn_client is None:
+            return
+        if not self.spawn_client.service_is_ready():
+            if not self.device_marker_spawn_warning_logged:
+                self.get_logger().warn(
+                    'Gazebo create service is not ready yet; device markers will be spawned later.'
+                )
+                self.device_marker_spawn_warning_logged = True
+            return
+
+        now = time.monotonic()
+        if now < self.next_device_marker_spawn_time:
+            return
+
+        for marker in self.device_markers:
+            if (
+                marker.spawned
+                or marker.spawn_failure_logged
+                or marker.pending_spawn is not None
+                or now < marker.next_spawn_attempt_time
+            ):
+                continue
+
+            request = SpawnEntity.Request()
+            request.entity_factory = self._make_device_marker_factory(marker)
+            marker.pending_spawn = self.spawn_client.call_async(request)
+            marker.spawn_attempts += 1
+            self.next_device_marker_spawn_time = (
+                now + self.device_marker_spawn_interval_s
+            )
+            return
+
     def _spawn_ready_for_motion(self, shuttle: ManagedShuttle) -> bool:
         if not shuttle.deployed:
             return False
@@ -1472,6 +2198,10 @@ class Room315KinematicShuttleNode(Node):
     ) -> tuple[str, AllowedStartPose, float, str, float]:
         slot = self._normalize_start_slot(raw_slot)
         start_pose = self.allowed_start_poses[slot]
+        slot_device = self.rail_devices.slots.get(slot)
+        if slot_device is not None:
+            return slot, start_pose, 0.0, slot_device.segment, slot_device.s
+
         segment_name, s, distance_m = self._closest_network_position(start_pose)
         if distance_m > tolerance_m:
             allowed = ', '.join(sorted(self.allowed_start_poses))
@@ -2284,6 +3014,7 @@ class Room315KinematicShuttleNode(Node):
         now = self.get_clock().now()
         dt = max(0.0, (now - self.last_tick).nanoseconds / 1e9)
         self.last_tick = now
+        self._update_device_markers()
 
         if not self.shuttles:
             self._publish_state([], [])
@@ -2633,7 +3364,9 @@ class Room315KinematicShuttleNode(Node):
                     if 0.0 <= distance_m <= stop_point.sensor_distance_m:
                         events.append(
                             {
-                                'sensor': self._public_sensor_name(f'{stopper_name}_APPROACH'),
+                                'sensor': self._public_sensor_name(
+                                    stop_point.sensor_name or f'{stopper_name}_APPROACH'
+                                ),
                                 'stopper': self._public_switch_name(stopper_name),
                                 'before_switch': self._public_switch_name(
                                     stopper_config.before_switch

@@ -17,6 +17,8 @@ install(
     scripts/room_315_continuous_path_validator.py
     scripts/room_315_segment_plot.py
     scripts/room_315_network_validator.py
+    scripts/room_315_devices_validator.py
+    scripts/room_315_device_position_tool.py
     scripts/room_315_kinematic_shuttle.py
     scripts/room_315_kinematic_shuttle_node.py
     scripts/multi_robot_sync_demo.py

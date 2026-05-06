@@ -1,0 +1,223 @@
+schema_version: 1
+rail_side: left
+description: Room 315 left-rail user-editable slots, sensors, and stoppers.
+slots:
+- name: slot_1
+  segment: A34E
+  s_ratio: 0.428330934
+- name: slot_2
+  segment: A34E
+  s_ratio: 0.674370792
+- name: slot_3
+  segment: A12E
+  s_ratio: 0.427586575
+- name: slot_4
+  segment: A12E
+  s_ratio: 0.668424664
+position_sensors:
+- name: DZI2L
+  kind: indexing_zone
+  index_zone: '1'
+  start_slot: '2'
+  aliases:
+  - DZI2
+  segment: A34E
+  s_ratio: 0.674370792
+  radius_m: 0.09
+  loop_side: EXTERIOR
+- name: DZI1L
+  kind: indexing_zone
+  index_zone: '2'
+  start_slot: '1'
+  aliases:
+  - DZI1
+  segment: A34E
+  s_ratio: 0.428330934
+  radius_m: 0.09
+  loop_side: EXTERIOR
+- name: DZI4L
+  kind: indexing_zone
+  index_zone: '3'
+  start_slot: '4'
+  aliases:
+  - DZI4
+  segment: A12E
+  s_ratio: 0.668424664
+  radius_m: 0.09
+  loop_side: EXTERIOR
+- name: DZI3L
+  kind: indexing_zone
+  index_zone: '4'
+  start_slot: '3'
+  aliases:
+  - DZI3
+  segment: A12E
+  s_ratio: 0.427586575
+  radius_m: 0.09
+  loop_side: EXTERIOR
+- name: DA1L
+  kind: switch_main
+  switch: A1
+  aliases:
+  - DA1
+  segment: A23
+  s_ratio: 0.982548832
+  radius_m: 0.08
+- name: DA1GL
+  kind: switch_branch
+  switch: A1
+  branch: G
+  aliases:
+  - DA1G
+  segment: A3G
+  s_ratio: 0.993647404
+  radius_m: 0.07
+- name: DA1SL
+  kind: switch_branch
+  switch: A1
+  branch: S
+  aliases:
+  - DA1S
+  - DA1P
+  segment: A34I
+  s_ratio: 0.007953208
+  radius_m: 0.07
+- name: DA2L
+  kind: switch_main
+  switch: A2
+  aliases:
+  - DA2
+  segment: A14
+  s_ratio: 0.077595236
+  radius_m: 0.07
+- name: DA2GL
+  kind: switch_branch
+  switch: A2
+  branch: G
+  aliases:
+  - DA2G
+  segment: A34E
+  s_ratio: 0.99243909
+  radius_m: 0.08
+- name: DA2SL
+  kind: switch_branch
+  switch: A2
+  branch: S
+  aliases:
+  - DA2S
+  - DA2P
+  segment: A34I
+  s_ratio: 0.98840961
+  radius_m: 0.08
+- name: DA3L
+  kind: switch_main
+  switch: A3
+  aliases:
+  - DA3
+  segment: A14
+  s_ratio: 0.989730547
+  radius_m: 0.08
+- name: DA3GL
+  kind: switch_branch
+  switch: A3
+  branch: G
+  aliases:
+  - DA3G
+  segment: A1G
+  s_ratio: 0.954620974
+  radius_m: 0.07
+- name: DA3SL
+  kind: switch_branch
+  switch: A3
+  branch: S
+  aliases:
+  - DA3S
+  - DA3P
+  segment: A12I
+  s_ratio: 0.018279507
+  radius_m: 0.07
+- name: DA4L
+  kind: switch_main
+  switch: A4
+  aliases:
+  - DA4
+  segment: A2S
+  s_ratio: 0.966501924
+  radius_m: 0.07
+- name: DA4GL
+  kind: switch_branch
+  switch: A4
+  branch: G
+  aliases:
+  - DA4G
+  segment: A2G
+  s_ratio: 0.008802129
+  radius_m: 0.08
+- name: DA4SL
+  kind: switch_branch
+  switch: A4
+  branch: S
+  aliases:
+  - DA4S
+  - DA4P
+  segment: A12I
+  s_ratio: 0.997265003
+  radius_m: 0.08
+approach_sensors:
+- name: A1_APPROACH
+  stopper: A1
+  before_switch: A1
+  segment: A23
+  s_ratio: 0.711151221
+  distance_m: 0.25
+- name: A2_APPROACH
+  stopper: A2
+  before_switch: A2
+  distance_m: 0.25
+  points:
+  - segment: A34E
+    s_ratio: 0.964078719
+  - segment: A34I
+    s_ratio: 0.943533612
+- name: A3_APPROACH
+  stopper: A3
+  before_switch: A3
+  segment: A14
+  s_ratio: 0.937923811
+  distance_m: 0.25
+- name: A4_APPROACH
+  stopper: A4
+  before_switch: A4
+  distance_m: 0.25
+  points:
+  - segment: A12E
+    s_ratio: 0.964090232
+  - segment: A12I
+    s_ratio: 0.943278327
+stoppers:
+- name: A1
+  before_switch: A1
+  segment: A23
+  s_ratio: 0.711151221
+  default_state: '0'
+- name: A2
+  before_switch: A2
+  default_state: '0'
+  points:
+  - segment: A34E
+    s_ratio: 0.964078719
+  - segment: A34I
+    s_ratio: 0.943533612
+- name: A3
+  before_switch: A3
+  segment: A14
+  s_ratio: 0.937923811
+  default_state: '0'
+- name: A4
+  before_switch: A4
+  default_state: '0'
+  points:
+  - segment: A12E
+    s_ratio: 0.964090232
+  - segment: A12I
+    s_ratio: 0.943278327
