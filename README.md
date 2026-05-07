@@ -67,6 +67,545 @@ source install/setup.bash
 
 If you only edit README files, no rebuild is required.
 
+## Step-by-Step Feature Guide
+
+This section is the practical runbook. Use it when you want to test one feature
+quickly without searching through the reference sections below.
+
+### 1. Build and Source the Workspace
+
+Use this terminal before any launch or topic command:
+
+```bash
+cd /home/tiago/ALI_ros2_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+```
+
+If the workspace is already built and you only opened a new terminal, use:
+
+```bash
+cd /home/tiago/ALI_ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+```
+
+### 2. Launch Room 315 Only
+
+Terminal 1 - start Room 315 with rails, device YAML, markers, typed topics,
+and shuttle nodes enabled, but with no initial shuttles:
+
+```bash
+cd /home/tiago/ALI_ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 launch mfja_room_315_bringup room_315_only.launch.py \
+  robots:=none \
+  start_paused:=false \
+  gui:=true \
+  enable_room315_kinematic_shuttles:=true
+```
+
+Terminal 2 - check that the rail topics exist:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source /home/tiago/ALI_ros2_ws/install/setup.bash
+
+ros2 topic list | grep /room_315/rails
+```
+
+Expected namespaces:
+
+```text
+/room_315/rails/right/...
+/room_315/rails/left/...
+```
+
+### 3. Launch the Full Floor with the Same Room 315 Rail Features
+
+Terminal 1:
+
+```bash
+cd /home/tiago/ALI_ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 launch mfja_3rd_floor_bringup full_floor.launch.py \
+  robots:=none \
+  start_paused:=false \
+  gui:=true \
+  enable_room315_kinematic_shuttles:=true
+```
+
+Terminal 2 - verify the full-floor Gazebo services:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source /home/tiago/ALI_ros2_ws/install/setup.bash
+
+ros2 service list | grep /world/mfja_3rd_floor
+```
+
+Expected services include:
+
+```text
+/world/mfja_3rd_floor/create
+/world/mfja_3rd_floor/remove
+/world/mfja_3rd_floor/set_pose
+```
+
+### 4. Launch Only One Industrial Robot and Its Table
+
+This mode loads only the ground plane, one selected industrial robot, and that
+robot's support table. It does not load Room 315, rails, shuttles, sensors,
+fixtures, other robots, or TIAGo.
+
+Terminal 1 - choose exactly one robot:
+
+```bash
+cd /home/tiago/ALI_ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 launch mfja_3rd_floor_bringup single_industrial_robot.launch.py \
+  robot:=kuka \
+  gui:=true \
+  start_paused:=false
+```
+
+Other valid selectors:
+
+```bash
+ros2 launch mfja_3rd_floor_bringup single_industrial_robot.launch.py robot:=staubli gui:=true start_paused:=false
+ros2 launch mfja_3rd_floor_bringup single_industrial_robot.launch.py robot:=hc10 gui:=true start_paused:=false
+ros2 launch mfja_3rd_floor_bringup single_industrial_robot.launch.py robot:=hc10dt gui:=true start_paused:=false
+```
+
+Terminal 2 - check the selected robot topics. Example for KUKA:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source /home/tiago/ALI_ros2_ws/install/setup.bash
+
+ros2 topic list | grep kuka1
+```
+
+### 5. Start Shuttles Hidden, Visible-but-Stopped, or Moving
+
+No initial shuttles, but rail nodes are running:
+
+```bash
+ros2 launch mfja_room_315_bringup room_315_only.launch.py \
+  robots:=none \
+  start_paused:=false \
+  gui:=true \
+  enable_room315_kinematic_shuttles:=true \
+  room315_right_shuttle_count:=0 \
+  room315_left_shuttle_count:=0
+```
+
+One right shuttle and one left shuttle visible, waiting for your `ON` command:
+
+```bash
+ros2 launch mfja_room_315_bringup room_315_only.launch.py \
+  robots:=none \
+  start_paused:=false \
+  gui:=true \
+  enable_room315_kinematic_shuttles:=true \
+  room315_right_shuttle_count:=1 \
+  room315_left_shuttle_count:=1 \
+  room315_shuttles_start_deployed:=true \
+  room315_shuttles_start_enabled:=false
+```
+
+One right shuttle and one left shuttle moving immediately:
+
+```bash
+ros2 launch mfja_room_315_bringup room_315_only.launch.py \
+  robots:=none \
+  start_paused:=false \
+  gui:=true \
+  enable_room315_kinematic_shuttles:=true \
+  room315_right_shuttle_count:=1 \
+  room315_left_shuttle_count:=1 \
+  room315_shuttles_start_enabled:=true
+```
+
+The same arguments work with the full-floor launch:
+
+```bash
+ros2 launch mfja_3rd_floor_bringup full_floor.launch.py \
+  robots:=none \
+  start_paused:=false \
+  gui:=true \
+  enable_room315_kinematic_shuttles:=true \
+  room315_right_shuttle_count:=1 \
+  room315_left_shuttle_count:=1 \
+  room315_shuttles_start_deployed:=true \
+  room315_shuttles_start_enabled:=false
+```
+
+### 6. Add a Shuttle During Runtime
+
+Terminal 1 - keep Room 315 running.
+
+Terminal 2 - add a right-rail shuttle at slot 2:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source /home/tiago/ALI_ros2_ws/install/setup.bash
+
+ros2 topic pub --once /room_315/rails/right/shuttles/add_command \
+  mfja_rail_interfaces/msg/ShuttleCommand \
+  "{command: 'ADD', start_slot: '2', speed: 0.2}"
+```
+
+Add a left-rail shuttle at slot 3:
+
+```bash
+ros2 topic pub --once /room_315/rails/left/shuttles/add_command \
+  mfja_rail_interfaces/msg/ShuttleCommand \
+  "{command: 'ADD', start_slot: '3', speed: 0.2}"
+```
+
+### 7. Turn Shuttles ON, OFF, RESET, or REMOVE
+
+Turn one right shuttle on:
+
+```bash
+ros2 topic pub --once /room_315/rails/right/shuttles/command \
+  mfja_rail_interfaces/msg/ShuttleCommand \
+  "{name: 'room315_right_shuttle_1', command: 'ON'}"
+```
+
+Stop it:
+
+```bash
+ros2 topic pub --once /room_315/rails/right/shuttles/command \
+  mfja_rail_interfaces/msg/ShuttleCommand \
+  "{name: 'room315_right_shuttle_1', command: 'OFF'}"
+```
+
+Reset it to its start slot:
+
+```bash
+ros2 topic pub --once /room_315/rails/right/shuttles/command \
+  mfja_rail_interfaces/msg/ShuttleCommand \
+  "{name: 'room315_right_shuttle_1', command: 'RESET'}"
+```
+
+Remove it from Gazebo:
+
+```bash
+ros2 topic pub --once /room_315/rails/right/shuttles/command \
+  mfja_rail_interfaces/msg/ShuttleCommand \
+  "{name: 'room315_right_shuttle_1', command: 'REMOVE'}"
+```
+
+Control all shuttles on one rail:
+
+```bash
+ros2 topic pub --once /room_315/rails/right/shuttles/command \
+  mfja_rail_interfaces/msg/ShuttleCommand \
+  "{name: 'ALL', command: 'OFF'}"
+```
+
+Echo actual shuttle state:
+
+```bash
+ros2 topic echo /room_315/rails/right/shuttles/state \
+  mfja_rail_interfaces/msg/ShuttleState
+```
+
+### 8. Move Switches with Command and State Topics
+
+Commands are requests. State topics report the actual state after the configured
+motion delay.
+
+Terminal 2 - watch actual switch state:
+
+```bash
+ros2 topic echo /room_315/rails/right/switches/state \
+  mfja_rail_interfaces/msg/SwitchState
+```
+
+Terminal 3 - command switch A1 to the interior branch:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source /home/tiago/ALI_ros2_ws/install/setup.bash
+
+ros2 topic pub --once /room_315/rails/right/switches/command \
+  mfja_rail_interfaces/msg/SwitchCommand \
+  "{switches: [{name: 'A1', state: 'INTERIOR'}]}"
+```
+
+Command all right-rail switches to exterior:
+
+```bash
+ros2 topic pub --once /room_315/rails/right/switches/command \
+  mfja_rail_interfaces/msg/SwitchCommand \
+  "{switches: [{name: 'ALL', state: 'EXTERIOR'}]}"
+```
+
+Run with a longer switch delay so the visual delay is easy to see:
+
+```bash
+ros2 launch mfja_room_315_bringup room_315_only.launch.py \
+  robots:=none \
+  start_paused:=false \
+  gui:=true \
+  room315_switch_motion_delay_s:=2.0
+```
+
+### 9. Open and Close Stoppers with Command and State Topics
+
+Terminal 2 - watch actual stopper state:
+
+```bash
+ros2 topic echo /room_315/rails/right/stoppers/state \
+  mfja_rail_interfaces/msg/StopperState
+```
+
+Terminal 3 - close stopper A1:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source /home/tiago/ALI_ros2_ws/install/setup.bash
+
+ros2 topic pub --once /room_315/rails/right/stoppers/command \
+  mfja_rail_interfaces/msg/StopperCommand \
+  "{stoppers: [{name: 'A1', state: '1'}]}"
+```
+
+Open stopper A1:
+
+```bash
+ros2 topic pub --once /room_315/rails/right/stoppers/command \
+  mfja_rail_interfaces/msg/StopperCommand \
+  "{stoppers: [{name: 'A1', state: '0'}]}"
+```
+
+Run with a longer stopper delay:
+
+```bash
+ros2 launch mfja_room_315_bringup room_315_only.launch.py \
+  robots:=none \
+  start_paused:=false \
+  gui:=true \
+  room315_stopper_motion_delay_s:=1.0
+```
+
+### 10. Read Sensor Feedback
+
+Approach sensors:
+
+```bash
+ros2 topic echo /room_315/rails/right/sensors/feedback \
+  mfja_rail_interfaces/msg/SensorFeedback
+```
+
+Position sensors:
+
+```bash
+ros2 topic echo /room_315/rails/right/sensors/position_feedback \
+  mfja_rail_interfaces/msg/SensorFeedback
+```
+
+Left rail uses the same names under `/room_315/rails/left/...`.
+
+### 11. Edit Rail Device YAML and Move Markers
+
+Device YAML files:
+
+```text
+mfja_robot_control_config/config/room_315_kinematics/rail_devices_right.yaml
+mfja_robot_control_config/config/room_315_kinematics/rail_devices_left.yaml
+```
+
+Example device entry:
+
+```yaml
+position_sensors:
+  - name: DZI1R
+    segment: A23
+    s_ratio: 0.35
+    radius_m: 0.08
+```
+
+To move a device:
+
+1. Choose the correct YAML file for the rail side.
+2. Change `segment` or `s_ratio`.
+3. Save the file.
+4. Relaunch Gazebo.
+5. The runtime device position and visual marker move together.
+
+Validate both YAML files:
+
+```bash
+cd /home/tiago/ALI_ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+python3 src/mfja_3rd_floor_gz/mfja_robot_control_config/scripts/room_315_devices_validator.py
+```
+
+### 12. Convert a Gazebo Coordinate to a Device `s_ratio`
+
+Use this when you read a desired sensor position from Gazebo and want the
+nearest rail segment plus `s_ratio`:
+
+```bash
+cd /home/tiago/ALI_ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+python3 src/mfja_3rd_floor_gz/mfja_robot_control_config/scripts/room_315_device_position_tool.py \
+  --side right \
+  --x -10.50 \
+  --y -3.20 \
+  --z 0.85
+```
+
+Then copy the reported `segment` and `s_ratio` into the appropriate
+`rail_devices_*.yaml` entry and rerun the validator.
+
+To update a specific YAML device directly, add `--category`, `--name`, and
+`--write`:
+
+```bash
+python3 src/mfja_3rd_floor_gz/mfja_robot_control_config/scripts/room_315_device_position_tool.py \
+  --side right \
+  --x -10.50 \
+  --y -3.20 \
+  --z 0.85 \
+  --category position_sensors \
+  --name DZI1R \
+  --write
+```
+
+### 13. Check Visual Device Markers in Gazebo
+
+Launch Room 315 or the full floor with the rail stack enabled. Markers are
+spawned from the YAML-resolved positions:
+
+- slots: green
+- position sensors: blue
+- approach sensors: cyan
+- stoppers: red
+
+If a marker does not appear immediately, wait a few seconds. The node retries
+Gazebo create requests while the `/world/<world_name>/create` bridge becomes
+ready.
+
+### 14. Test Shuttle-Shuttle Collision Avoidance
+
+Launch two shuttles on one rail:
+
+```bash
+ros2 launch mfja_room_315_bringup room_315_only.launch.py \
+  robots:=none \
+  start_paused:=false \
+  gui:=true \
+  enable_room315_kinematic_shuttles:=true \
+  room315_right_shuttle_count:=2 \
+  room315_left_shuttle_count:=0 \
+  room315_shuttles_start_enabled:=true
+```
+
+Watch the right-rail shuttle state:
+
+```bash
+ros2 topic echo /room_315/rails/right/shuttles/state \
+  mfja_rail_interfaces/msg/ShuttleState
+```
+
+When one shuttle gets too close to another, it should stop at a safe pose
+instead of passing through it.
+
+### 15. Test Robot-Shuttle Gazebo Collision
+
+Launch Room 315 with one industrial robot and one visible shuttle:
+
+```bash
+ros2 launch mfja_room_315_bringup room_315_only.launch.py \
+  robots:=kuka \
+  start_paused:=false \
+  gui:=true \
+  enable_room315_kinematic_shuttles:=true \
+  room315_right_shuttle_count:=1 \
+  room315_left_shuttle_count:=0 \
+  room315_shuttles_start_deployed:=true \
+  room315_shuttles_start_enabled:=false
+```
+
+Then move the robot in Gazebo or with its ROS trajectory interface toward the
+shuttle body. The shuttle has a conservative robot-contact collision volume.
+Rail path geometry and rail switch geometry use a separate collision bitmask, so
+the shuttle should not collide with the rail it follows.
+
+### 16. Show Message Types and Topic Types
+
+Inspect custom interfaces:
+
+```bash
+ros2 interface show mfja_rail_interfaces/msg/ShuttleCommand
+ros2 interface show mfja_rail_interfaces/msg/SwitchCommand
+ros2 interface show mfja_rail_interfaces/msg/SensorFeedback
+```
+
+Check live topic types:
+
+```bash
+ros2 topic info /room_315/rails/right/shuttles/command
+ros2 topic info /room_315/rails/right/switches/state
+ros2 topic info /room_315/rails/right/sensors/feedback
+```
+
+Canonical topics use `mfja_rail_interfaces` messages. Old
+`/room_315_right/...` and `/room_315_left/...` topics are deprecated aliases for
+migration only.
+
+### 17. Validate Rail Geometry and Continuous Path Sampling
+
+Run this after changing rail network or CSV geometry:
+
+```bash
+cd /home/tiago/ALI_ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 run mfja_robot_control_config room_315_continuous_path_validator.py
+```
+
+Expected result:
+
+```text
+Status: PASS
+```
+
+### 18. Compatibility Launch Names
+
+Preferred launches:
+
+```bash
+ros2 launch mfja_room_315_bringup room_315_only.launch.py
+ros2 launch mfja_3rd_floor_bringup full_floor.launch.py
+ros2 launch mfja_3rd_floor_bringup single_industrial_robot.launch.py robot:=kuka
+```
+
+Compatibility wrappers also work:
+
+```bash
+ros2 launch mfja_3rd_floor_gz room_315_only.launch.py
+ros2 launch mfja_3rd_floor_gz full_floor.launch.py
+ros2 launch mfja_3rd_floor_gz single_industrial_robot.launch.py robot:=kuka
+```
+
 ## Room 315 Continuous Path Backend
 
 The Room 315 rail geometry still starts from measured CSV segment files. The
@@ -537,6 +1076,35 @@ The room-only launch uses:
 
 ```text
 mfja_robot_control_config/config/robots_room_315_only.yaml
+```
+
+### Single Industrial Robot Mode
+
+Use this mode when you want only one industrial robot, its support table, and
+the ground plane. It does not load Room 315, rails, shuttles, sensors, lab
+furniture, or other robots. This mode is only for the four industrial robots:
+`kuka`, `staubli`, `hc10`, and `hc10dt`.
+
+```bash
+ros2 launch mfja_3rd_floor_bringup single_industrial_robot.launch.py \
+  robot:=kuka \
+  start_paused:=false \
+  gui:=true
+```
+
+Supported selectors:
+
+```text
+robot:=kuka
+robot:=staubli
+robot:=hc10
+robot:=hc10dt
+```
+
+The compatibility wrapper also works:
+
+```bash
+ros2 launch mfja_3rd_floor_gz single_industrial_robot.launch.py robot:=hc10
 ```
 
 ### Robot Topic Checks
@@ -1043,6 +1611,16 @@ You usually do not need to pass these parameters, but they can be overridden:
 -p enable_collision_avoidance:=true \
 -p shuttle_collision_distance_m:=0.33
 ```
+
+## Robot-Shuttle Gazebo Collision
+
+The Room 315 shuttle model has a simple box collision volume for robot contact.
+Room 315 rail path and switch collisions use a separate Gazebo
+`collide_bitmask`, so shuttles do not collide with the rail geometry they are
+kinematically following. Robot collision models keep the default Gazebo mask, so
+robot links still collide with the shuttle body.
+
+Visual-only device markers remain collision-free.
 
 ## Switch Control
 

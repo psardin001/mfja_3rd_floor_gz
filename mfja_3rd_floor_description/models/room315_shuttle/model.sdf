@@ -31,6 +31,20 @@
           <emissive>0 0 0 1</emissive>
         </material>
       </visual>
+      <collision name="room315_shuttle_robot_collision">
+        <pose>-0.078417048 0 0 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.36 0.22 0.17</size>
+          </box>
+        </geometry>
+        <surface>
+          <contact>
+            <!-- Collides with default robot collisions, but not with Room 315 rail masks. -->
+            <collide_bitmask>0x0002</collide_bitmask>
+          </contact>
+        </surface>
+      </collision>
     </link>
     <plugin
         filename="gz-sim-pose-publisher-system"

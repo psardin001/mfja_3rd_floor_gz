@@ -575,3 +575,13 @@ Simple center-distance collision avoidance is enabled by default. The default
 distance is `0.33 m`. This is not full block occupancy yet; it only prevents
 kinematic shuttles from overlapping by stopping a following shuttle when it gets
 too close to another active shuttle.
+
+## Robot-Shuttle Gazebo Collision
+
+The `room315_shuttle` model has a simple box collision volume for robot contact.
+Room 315 rail path and switch collisions use a separate Gazebo
+`collide_bitmask`, so shuttles do not collide with the rail geometry they are
+kinematically following. Robot collision models keep the default Gazebo mask, so
+robot links still collide with the shuttle body.
+
+Visual-only device markers remain collision-free.
