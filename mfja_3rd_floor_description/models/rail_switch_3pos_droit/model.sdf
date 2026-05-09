@@ -58,6 +58,7 @@
             </bullet>
           </friction>
           <contact>
+            <collide_bitmask>0x0001</collide_bitmask>
             <ode>
               <kp>2000000</kp>
               <kd>50</kd>

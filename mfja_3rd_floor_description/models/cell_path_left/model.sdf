@@ -22,6 +22,11 @@
             <uri>model://cell_path_left/meshes/CELL_PATH_LEFT.STL</uri>
           </mesh>
         </geometry>
+        <surface>
+          <contact>
+            <collide_bitmask>0x0001</collide_bitmask>
+          </contact>
+        </surface>
       </collision>
     </link>
   </model>
