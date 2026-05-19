@@ -101,6 +101,61 @@ If you only edit README files, no rebuild is required. If you edit launch files,
 Python scripts, package metadata, interfaces, models, worlds, URDF, SDF, or
 config files, rebuild and source again.
 
+## Optional Nix Development Shell
+
+This repository also includes a basic `flake.nix` for users who want Nix to
+provide the ROS 2 Jazzy / Gazebo Harmonic development tools. It is optional:
+the normal `/opt/ros/jazzy` and `rosdep` workflow above is still supported.
+
+Install Nix first if it is not already installed:
+
+```bash
+sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
+```
+
+Then enter the development shell from this repository root:
+
+```bash
+cd "$MFJA_WS/src/mfja_3rd_floor_gz"
+nix develop
+```
+
+Inside the Nix shell, build and source the repository as a colcon workspace:
+
+```bash
+colcon build --symlink-install
+source install/setup.bash
+ros2 launch mfja_room_315_bringup room_315_only.launch.py \
+  robots:=none \
+  start_paused:=false \
+  gui:=true \
+  enable_room315_kinematic_shuttles:=true
+```
+
+Do not also source `/opt/ros/jazzy/setup.bash` inside the Nix shell. The Nix
+shell provides its own ROS environment.
+
+The Nix shell includes the build tools and ROS packages used by this repository:
+`colcon`, `cmake`, `ament_cmake`, `ament_index_python`,
+`rosidl_default_generators`, `rosidl_default_runtime`, `rclpy`,
+`rcl_interfaces`, `geometry_msgs`, `nav_msgs`, `rosgraph_msgs`, `sensor_msgs`,
+`std_msgs`, `tf2_msgs`, `tf2_ros`, `trajectory_msgs`,
+`robot_state_publisher`, `ros_gz`, `ros_gz_bridge`, `ros_gz_interfaces`,
+`ros_gz_sim`, and `python3-yaml`.
+
+Known Nix limitations:
+
+- Nix itself must be installed manually before `nix develop` can work.
+- The first `nix develop` can take time. It may download packages from
+  `cache.nixos.org` and the ROS Cachix cache, or build packages locally if a
+  cache entry is unavailable.
+- Gazebo GUI and RViz still depend on host graphics drivers. On non-NixOS
+  systems, OpenGL/Qt issues may require extra host graphics support such as
+  `nixGL` or `nix-system-graphics`.
+- This flake covers the packages in this repository. If you add sibling ROS
+  packages to the same colcon workspace later, update `flake.nix` with their
+  dependencies too.
+
 ## Troubleshooting
 
 - `PackageNotFoundError`: source `/opt/ros/jazzy/setup.bash`, build the
@@ -113,6 +168,9 @@ config files, rebuild and source again.
   repositories, then run `rosdep update`.
 - Custom messages or services are missing after editing `mfja_rail_interfaces`:
   rebuild the workspace and open a fresh sourced terminal.
+- CMake reports that `CMakeCache.txt` was created in another directory: remove
+  the local generated `build/`, `install/`, and `log/` directories, then run
+  `colcon build --symlink-install` again.
 
 ## Step-by-Step Feature Guide
 
@@ -478,18 +536,6 @@ ros2 topic echo /room_315/rails/right/sensors/feedback \
 
 Left rail uses the same names under `/room_315/rails/left/...`.
 
-To watch one sensor by name instead of the full feedback array:
-
-```bash
-ros2 run mfja_robot_control_config watch_sensor_feedback.py \
-  --side right \
-  --name A1_APPROACH
-
-ros2 run mfja_robot_control_config watch_sensor_feedback.py \
-  --side right \
-  --name DZI2R
-```
-
 Quick empty-rail check:
 
 Terminal 1:
@@ -618,70 +664,7 @@ To move a device:
 4. Relaunch Gazebo.
 5. The runtime device position and visual marker move together.
 
-Validate both YAML files:
-
-```bash
-cd "${MFJA_WS:-$HOME/test_mfja_ws}"
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-
-python3 src/mfja_3rd_floor_gz/mfja_robot_control_config/scripts/room_315_devices_validator.py
-```
-
-### 12. Convert a Gazebo Coordinate to a Device `s_ratio`
-
-Use this when you read a desired sensor position from Gazebo and want the
-nearest rail segment plus `s_ratio`:
-
-```bash
-cd "${MFJA_WS:-$HOME/test_mfja_ws}"
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-
-python3 src/mfja_3rd_floor_gz/mfja_robot_control_config/scripts/room_315_device_position_tool.py \
-  --side right \
-  --x -10.50 \
-  --y -3.20 \
-  --z 0.85
-```
-
-Then copy the reported `segment` and `s_ratio` into the appropriate
-`rail_devices_*.yaml` entry and rerun the validator.
-
-To update a specific YAML device directly, add `--name` and `--write`. The tool
-finds the matching YAML group automatically:
-
-```bash
-python3 src/mfja_3rd_floor_gz/mfja_robot_control_config/scripts/room_315_device_position_tool.py \
-  --side right \
-  --x -10.50 \
-  --y -3.20 \
-  --z 0.85 \
-  --name DZI1R \
-  --write
-```
-
-For a device that uses `points:`, add `--point-index`. Index `0` is the first
-point in the YAML list, index `1` is the second point:
-
-```bash
-python3 src/mfja_3rd_floor_gz/mfja_robot_control_config/scripts/room_315_device_position_tool.py \
-  --side right \
-  --x -11.20 \
-  --y -4.00 \
-  --z 0.85 \
-  --name A4_APPROACH \
-  --point-index 0 \
-  --write
-```
-
-After any sensor, stopper, or slot edit, run:
-
-```bash
-python3 src/mfja_3rd_floor_gz/mfja_robot_control_config/scripts/room_315_devices_validator.py
-```
-
-### 13. Check Visual Device Markers in Gazebo
+### 12. Check Visual Device Markers in Gazebo
 
 Launch Room 315 or the full floor with the rail stack enabled. Markers are
 spawned from the YAML-resolved positions:
@@ -776,25 +759,7 @@ ros2 topic info /room_315/rails/right/sensors/feedback
 Canonical topics use `mfja_rail_interfaces` messages under
 `/room_315/rails/{right,left}/...`.
 
-### 17. Validate Rail Geometry and Continuous Path Sampling
-
-Run this after changing rail network or CSV geometry:
-
-```bash
-cd "${MFJA_WS:-$HOME/test_mfja_ws}"
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-
-ros2 run mfja_robot_control_config room_315_continuous_path_validator.py
-```
-
-Expected result:
-
-```text
-Status: PASS
-```
-
-### 18. Compatibility Launch Names
+### 17. Compatibility Launch Names
 
 Preferred launches:
 
@@ -834,27 +799,6 @@ To compare against the direct CSV interpolation, use:
 ```bash
 -p path_backend:=polyline
 ```
-
-Validate the continuous path backend after changing rail geometry:
-
-```bash
-cd "${MFJA_WS:-$HOME/test_mfja_ws}"
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-
-ros2 run mfja_robot_control_config room_315_continuous_path_validator.py
-```
-
-Expected result:
-
-```text
-Status: PASS (0 warnings)
-```
-
-Generated outputs:
-
-- `mfja_robot_control_config/config/room_315_kinematics/continuous_path_report.yaml`
-- `mfja_robot_control_config/config/room_315_kinematics/debug_plots/continuous_path_validation.png`
 
 ## Room 315 Only
 
@@ -1404,57 +1348,6 @@ ros2 topic pub --once /tiago1/cmd_vel geometry_msgs/msg/Twist \
 "{linear: {x: 0.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}"
 ```
 
-### Multi-Robot Synchronized Motion
-
-Inspect the expected joint order for enabled robots:
-
-```bash
-ros2 run mfja_robot_control_config multi_robot_sync_demo.py --list-joints
-```
-
-Run the default preset motion for all enabled robots with built-in presets:
-
-```bash
-ros2 run mfja_robot_control_config multi_robot_sync_demo.py
-```
-
-Command a subset directly:
-
-```bash
-ros2 run mfja_robot_control_config multi_robot_sync_demo.py \
-  --goal kuka1=1.2,-1.2,1.4,0.0,0.3,0.0 \
-  --goal staubli1=0.1,0.4,-0.6,0.0,0.5,0.0 \
-  --trajectory-duration 4.0
-```
-
-Command all five robots explicitly:
-
-```bash
-ros2 run mfja_robot_control_config multi_robot_sync_demo.py \
-  --goal kuka1=0.8,-1.0,1.2,0.0,0.4,0.0 \
-  --goal staubli1=0.0,0.3,-0.5,0.0,0.6,0.0 \
-  --goal yaskawa_hc10_1=0.0,-0.6,0.8,0.0,0.5,0.0 \
-  --goal yaskawa_hc10dt_1=0.0,-0.5,0.7,0.0,0.4,0.0 \
-  --goal tiago1=0.10,0.3,-0.5,-0.4,1.0,0.2,-0.2,0.1,0.2,-0.2 \
-  --trajectory-duration 4.0
-```
-
-The synchronized tool behavior is:
-
-- If no `--goal` is provided, it commands all enabled robots that have built-in presets.
-- If one or more `--goal` arguments are provided, it commands only the listed robots.
-- If `--tiago-base-duration` is positive, it can also publish TIAGo base `cmd_vel` during the synchronized demo.
-
-Example with TIAGo base motion:
-
-```bash
-ros2 run mfja_robot_control_config multi_robot_sync_demo.py \
-  --goal tiago1=0.10,0.3,-0.5,-0.4,1.0,0.2,-0.2,0.1,0.2,-0.2 \
-  --tiago-base-linear 0.15 \
-  --tiago-base-angular 0.20 \
-  --tiago-base-duration 3.0
-```
-
 ## Allowed Shuttle Start Slots
 
 Only these four start slots are allowed:
@@ -1880,31 +1773,6 @@ Room 315 topics:
 ros2 topic list | grep room_315
 ```
 
-## CSV Preprocessing and Validation
-
-Run these after changing CSV geometry or `rail_network_right.yaml`:
-
-```bash
-cd "${MFJA_WS:-$HOME/test_mfja_ws}"
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-
-ros2 run mfja_robot_control_config room_315_csv_preprocessor.py
-ros2 run mfja_robot_control_config room_315_network_validator.py
-ros2 run mfja_robot_control_config room_315_continuous_path_validator.py
-ros2 run mfja_robot_control_config room_315_segment_plot.py
-```
-
-Generated outputs:
-
-- `mfja_robot_control_config/config/room_315_kinematics/raw_segments/`
-- `mfja_robot_control_config/config/room_315_kinematics/segment_summary.yaml`
-- `mfja_robot_control_config/config/room_315_kinematics/validation_report.yaml`
-- `mfja_robot_control_config/config/room_315_kinematics/continuous_path_report.yaml`
-- `mfja_robot_control_config/config/room_315_kinematics/debug_plots/network_validation.png`
-- `mfja_robot_control_config/config/room_315_kinematics/debug_plots/continuous_path_validation.png`
-- `mfja_robot_control_config/config/room_315_kinematics/debug_plots/room_315_segments_overview.png`
-
 Offline kinematic core test:
 
 ```bash
@@ -1964,7 +1832,8 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
 - If runtime-spawned shuttles do not appear, check `/world/<world_name>/create`.
 - If `REMOVE` does not delete the shuttle model, check `/world/<world_name>/remove` in `ros2 service list`.
 - If an add service request is rejected, check whether another shuttle is still inside `start_slot_occupancy_radius_m` of that slot.
-- If the rail path was edited, run `room_315_csv_preprocessor.py`, `room_315_network_validator.py`, and `room_315_continuous_path_validator.py` before testing in Gazebo.
+- If the rail path was edited, rebuild and run the offline kinematic core test
+  before testing in Gazebo.
 - If you need to compare the continuous path against the measured CSV path, rerun the shuttle node with `-p path_backend:=polyline`.
 - If a shuttle stops with `stopped_by` set to a stopper name, open that stopper with `/room_315/rails/right/stoppers/command`.
 - If a shuttle stops in `WAITING`, it is likely blocked by another shuttle within `shuttle_collision_distance_m`.

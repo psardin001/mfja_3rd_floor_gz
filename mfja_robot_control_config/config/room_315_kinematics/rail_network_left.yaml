@@ -6,7 +6,6 @@ description: 'Explicit directed rail topology for the room 315 left-rail shuttle
 
   '
 source_csv_dir: mfja_robot_control_config/config/room_315_kinematics/raw_segments
-normalized_csv_dir: mfja_robot_control_config/config/room_315_kinematics/normalized_segments
 snap_tolerance_m: 0.05
 motion_policy:
   segment_direction: forward_only

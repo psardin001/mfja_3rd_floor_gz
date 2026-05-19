@@ -353,7 +353,7 @@
       <p class="subtitle">
         This page keeps only the important practical scenarios: running Room 315, controlling shuttles,
         testing switches and stoppers, reading sensor feedback, running the full third floor, and testing
-        robot motion for one robot or all five robots together.
+        robot motion and runtime checks.
       </p>
     </div>
   </header>
@@ -374,7 +374,6 @@
       <a href="#scenario-all-robots">Full floor with all robots</a>
       <a href="#scenario-robot-control">Robot control topics</a>
       <a href="#scenario-move-one-robot">Move one robot</a>
-      <a href="#scenario-move-all-robots">Move all five robots</a>
       <a href="#validation">Quick checks</a>
     </nav>
 
@@ -435,8 +434,8 @@ source install/setup.bash</code></pre>
         <h2>Sensor Names</h2>
         <p class="note">
           In code, every rail detector is the same binary <code>sensor</code> type.
-          Use these names with <code>watch_sensor_feedback.py --side right|left --name NAME</code>.
-          The helper watches both sensor feedback topics automatically; the selected side decides which rail is read.
+          Use these names when reading the <code>/room_315/rails/right/sensors/feedback</code>
+          or <code>/room_315/rails/left/sensors/feedback</code> topics.
         </p>
         <table>
           <thead>
@@ -697,33 +696,6 @@ ros2 topic echo /room_315/rails/right/sensors/feedback \
   mfja_rail_interfaces/msg/SensorFeedback</code></pre>
         </div>
 
-        <h3>Watch one sensor by name</h3>
-        <p class="note">
-          Use <code>watch_sensor_feedback.py</code> and change only <code>--side</code> and <code>--name</code>.
-          The compact sensor list is in <a href="#sensor-names">Sensor Names</a>.
-        </p>
-        <div class="grid">
-          <div class="command">
-            <div class="command-bar"><span>Terminal 4: watch A1 before-stopper sensor</span><button class="copy-btn" data-copy="cmd-watch-specific-approach">Copy</button></div>
-            <pre><code id="cmd-watch-specific-approach">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-
-ros2 run mfja_robot_control_config watch_sensor_feedback.py \
-  --side right \
-  --name A1_APPROACH</code></pre>
-          </div>
-          <div class="command">
-            <div class="command-bar"><span>Terminal 4: watch DZI2 indexing-zone sensor</span><button class="copy-btn" data-copy="cmd-watch-specific-position">Copy</button></div>
-            <pre><code id="cmd-watch-specific-position">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-
-ros2 run mfja_robot_control_config watch_sensor_feedback.py \
-  --side right \
-  --name DZI2R</code></pre>
-          </div>
-        </div>
       </section>
 
       <section id="scenario-markers">
@@ -1001,73 +973,6 @@ ros2 topic pub --once /tiago1/cmd_vel geometry_msgs/msg/Twist \
         </details>
       </section>
 
-      <section id="scenario-move-all-robots">
-        <h2>Scenario 11: Move All Five Robots Together</h2>
-        <p>
-          Keep Scenario 8 running with <code>robots:=all</code>. Then use
-          <code>multi_robot_sync_demo.py</code> to publish synchronized trajectories to every enabled robot in
-          <code>config/robots.yaml</code>. This is the easiest way to test the five robots together.
-        </p>
-
-        <div class="grid">
-          <div class="command">
-            <div class="command-bar"><span>List expected robot joints</span><button class="copy-btn" data-copy="cmd-list-robot-joints">Copy</button></div>
-            <pre><code id="cmd-list-robot-joints">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-
-ros2 run mfja_robot_control_config multi_robot_sync_demo.py --list-joints</code></pre>
-          </div>
-          <div class="command">
-            <div class="command-bar"><span>Move all enabled robots with presets</span><button class="copy-btn" data-copy="cmd-move-all-robots-default">Copy</button></div>
-            <pre><code id="cmd-move-all-robots-default">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-
-ros2 run mfja_robot_control_config multi_robot_sync_demo.py \
-  --trajectory-duration 4.0</code></pre>
-          </div>
-        </div>
-
-        <details>
-          <summary>Move all five robots with explicit goals</summary>
-          <div class="details-body">
-            <div class="command">
-              <div class="command-bar"><span>Explicit five-robot synchronized goals</span><button class="copy-btn" data-copy="cmd-move-all-robots-explicit">Copy</button></div>
-              <pre><code id="cmd-move-all-robots-explicit">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-
-ros2 run mfja_robot_control_config multi_robot_sync_demo.py \
-  --goal kuka1=0.8,-1.0,1.2,0.0,0.4,0.0 \
-  --goal staubli1=0.0,0.3,-0.5,0.0,0.6,0.0 \
-  --goal yaskawa_hc10_1=0.0,-0.6,0.8,0.0,0.5,0.0 \
-  --goal yaskawa_hc10dt_1=0.0,-0.5,0.7,0.0,0.4,0.0 \
-  --goal tiago1=0.10,0.3,-0.5,-0.4,1.0,0.2,-0.2,0.1,0.2,-0.2 \
-  --trajectory-duration 4.0</code></pre>
-            </div>
-          </div>
-        </details>
-
-        <details>
-          <summary>Move all arms and move TIAGo base during the same demo</summary>
-          <div class="details-body">
-            <div class="command">
-              <div class="command-bar"><span>All robots plus TIAGo base motion</span><button class="copy-btn" data-copy="cmd-move-all-robots-tiago-base">Copy</button></div>
-              <pre><code id="cmd-move-all-robots-tiago-base">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-
-ros2 run mfja_robot_control_config multi_robot_sync_demo.py \
-  --trajectory-duration 4.0 \
-  --tiago-base-linear 0.15 \
-  --tiago-base-angular 0.20 \
-  --tiago-base-duration 3.0</code></pre>
-            </div>
-          </div>
-        </details>
-      </section>
-
       <section id="validation">
         <h2>Quick Checks When Something Fails</h2>
         <div class="grid">
@@ -1089,19 +994,6 @@ ros2 interface show mfja_rail_interfaces/msg/StopperCommand
 ros2 interface show mfja_rail_interfaces/msg/SensorFeedback
 ros2 interface show trajectory_msgs/msg/JointTrajectory
 ros2 interface show geometry_msgs/msg/Twist</code></pre>
-            </div>
-          </div>
-          <div>
-            <h3>Validate Room 315 files</h3>
-            <div class="command">
-              <div class="command-bar"><span>Validators</span><button class="copy-btn" data-copy="cmd-validators">Copy</button></div>
-              <pre><code id="cmd-validators">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-
-python3 src/mfja_3rd_floor_gz/mfja_robot_control_config/scripts/room_315_devices_validator.py
-ros2 run mfja_robot_control_config room_315_network_validator.py
-ros2 run mfja_robot_control_config room_315_continuous_path_validator.py</code></pre>
             </div>
           </div>
         </div>

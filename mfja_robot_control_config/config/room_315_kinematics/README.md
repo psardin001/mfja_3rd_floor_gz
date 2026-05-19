@@ -13,8 +13,6 @@ switch states, and controlling the robots.
 ## Files
 
 - `raw_segments/`: source CSV files for the directed rail segments.
-- `normalized_segments/`: preprocessed CSV files with duplicate points removed,
-  arc length, tangent, and yaw columns.
 - `rail_network_right.yaml`: explicit graph topology for the right rail: nodes,
   segments, switches, fixed transitions, and block placeholders.
 - `rail_network_left.yaml`: explicit graph topology for the left rail with its
@@ -23,12 +21,6 @@ switch states, and controlling the robots.
   approach sensors, and stoppers.
 - `rail_devices_left.yaml`: user-editable left-rail slots, position sensors,
   approach sensors, and stoppers.
-- `segment_summary.yaml`: preprocessing summary generated from the raw CSVs.
-- `validation_report.yaml`: validation results for lengths, snap distances,
-  endpoint gaps, and tangent mismatches.
-- `continuous_path_report.yaml`: validation results comparing the continuous
-  path backend against the direct CSV polyline reference.
-- `debug_plots/`: generated visual debug plots of the rail network.
 
 ## Segment Direction
 
@@ -99,38 +91,6 @@ decreasing its `s_ratio` on `A14`. For stoppers or approach sensors that cover
 two converging branch segments, keep one public device name and edit the
 individual entries under `points:`.
 
-You can also compute `segment` and `s_ratio` from a Gazebo XYZ coordinate with
-`room_315_device_position_tool.py`. This is useful when you pick a sensor
-position visually in Gazebo:
-
-```bash
-cd "${MFJA_WS:-$HOME/test_mfja_ws}"/src/mfja_3rd_floor_gz
-python3 mfja_robot_control_config/scripts/room_315_device_position_tool.py \
-  --side right \
-  --name DZI1R \
-  --x -14.95 \
-  --y -3.86 \
-  --z 0.84
-```
-
-The command prints the nearest rail `segment`, `s`, `s_ratio`, and the distance
-from the requested Gazebo point to the rail. It does not edit YAML unless you
-add `--write`:
-
-```bash
-python3 mfja_robot_control_config/scripts/room_315_device_position_tool.py \
-  --side right \
-  --name DZI1R \
-  --x -14.95 \
-  --y -3.86 \
-  --z 0.84 \
-  --write
-```
-
-For devices that use `points:`, select the point with `--point-index`.
-The tool refuses to write when the point is far from the rail unless `--force`
-is passed.
-
 Rail device YAML does not change sensor semantics. The canonical rail sensor
 topic is `/room_315/rails/right/sensors/feedback` or
 `/room_315/rails/left/sensors/feedback`; it contains both before-stopper
@@ -148,35 +108,6 @@ A single-point device has `segment` and `s_ratio` directly on the device entry:
   radius_m: 0.09
 ```
 
-Move it from a Gazebo coordinate with a dry run first:
-
-```bash
-cd "${MFJA_WS:-$HOME/test_mfja_ws}"
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-
-python3 src/mfja_3rd_floor_gz/mfja_robot_control_config/scripts/room_315_device_position_tool.py \
-  --side right \
-  --x -10.50 \
-  --y -3.20 \
-  --z 0.85 \
-  --name DZI1R
-```
-
-Then write the YAML and validate:
-
-```bash
-python3 src/mfja_3rd_floor_gz/mfja_robot_control_config/scripts/room_315_device_position_tool.py \
-  --side right \
-  --x -10.50 \
-  --y -3.20 \
-  --z 0.85 \
-  --name DZI1R \
-  --write
-
-python3 src/mfja_3rd_floor_gz/mfja_robot_control_config/scripts/room_315_devices_validator.py
-```
-
 A multi-point device keeps one public name but has multiple physical points:
 
 ```yaml
@@ -190,36 +121,9 @@ A multi-point device keeps one public name but has multiple physical points:
     s_ratio: 0.943533612
 ```
 
-Use `--point-index 0` for the first point and `--point-index 1` for the second:
-
-```bash
-python3 src/mfja_3rd_floor_gz/mfja_robot_control_config/scripts/room_315_device_position_tool.py \
-  --side right \
-  --x -11.20 \
-  --y -4.00 \
-  --z 0.85 \
-  --name A4_APPROACH \
-  --point-index 0 \
-  --write
-```
-
 If an approach sensor is meant to stay aligned with a stopper, update the
 matching `stoppers` entry too. Rail sensors publish feedback; the stopper is
 what actually stops the shuttle when its state is `1`.
-
-## Validate Rail Devices
-
-Run the device validator after editing either rail device YAML:
-
-```bash
-cd "${MFJA_WS:-$HOME/test_mfja_ws}"/src/mfja_3rd_floor_gz
-python3 mfja_robot_control_config/scripts/room_315_devices_validator.py
-```
-
-The validator checks both `rail_devices_right.yaml` and
-`rail_devices_left.yaml` against their matching rail network files. It reports
-`PASS`, `WARN`, or `FAIL` and checks required fields, segment references,
-`s_ratio`, duplicate names, marker radii/distances, and stopper default states.
 
 ## Gazebo Device Markers
 
@@ -253,34 +157,6 @@ To test marker movement, edit a device `segment` or `s_ratio` in the matching
 `rail_devices_*.yaml`, rebuild or use a symlink install, then relaunch Gazebo
 and the shuttle node. The marker will be recreated at the new
 `SegmentGeometry.sample(s_ratio * segment.length)` position.
-
-## Regenerate Preprocessed Data
-
-Run these commands from the repository root after editing any file in
-`raw_segments/` or after changing the network topology:
-
-```bash
-cd "${MFJA_WS:-$HOME/test_mfja_ws}"/src/mfja_3rd_floor_gz
-
-python3 mfja_robot_control_config/scripts/room_315_csv_preprocessor.py
-python3 mfja_robot_control_config/scripts/room_315_network_validator.py
-python3 mfja_robot_control_config/scripts/room_315_continuous_path_validator.py
-python3 mfja_robot_control_config/scripts/room_315_segment_plot.py
-```
-
-Expected validation result:
-
-```text
-Validated 14 segments and 12 nodes.
-Status: PASS (0 warnings)
-```
-
-The continuous path validator also prints:
-
-```text
-Validated continuous paths for 14 segments.
-Status: PASS (0 warnings)
-```
 
 ## Build After Changes
 
@@ -657,13 +533,6 @@ ros2 topic echo /room_315/rails/right/stoppers/state mfja_rail_interfaces/msg/St
 ros2 topic pub --once /room_315/rails/right/stoppers/command mfja_rail_interfaces/msg/StopperCommand "{stoppers: [{name: 'A1', state: '1'}]}"
 ros2 topic pub --once /room_315/rails/right/switches/command mfja_rail_interfaces/msg/SwitchCommand "{switches: [{name: 'A1', state: 'INTERIOR'}]}"
 ros2 topic pub --once /room_315/rails/right/stoppers/command mfja_rail_interfaces/msg/StopperCommand "{stoppers: [{name: 'A1', state: '0'}]}"
-```
-
-To watch only one named sensor:
-
-```bash
-ros2 run mfja_robot_control_config watch_sensor_feedback.py --side right --name A1_APPROACH
-ros2 run mfja_robot_control_config watch_sensor_feedback.py --side right --name DZI2R
 ```
 
 The rail device YAML also defines virtual shuttle position detector names on the same topic:
