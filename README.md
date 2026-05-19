@@ -101,6 +101,61 @@ If you only edit README files, no rebuild is required. If you edit launch files,
 Python scripts, package metadata, interfaces, models, worlds, URDF, SDF, or
 config files, rebuild and source again.
 
+## Optional Nix Development Shell
+
+This repository also includes a basic `flake.nix` for users who want Nix to
+provide the ROS 2 Jazzy / Gazebo Harmonic development tools. It is optional:
+the normal `/opt/ros/jazzy` and `rosdep` workflow above is still supported.
+
+Install Nix first if it is not already installed:
+
+```bash
+sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
+```
+
+Then enter the development shell from this repository root:
+
+```bash
+cd "$MFJA_WS/src/mfja_3rd_floor_gz"
+nix develop
+```
+
+Inside the Nix shell, build and source the repository as a colcon workspace:
+
+```bash
+colcon build --symlink-install
+source install/setup.bash
+ros2 launch mfja_room_315_bringup room_315_only.launch.py \
+  robots:=none \
+  start_paused:=false \
+  gui:=true \
+  enable_room315_kinematic_shuttles:=true
+```
+
+Do not also source `/opt/ros/jazzy/setup.bash` inside the Nix shell. The Nix
+shell provides its own ROS environment.
+
+The Nix shell includes the build tools and ROS packages used by this repository:
+`colcon`, `cmake`, `ament_cmake`, `ament_index_python`,
+`rosidl_default_generators`, `rosidl_default_runtime`, `rclpy`,
+`rcl_interfaces`, `geometry_msgs`, `nav_msgs`, `rosgraph_msgs`, `sensor_msgs`,
+`std_msgs`, `tf2_msgs`, `tf2_ros`, `trajectory_msgs`,
+`robot_state_publisher`, `ros_gz`, `ros_gz_bridge`, `ros_gz_interfaces`,
+`ros_gz_sim`, `python3-yaml`, and `python3-matplotlib`.
+
+Known Nix limitations:
+
+- Nix itself must be installed manually before `nix develop` can work.
+- The first `nix develop` can take time. It may download packages from
+  `cache.nixos.org` and the ROS Cachix cache, or build packages locally if a
+  cache entry is unavailable.
+- Gazebo GUI and RViz still depend on host graphics drivers. On non-NixOS
+  systems, OpenGL/Qt issues may require extra host graphics support such as
+  `nixGL` or `nix-system-graphics`.
+- This flake covers the packages in this repository. If you add sibling ROS
+  packages to the same colcon workspace later, update `flake.nix` with their
+  dependencies too.
+
 ## Troubleshooting
 
 - `PackageNotFoundError`: source `/opt/ros/jazzy/setup.bash`, build the
@@ -113,6 +168,9 @@ config files, rebuild and source again.
   repositories, then run `rosdep update`.
 - Custom messages or services are missing after editing `mfja_rail_interfaces`:
   rebuild the workspace and open a fresh sourced terminal.
+- CMake reports that `CMakeCache.txt` was created in another directory: remove
+  the local generated `build/`, `install/`, and `log/` directories, then run
+  `colcon build --symlink-install` again.
 
 ## Step-by-Step Feature Guide
 
