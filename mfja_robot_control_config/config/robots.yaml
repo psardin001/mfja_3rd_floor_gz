@@ -27,9 +27,20 @@ robots:
     z_pose: 0.62
     yaw: 1.57
     enabled: true
+  # Add/remove any number of TIAGo entries here. Supported mobile variants:
+  # - model: tiago_with_arm  # aliases: tiago, tiago_arm
+  # - model: tiago_base      # TIAGo body without arm/head; aliases: tiago_no_arm, tiago_mobile_base
+  # You can also use model: tiago with arm: true/false.
   - name: tiago1
-    model: tiago
+    model: tiago_with_arm
     x_pose: -6.4
+    y_pose: -3.0
+    z_pose: 0.0
+    yaw: 1.57
+    enabled: true
+  - name: tiago_base1
+    model: tiago_base
+    x_pose: -7.2
     y_pose: -3.0
     z_pose: 0.0
     yaw: 1.57

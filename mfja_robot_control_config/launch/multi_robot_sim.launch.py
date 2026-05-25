@@ -17,9 +17,64 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-MOBILE_MODELS = {'tiago'}
+TIAGO_WITH_ARM_ALIASES = {'tiago', 'tiago_with_arm', 'tiago_arm'}
+TIAGO_BASE_ALIASES = {'tiago_base', 'tiago_no_arm', 'tiago_mobile_base'}
+MODEL_ALIASES = {
+    **{alias: 'tiago' for alias in TIAGO_WITH_ARM_ALIASES},
+    **{alias: 'tiago_base' for alias in TIAGO_BASE_ALIASES},
+}
+MOBILE_MODELS = {'tiago', 'tiago_base'}
 DESCRIPTION_PACKAGE = 'mfja_3rd_floor_description'
 CONTROL_CONFIG_PACKAGE = 'mfja_robot_control_config'
+
+
+def _canonical_model_name(model_name):
+    normalized = str(model_name or '').strip().lower()
+    return MODEL_ALIASES.get(normalized, normalized)
+
+
+def _parse_bool_field(value, field_name, robot_name):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {'true', 'yes', 'y', '1', 'on'}:
+            return True
+        if normalized in {'false', 'no', 'n', '0', 'off'}:
+            return False
+    raise RuntimeError(
+        f'Invalid boolean "{field_name}" value for robot "{robot_name}": '
+        f'{value!r}. Use true/false.'
+    )
+
+
+def _resolve_robot_model_name(robot):
+    robot_name = str(robot.get('name', '<unnamed>')).strip() or '<unnamed>'
+    raw_model_name = str(robot.get('model', 'kuka_kr6r900sixx')).strip().lower()
+    model_name = _canonical_model_name(raw_model_name)
+
+    if model_name not in MOBILE_MODELS:
+        return model_name
+
+    variant = str(
+        robot.get('variant', robot.get('type', robot.get('tiago_variant', '')))
+    ).strip().lower().replace('-', '_')
+    if variant in {'base', 'mobile_base', 'no_arm', 'without_arm', 'armless'}:
+        return 'tiago_base'
+    if variant in {'arm', 'with_arm', 'full', 'manipulator'}:
+        return 'tiago'
+
+    for arm_field in ('with_arm', 'has_arm', 'arm'):
+        if arm_field in robot:
+            return (
+                'tiago'
+                if _parse_bool_field(robot[arm_field], arm_field, robot_name)
+                else 'tiago_base'
+            )
+
+    return model_name
 
 
 def _parse_selected_robots(raw_value):
@@ -35,8 +90,9 @@ def _parse_selected_robots(raw_value):
 
 def _robot_shortcuts(robot, index):
     name = str(robot.get('name', '')).strip()
-    model = str(robot.get('model', '')).strip().lower()
-    shortcuts = {str(index), name.lower(), model}
+    raw_model = str(robot.get('model', '')).strip().lower()
+    model = _resolve_robot_model_name(robot)
+    shortcuts = {str(index), name.lower(), raw_model, model}
 
     if name:
         base_name = name.lower().rstrip('0123456789').rstrip('_')
@@ -51,8 +107,12 @@ def _robot_shortcuts(robot, index):
         shortcuts.add('hc10')
     elif model == 'yaskawa_hc10dt':
         shortcuts.add('hc10dt')
-    elif model == 'tiago':
+    elif model in MOBILE_MODELS:
         shortcuts.add('tiago')
+        if model == 'tiago_base':
+            shortcuts.update({'tiago_base', 'tiago_no_arm', 'mobile_base'})
+        else:
+            shortcuts.update({'tiago_with_arm', 'tiago_arm'})
 
     return shortcuts
 
@@ -68,7 +128,14 @@ def _resolve_selected_robots(all_robots, selected_tokens, config_path):
                 f'Robot entry #{index} in "{config_path}" is missing the "name" field.'
             )
 
-        exact_name_map[name.lower()] = robot
+        normalized_name = name.lower()
+        if normalized_name in exact_name_map:
+            raise RuntimeError(
+                f'Duplicate robot name "{name}" in "{config_path}". '
+                'Every robot entry must have a unique name.'
+            )
+
+        exact_name_map[normalized_name] = robot
         for shortcut in _robot_shortcuts(robot, index):
             selector_map.setdefault(shortcut, []).append(robot)
 
@@ -105,7 +172,7 @@ def _resolve_selected_robots(all_robots, selected_tokens, config_path):
             f'{index}={robot["name"]}'
             for index, robot in enumerate(all_robots, start=1)
         ) or '(none)'
-        shortcut_help = 'kuka, staubli, hc10, hc10dt, tiago'
+        shortcut_help = 'kuka, staubli, hc10, hc10dt, tiago, tiago_base'
         errors = []
         if missing:
             errors.append('Unknown selection(s): ' + ', '.join(missing))
@@ -118,11 +185,35 @@ def _resolve_selected_robots(all_robots, selected_tokens, config_path):
     return resolved
 
 
+def _validate_robot_entries(all_robots, config_path):
+    seen_names = set()
+    for index, robot in enumerate(all_robots, start=1):
+        if not isinstance(robot, dict):
+            raise RuntimeError(
+                f'Robot entry #{index} in "{config_path}" must be a YAML map.'
+            )
+
+        name = str(robot.get('name', '')).strip()
+        if not name:
+            raise RuntimeError(
+                f'Robot entry #{index} in "{config_path}" is missing the "name" field.'
+            )
+
+        normalized_name = name.lower()
+        if normalized_name in seen_names:
+            raise RuntimeError(
+                f'Duplicate robot name "{name}" in "{config_path}". '
+                'Every robot entry must have a unique name.'
+            )
+        seen_names.add(normalized_name)
+
+
 def _load_robots(config_path, selected_names=None):
     with open(config_path, 'r', encoding='utf-8') as stream:
         config = yaml.safe_load(stream) or {}
 
     all_robots = config.get('robots', [])
+    _validate_robot_entries(all_robots, config_path)
 
     if selected_names == 'all':
         robots = list(all_robots)
@@ -152,17 +243,17 @@ def _make_bridge_yaml(robot_name, world_name, model_name):
             'direction': 'ROS_TO_GZ',
         },
         {
-            'ros_topic_name': f'/{robot_name}/joint_states',
-            'gz_topic_name': f'/world/{world_name}/model/{robot_name}/joint_state',
-            'ros_type_name': 'sensor_msgs/msg/JointState',
-            'gz_type_name': 'gz.msgs.Model',
-            'direction': 'GZ_TO_ROS',
-        },
-        {
             'ros_topic_name': f'/{robot_name}/joint_trajectory_progress',
             'gz_topic_name': f'/model/{robot_name}/joint_trajectory_progress',
             'ros_type_name': 'std_msgs/msg/Float64',
             'gz_type_name': 'gz.msgs.Double',
+            'direction': 'GZ_TO_ROS',
+        },
+        {
+            'ros_topic_name': f'/{robot_name}/joint_states',
+            'gz_topic_name': f'/world/{world_name}/model/{robot_name}/joint_state',
+            'ros_type_name': 'sensor_msgs/msg/JointState',
+            'gz_type_name': 'gz.msgs.Model',
             'direction': 'GZ_TO_ROS',
         },
     ]
@@ -369,7 +460,7 @@ def _launch_setup(context, *args, **kwargs):
 
     for robot in robots:
         robot_name = str(robot['name'])
-        model_name = str(robot.get('model', 'kuka_kr6r900sixx'))
+        model_name = _resolve_robot_model_name(robot)
         x_pose = float(robot.get('x_pose', 0.0))
         y_pose = float(robot.get('y_pose', 0.0))
         z_pose = float(robot.get('z_pose', 0.0))
@@ -451,7 +542,7 @@ def generate_launch_description():
             default_value='',
             description=(
                 'Comma-separated robot selection list. Supports full names '
-                '("kuka1,tiago1"), short aliases ("kuka,tiago"), numeric '
+                '("kuka1,tiago1"), short aliases ("kuka,tiago,tiago_base"), numeric '
                 'indices by YAML order ("1,5"), "all", or "none". Leave empty '
                 'to use enabled flags from the YAML.'
             ),

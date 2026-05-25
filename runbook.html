@@ -372,6 +372,7 @@
       <a href="#scenario-floor">Full third floor</a>
       <a href="#scenario-single-robot">One robot with table</a>
       <a href="#scenario-all-robots">Full floor with all robots</a>
+      <a href="#scenario-tiago-variants">TIAGo variants from YAML</a>
       <a href="#scenario-robot-control">Robot control topics</a>
       <a href="#scenario-move-one-robot">Move one robot</a>
       <a href="#validation">Quick checks</a>
@@ -425,7 +426,8 @@ source install/setup.bash</code></pre>
             <tr><td>All rail sensor feedback</td><td><code>/room_315/rails/right/sensors/feedback</code></td><td><code>mfja_rail_interfaces/msg/SensorFeedback</code></td></tr>
             <tr><td>Robot joint command</td><td><code>/kuka1/joint_trajectory</code></td><td><code>trajectory_msgs/msg/JointTrajectory</code></td></tr>
             <tr><td>Robot joint state</td><td><code>/kuka1/joint_states</code></td><td><code>sensor_msgs/msg/JointState</code></td></tr>
-            <tr><td>TIAGo mobile base command</td><td><code>/tiago1/cmd_vel</code></td><td><code>geometry_msgs/msg/Twist</code></td></tr>
+            <tr><td>TIAGo with arm mobile command</td><td><code>/tiago1/cmd_vel</code></td><td><code>geometry_msgs/msg/Twist</code></td></tr>
+            <tr><td>TIAGo without arm/head mobile command</td><td><code>/tiago_base1/cmd_vel</code></td><td><code>geometry_msgs/msg/Twist</code></td></tr>
           </tbody>
         </table>
       </section>
@@ -681,7 +683,6 @@ ros2 launch mfja_3rd_floor_bringup room_315_only.launch.py \
   room315_right_start_slot:=2 \
   room315_shuttles_start_enabled:=true \
   room315_shuttle_speed:=0.08 \
-  room315_sensor_detection_tolerance_m:=0.01 \
   room315_sensor_publish_rate_hz:=10.0 \
   room315_show_device_markers:=true</code></pre>
         </div>
@@ -701,7 +702,7 @@ ros2 topic echo /room_315/rails/right/sensors/feedback \
       <section id="scenario-markers">
         <h2>Scenario 5: Show or Hide Sensors and Stoppers in Gazebo</h2>
         <p>
-          Gazebo device markers include slots, sensors, and stoppers. Keep them visible during training, or hide them when you want a cleaner scene.
+          Gazebo device markers include position sensors and stoppers. Keep them visible during training, or hide them when you want a cleaner scene.
         </p>
 
         <div class="grid">
@@ -776,7 +777,7 @@ ros2 launch mfja_3rd_floor_bringup full_floor.launch.py \
 
       <section id="scenario-single-robot">
         <h2>Scenario 7: Run One Selected Robot with Its Table Only</h2>
-        <p>This scenario isolates one industrial robot with its table. It does not start Room 315 or the full floor. Use Scenario 10 for TIAGo or for a robot inside the full third-floor world.</p>
+        <p>This scenario isolates one industrial robot with its table. It does not start Room 315 or the full floor. Use Scenario 11 for TIAGo or for a robot inside the full third-floor world.</p>
 
         <div class="grid">
           <div class="tile">
@@ -809,7 +810,7 @@ ros2 launch mfja_3rd_floor_bringup single_industrial_robot.launch.py \
 
       <section id="scenario-all-robots">
         <h2>Scenario 8: Full Third Floor with All Robots and Shuttles</h2>
-        <p>This is the heaviest scenario, but it is useful for full integration testing: complete world, all robots, both rails, one right shuttle, and one left shuttle.</p>
+        <p>This is the heaviest scenario, but it is useful for full integration testing: complete world, every enabled robot entry from <code>robots.yaml</code>, both rails, one right shuttle, and one left shuttle. Room 315 shuttles use the same simulation clock as the robots, so all motion stays synchronized.</p>
 
         <div class="command">
           <div class="command-bar"><span>Full floor with all robots and shuttles</span><button class="copy-btn" data-copy="cmd-all-robots">Copy</button></div>
@@ -825,16 +826,98 @@ ros2 launch mfja_3rd_floor_bringup full_floor.launch.py \
   room315_right_shuttle_count:=1 \
   room315_left_shuttle_count:=1 \
   room315_shuttles_start_enabled:=false \
-          room315_show_device_markers:=true</code></pre>
+  room315_show_device_markers:=true</code></pre>
+        </div>
+      </section>
+
+      <section id="scenario-tiago-variants">
+        <h2>Scenario 9: TIAGo Variants from YAML</h2>
+        <p>
+          TIAGo robots are configured only from <code>mfja_robot_control_config/config/robots.yaml</code>.
+          Add or remove entries in the YAML, then rebuild and source the workspace. Commented lines that start with
+          <code>#</code> are examples only; they are not spawned.
+        </p>
+
+        <div class="callout">
+          Use a unique <code>name</code> for every TIAGo. Use <code>model: tiago_with_arm</code> for the full TIAGo
+          with arm, and <code>model: tiago_base</code> for the TIAGo body without the arm or head.
+          When both variants exist, prefer exact names such as <code>robots:=tiago1,tiago_base1</code>.
+        </div>
+
+        <h3>YAML pattern</h3>
+        <div class="command">
+          <div class="command-bar"><span>Example robots.yaml entries</span><button class="copy-btn" data-copy="cmd-tiago-yaml-example">Copy</button></div>
+          <pre><code id="cmd-tiago-yaml-example">robots:
+  - name: tiago1
+    model: tiago_with_arm
+    x_pose: -6.4
+    y_pose: -3.0
+    z_pose: 0.0
+    yaw: 1.57
+    enabled: true
+
+  - name: tiago_base1
+    model: tiago_base
+    x_pose: -7.2
+    y_pose: -3.0
+    z_pose: 0.0
+    yaw: 1.57
+    enabled: true</code></pre>
+        </div>
+
+        <div class="grid">
+          <div class="command">
+            <div class="command-bar"><span>Build after YAML/model changes</span><button class="copy-btn" data-copy="cmd-build-tiago-variants">Copy</button></div>
+            <pre><code id="cmd-build-tiago-variants">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+source /opt/ros/jazzy/setup.bash
+
+colcon build --base-paths src/mfja_3rd_floor_gz \
+  --packages-select mfja_3rd_floor_description mfja_robot_control_config \
+  --symlink-install
+
+source install/setup.bash</code></pre>
+          </div>
+          <div class="command">
+            <div class="command-bar"><span>Confirm ROS sees the expected packages</span><button class="copy-btn" data-copy="cmd-tiago-prefix-check">Copy</button></div>
+            <pre><code id="cmd-tiago-prefix-check">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 pkg prefix mfja_robot_control_config
+ros2 pkg prefix mfja_3rd_floor_description</code></pre>
+          </div>
+        </div>
+
+        <div class="command">
+          <div class="command-bar"><span>Launch both TIAGo variants only</span><button class="copy-btn" data-copy="cmd-tiago-variants-launch">Copy</button></div>
+          <pre><code id="cmd-tiago-variants-launch">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 launch mfja_3rd_floor_bringup full_floor.launch.py \
+  robots:=tiago1,tiago_base1 \
+  start_paused:=false \
+  gui:=true \
+  enable_room315_kinematic_shuttles:=false</code></pre>
+        </div>
+
+        <div class="command">
+          <div class="command-bar"><span>Check both TIAGo namespaces</span><button class="copy-btn" data-copy="cmd-tiago-variants-check">Copy</button></div>
+          <pre><code id="cmd-tiago-variants-check">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 node list | grep tiago
+ros2 topic list | grep -E '^/(tiago1|tiago_base1)/'</code></pre>
         </div>
       </section>
 
       <section id="scenario-robot-control">
-        <h2>Scenario 9: Robot Control Topics and Names</h2>
+        <h2>Scenario 10: Robot Control Topics and Names</h2>
         <p>
-          The five configured robots are controlled through ROS topics bridged to Gazebo.
+          The configured robots are controlled through ROS topics bridged to Gazebo.
           Fixed-base robots use <code>/&lt;robot_name&gt;/joint_trajectory</code>.
-          TIAGo also has <code>/tiago1/cmd_vel</code> for mobile-base motion.
+          TIAGo variants also have <code>/&lt;robot_name&gt;/cmd_vel</code> for mobile-base motion.
         </p>
 
         <table>
@@ -846,7 +929,8 @@ ros2 launch mfja_3rd_floor_bringup full_floor.launch.py \
             <tr><td><code>staubli</code> or <code>2</code></td><td><code>staubli1</code></td><td><code>staubli_tx2_60l</code></td><td><code>/staubli1/joint_trajectory</code></td></tr>
             <tr><td><code>hc10</code> or <code>3</code></td><td><code>yaskawa_hc10_1</code></td><td><code>yaskawa_hc10</code></td><td><code>/yaskawa_hc10_1/joint_trajectory</code></td></tr>
             <tr><td><code>hc10dt</code> or <code>4</code></td><td><code>yaskawa_hc10dt_1</code></td><td><code>yaskawa_hc10dt</code></td><td><code>/yaskawa_hc10dt_1/joint_trajectory</code></td></tr>
-            <tr><td><code>tiago</code> or <code>5</code></td><td><code>tiago1</code></td><td><code>tiago</code></td><td><code>/tiago1/joint_trajectory</code> and <code>/tiago1/cmd_vel</code></td></tr>
+            <tr><td><code>tiago1</code>, <code>tiago_with_arm</code>, or <code>5</code></td><td><code>tiago1</code></td><td><code>tiago_with_arm</code></td><td><code>/tiago1/joint_trajectory</code> and <code>/tiago1/cmd_vel</code></td></tr>
+            <tr><td><code>tiago_base1</code>, <code>tiago_base</code>, or <code>6</code></td><td><code>tiago_base1</code></td><td><code>tiago_base</code></td><td><code>/tiago_base1/joint_trajectory</code> and <code>/tiago_base1/cmd_vel</code></td></tr>
           </tbody>
         </table>
 
@@ -856,7 +940,7 @@ ros2 launch mfja_3rd_floor_bringup full_floor.launch.py \
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
-ros2 topic list | grep -E '^/(kuka1|staubli1|yaskawa_hc10_1|yaskawa_hc10dt_1|tiago1)/'
+ros2 topic list | grep -E '^/(kuka1|staubli1|yaskawa_hc10_1|yaskawa_hc10dt_1|tiago1|tiago_base1)/'
 ros2 topic info /kuka1/joint_trajectory
 ros2 interface show trajectory_msgs/msg/JointTrajectory
 ros2 interface show geometry_msgs/msg/Twist</code></pre>
@@ -864,10 +948,10 @@ ros2 interface show geometry_msgs/msg/Twist</code></pre>
       </section>
 
       <section id="scenario-move-one-robot">
-        <h2>Scenario 10: Move Any One of the Five Robots</h2>
+        <h2>Scenario 11: Move Any One Robot</h2>
         <p>
           Use this scenario when you want to command one robot manually. First launch the full floor with only the robot you want.
-          Change <code>robots:=kuka</code> to <code>staubli</code>, <code>hc10</code>, <code>hc10dt</code>, or <code>tiago</code>.
+          Change <code>robots:=kuka</code> to <code>staubli</code>, <code>hc10</code>, <code>hc10dt</code>, <code>tiago1</code>, or <code>tiago_base1</code>.
         </p>
 
         <div class="command">
@@ -944,7 +1028,7 @@ ros2 topic pub --once /yaskawa_hc10dt_1/joint_trajectory trajectory_msgs/msg/Joi
         </details>
 
         <details>
-          <summary>Move TIAGo arm, head, and base</summary>
+          <summary>Move TIAGo with arm: arm, head, and base</summary>
           <div class="details-body">
             <div class="grid">
               <div class="command">
@@ -971,6 +1055,35 @@ ros2 topic pub --once /tiago1/cmd_vel geometry_msgs/msg/Twist \
             </div>
           </div>
         </details>
+
+        <details>
+          <summary>Move TIAGo without arm/head: torso and base</summary>
+          <div class="details-body">
+            <div class="grid">
+              <div class="command">
+                <div class="command-bar"><span>Move tiago_base1 torso</span><button class="copy-btn" data-copy="cmd-move-tiago-base-body">Copy</button></div>
+                <pre><code id="cmd-move-tiago-base-body">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 topic pub --once /tiago_base1/joint_trajectory trajectory_msgs/msg/JointTrajectory \
+  "{joint_names: ['torso_lift_joint'], points: [{positions: [0.10], time_from_start: {sec: 3, nanosec: 0}}]}"</code></pre>
+              </div>
+              <div class="command">
+                <div class="command-bar"><span>Move and stop tiago_base1</span><button class="copy-btn" data-copy="cmd-move-tiago-base1-mobile">Copy</button></div>
+                <pre><code id="cmd-move-tiago-base1-mobile">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+timeout 3s ros2 topic pub -r 20 /tiago_base1/cmd_vel geometry_msgs/msg/Twist \
+  "{linear: {x: 0.15, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: -0.20}}"
+
+ros2 topic pub --once /tiago_base1/cmd_vel geometry_msgs/msg/Twist \
+  "{linear: {x: 0.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}"</code></pre>
+              </div>
+            </div>
+          </div>
+        </details>
       </section>
 
       <section id="validation">
@@ -986,7 +1099,7 @@ source install/setup.bash
 
 ros2 topic list | grep /room_315/rails
 ros2 service list | grep /room_315/rails
-ros2 topic list | grep -E '^/(kuka1|staubli1|yaskawa_hc10_1|yaskawa_hc10dt_1|tiago1)/'
+ros2 topic list | grep -E '^/(kuka1|staubli1|yaskawa_hc10_1|yaskawa_hc10dt_1|tiago1|tiago_base1)/'
 ros2 interface show mfja_rail_interfaces/srv/AddShuttle
 ros2 interface show mfja_rail_interfaces/msg/ShuttleCommand
 ros2 interface show mfja_rail_interfaces/msg/SwitchCommand
