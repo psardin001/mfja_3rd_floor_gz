@@ -91,8 +91,10 @@ decreasing its `s_ratio` on `A14`. For stoppers or approach sensors that cover
 two converging branch segments, keep one public device name and edit the
 individual entries under `points:`.
 
-Rail device YAML does not change sensor semantics. The canonical rail sensor
-topic is `/room_315/rails/right/sensors/feedback` or
+Position and approach sensor entries use `radius_m` as their occupancy radius.
+Missing `radius_m` is a configuration error so sensor behavior stays explicit in
+YAML. The canonical
+rail sensor topic is `/room_315/rails/right/sensors/feedback` or
 `/room_315/rails/left/sensors/feedback`; it contains both before-stopper
 sensors and rail-point sensors.
 The public rail API uses typed `mfja_rail_interfaces` messages only.
@@ -136,21 +138,23 @@ accept every create request.
 
 Colors:
 
-- slots and sensors: blue
-- stoppers: red
+- position sensors: blue when inactive, green when active (`active=1`)
+- stoppers: amber when released (`state=0`), red when active (`state=1`)
+- shuttles: black normally, red in `FALLING` mode
 - switch bodies: green for state `0` / `INTERIOR` / `S`,
   orange for state `1` / `EXTERIOR` / `G`
 
-All rail sensor markers use one color because every rail sensor reports the
-same binary occupancy behavior. The old continuous sensor distance field has
-been fully removed from the sensor interface.
+Position sensor markers sit slightly above the rail so a visible part remains
+above the shuttle body while a shuttle is crossing the sensor. Approach sensors
+remain in YAML and feedback, but they do not spawn visual markers. The old
+continuous sensor distance field has been fully removed from the sensor
+interface.
 
 Example marker names:
 
 ```text
 marker_right_DZI1R
 marker_right_stopper_A1
-marker_left_slot_1
 ```
 
 To test marker movement, edit a device `segment` or `s_ratio` in the matching
@@ -376,7 +380,7 @@ Expected right-rail approach sensors:
 
 These sensors use the same code type as all other rail sensors:
 `sensor_type=sensor`, `active=1` when a shuttle is on top of the configured
-point within `sensor_detection_tolerance_m`, and `active=0` otherwise.
+point within its YAML `radius_m`, and `active=0` otherwise.
 
 ### Test All Left-Rail Sensors
 
@@ -483,7 +487,8 @@ Switch and stopper motion delays are configurable:
 ros2 launch mfja_robot_control_config room_315_dual_kinematic_shuttles.launch.py \
   gazebo_world_name:=room_315_only \
   switch_motion_delay_s:=0.3 \
-  stopper_motion_delay_s:=0.1
+  stopper_motion_delay_s:=0.1 \
+  stopper_stop_before_m:=0.1
 ```
 
 The delay is measured on the node ROS clock, so with `use_sim_time:=true` it
@@ -494,7 +499,12 @@ At runtime, the same parameters can be changed on each shuttle node:
 ```bash
 ros2 param set /room_315/rails/right/room_315_kinematic_shuttle switch_motion_delay_s 0.5
 ros2 param set /room_315/rails/right/room_315_kinematic_shuttle stopper_motion_delay_s 0.2
+ros2 param set /room_315/rails/right/room_315_kinematic_shuttle stopper_stop_before_m 0.1
 ```
+
+When a stopper is active, the shuttle stops `stopper_stop_before_m` meters before
+the stopper point defined in the rail device YAML. The stopper marker and sensor
+remain at the configured stopper point.
 
 ## Stopper and Sensor Workflow
 
@@ -517,9 +527,10 @@ sensor -> stop shuttle -> move switch -> unstop shuttle
 
 Sensor messages use `mfja_rail_interfaces/msg/SensorFeedback`. Its `readings`
 field contains binary occupancy readings. `active=1` means the named sensor
-is occupied within `sensor_detection_tolerance_m`; `active=0` means it is
-clear. When active, `shuttle_name` identifies the detected shuttle. Sensors do
-not publish continuous distance values.
+is occupied within the configured YAML `radius_m`; `active=0` means it is
+clear. When active,
+`shuttle_name` identifies the detected shuttle. Sensors do not publish
+continuous distance values.
 
 Example:
 

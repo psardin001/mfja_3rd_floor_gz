@@ -18,7 +18,7 @@ def generate_launch_description():
         'publish_visual_switch_commands': True,
         'switch_motion_delay_s': LaunchConfiguration('switch_motion_delay_s'),
         'stopper_motion_delay_s': LaunchConfiguration('stopper_motion_delay_s'),
-        'sensor_detection_tolerance_m': LaunchConfiguration('sensor_detection_tolerance_m'),
+        'stopper_stop_before_m': LaunchConfiguration('stopper_stop_before_m'),
         'sensor_publish_rate_hz': LaunchConfiguration('sensor_publish_rate_hz'),
         'show_device_markers': LaunchConfiguration('show_device_markers'),
         'use_sim_time': LaunchConfiguration('use_sim_time'),
@@ -97,9 +97,9 @@ def generate_launch_description():
             description='Delay between a stopper command and actual stopper state.',
         ),
         DeclareLaunchArgument(
-            'sensor_detection_tolerance_m',
-            default_value='0.01',
-            description='Binary sensor detection tolerance in meters.',
+            'stopper_stop_before_m',
+            default_value='0.1',
+            description='Distance before the stopper where shuttles stop, in meters.',
         ),
         DeclareLaunchArgument(
             'sensor_publish_rate_hz',
@@ -110,7 +110,7 @@ def generate_launch_description():
             'show_device_markers',
             default_value='true',
             choices=['true', 'false'],
-            description='Spawn visual markers for slots, sensors, and stoppers.',
+            description='Spawn visual markers for position sensors and stoppers.',
         ),
         DeclareLaunchArgument(
             'right_start_slot',
