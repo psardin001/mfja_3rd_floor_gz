@@ -130,9 +130,9 @@ def generate_launch_description():
             description='Room 315 stopper motion delay in seconds.',
         ),
         DeclareLaunchArgument(
-            'room315_sensor_detection_tolerance_m',
-            default_value='0.01',
-            description='Room 315 binary sensor detection tolerance in meters.',
+            'room315_stopper_stop_before_m',
+            default_value='0.1',
+            description='Room 315 distance before a stopper where shuttles stop, in meters.',
         ),
         DeclareLaunchArgument(
             'room315_sensor_publish_rate_hz',
@@ -143,7 +143,7 @@ def generate_launch_description():
             'room315_show_device_markers',
             default_value='true',
             choices=['true', 'false'],
-            description='Show Room 315 slot, sensor, and stopper markers.',
+            description='Show Room 315 position sensor and stopper markers.',
         ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(base_launch),
@@ -180,8 +180,8 @@ def generate_launch_description():
                         'stopper_motion_delay_s': LaunchConfiguration(
                             'room315_stopper_motion_delay_s'
                         ),
-                        'sensor_detection_tolerance_m': LaunchConfiguration(
-                            'room315_sensor_detection_tolerance_m'
+                        'stopper_stop_before_m': LaunchConfiguration(
+                            'room315_stopper_stop_before_m'
                         ),
                         'sensor_publish_rate_hz': LaunchConfiguration(
                             'room315_sensor_publish_rate_hz'

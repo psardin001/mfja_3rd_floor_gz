@@ -60,8 +60,8 @@ position_sensors:
   switch: A3
   aliases:
   - DA3
-  segment: A3S
-  s_ratio: 0.050401902
+  segment: A23
+  s_ratio: 1.0
   radius_m: 0.08
 - name: DA3GR
   purpose: switch_branch
@@ -150,8 +150,8 @@ position_sensors:
   branch: G
   aliases:
   - DA2G
-  segment: A2S
-  s_ratio: 0.954170087
+  segment: A2G
+  s_ratio: 0.94125
   radius_m: 0.08
 - name: DA2SR
   purpose: switch_branch
@@ -169,9 +169,11 @@ approach_sensors:
   before_switch: A3
   segment: A23
   s_ratio: 0.711151221
+  radius_m: 0.08
 - name: A4_APPROACH
   stopper: A4
   before_switch: A4
+  radius_m: 0.08
   points:
   - segment: A34E
     s_ratio: 0.964078719
@@ -182,9 +184,11 @@ approach_sensors:
   before_switch: A1
   segment: A14
   s_ratio: 0.937923811
+  radius_m: 0.08
 - name: A2_APPROACH
   stopper: A2
   before_switch: A2
+  radius_m: 0.08
   points:
   - segment: A12E
     s_ratio: 0.964090232

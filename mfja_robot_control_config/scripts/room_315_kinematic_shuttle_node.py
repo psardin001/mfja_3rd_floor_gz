@@ -202,6 +202,12 @@ LEFT_CALIBRATION_DEFAULTS = {
 }
 
 RAIL_SENSOR_TYPE = 'sensor'
+MARKER_VISUAL_DEFAULT = 'default'
+MARKER_VISUAL_INACTIVE = 'inactive'
+MARKER_VISUAL_ACTIVE = 'active'
+SHUTTLE_VISUAL_NORMAL = 'normal'
+SHUTTLE_VISUAL_FALLING = 'falling'
+SHUTTLE_VISUAL_REFRESH_RETRY_INTERVAL_S = 0.5
 
 
 VISUAL_SWITCH_SELECTOR_MAP = {
@@ -269,29 +275,27 @@ LEFT_PUBLIC_SEGMENT_NAME_MAP = {
 }
 
 DEVICE_MARKER_STYLES = {
-    'slot': {
-        'shape': 'sphere',
-        'radius': 0.055,
-        'length': 0.0,
-        'rgba': (0.05, 0.45, 1.0, 0.85),
-    },
     'position_sensor': {
         'shape': 'sphere',
         'radius': 0.04,
         'length': 0.0,
+        'z_offset_m': 0.10,
         'rgba': (0.05, 0.45, 1.0, 0.85),
-    },
-    'approach_sensor': {
-        'shape': 'sphere',
-        'radius': 0.04,
-        'length': 0.0,
-        'rgba': (0.05, 0.45, 1.0, 0.85),
+        'rgba_by_state': {
+            MARKER_VISUAL_INACTIVE: (0.05, 0.45, 1.0, 0.85),
+            MARKER_VISUAL_ACTIVE: (0.0, 0.85, 0.18, 0.95),
+        },
     },
     'stopper': {
         'shape': 'cylinder',
         'radius': 0.045,
         'length': 0.09,
-        'rgba': (1.0, 0.05, 0.02, 0.9),
+        'z_offset_m': 0.0,
+        'rgba': (1.0, 0.72, 0.08, 0.9),
+        'rgba_by_state': {
+            MARKER_VISUAL_INACTIVE: (1.0, 0.72, 0.08, 0.9),
+            MARKER_VISUAL_ACTIVE: (1.0, 0.02, 0.02, 0.95),
+        },
     },
 }
 
@@ -353,6 +357,7 @@ def _ordered_switch_states(switch_states: Dict[str, str]) -> Dict[str, str]:
 class StopPoint:
     segment: str
     stop_s: float
+    radius_m: float
     sensor_name: str | None = None
 
 
@@ -368,6 +373,7 @@ class StopperConfig:
 class PositionSensorPoint:
     segment: str
     sensor_s: float
+    radius_m: float
 
 
 @dataclass(frozen=True)
@@ -477,7 +483,7 @@ def _require_device_fields(point: dict, category: str, name: str, index: int) ->
         context += f'.points[{index}]'
 
     required = ['segment', 's_ratio']
-    if category == 'position_sensors':
+    if category in {'position_sensors', 'approach_sensors'}:
         required.append('radius_m')
     elif category == 'stoppers':
         required.append('default_state')
@@ -514,6 +520,18 @@ def _rail_device_from_point(
     segment = rail_network.segments[segment_name]
     s = s_ratio * segment.length
     sample_point, yaw = segment.sample(s)
+    radius_m = (
+        float(point['radius_m'])
+        if 'radius_m' in point and point['radius_m'] is not None
+        else None
+    )
+    if device_type in {'position_sensors', 'approach_sensors'}:
+        if radius_m is None:
+            raise ValueError(f'{device_type}.{name} must define radius_m.')
+        if radius_m < 0.0:
+            raise ValueError(
+                f'{device_type}.{name}.radius_m must be greater than or equal to 0.0.'
+            )
     metadata = {
         key: value
         for key, value in point.items()
@@ -535,11 +553,7 @@ def _rail_device_from_point(
         y=sample_point.y,
         z=sample_point.z,
         yaw=yaw,
-        radius_m=(
-            float(point['radius_m'])
-            if 'radius_m' in point and point['radius_m'] is not None
-            else None
-        ),
+        radius_m=radius_m,
         default_state=(
             str(point['default_state'])
             if 'default_state' in point and point['default_state'] is not None
@@ -644,6 +658,14 @@ class ManagedShuttle:
     stopper_distance_m: float | None = None
     set_pose_warning_logged: bool = False
     spawn_failure_logged: bool = False
+    visual_state: str = SHUTTLE_VISUAL_NORMAL
+    spawned_visual_state: str | None = None
+    visual_refresh_in_progress: bool = False
+    pending_visual_delete: object | None = None
+    pending_visual_spawn: object | None = None
+    pending_visual_spawn_state: str | None = None
+    next_visual_refresh_time: float = 0.0
+    visual_refresh_failure_logged: bool = False
 
 
 @dataclass
@@ -654,6 +676,11 @@ class DeviceMarker:
     segment: str
     pose: ShuttlePose
     sdf: str
+    sensor_s: float | None = None
+    sensor_radius_m: float | None = None
+    visual_state: str = MARKER_VISUAL_DEFAULT
+    pending_spawn_visual_state: str | None = None
+    spawned_visual_state: str | None = None
     pending_spawn: object | None = None
     pending_delete: object | None = None
     spawned: bool = False
@@ -687,7 +714,6 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('initial_s', 0.0)
         self.declare_parameter('speed', 0.25)
         self.declare_parameter('update_rate_hz', 30.0)
-        self.declare_parameter('sensor_detection_tolerance_m', 0.01)
         self.declare_parameter('sensor_publish_rate_hz', 10.0)
         self.declare_parameter('enable_collision_avoidance', True)
         self.declare_parameter('shuttle_collision_distance_m', 0.33)
@@ -750,6 +776,7 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('publish_visual_switch_commands', True)
         self.declare_parameter('switch_motion_delay_s', 0.3)
         self.declare_parameter('stopper_motion_delay_s', 0.1)
+        self.declare_parameter('stopper_stop_before_m', 0.1)
         self.declare_parameter('enable_gazebo_pose_transform', True)
         self.declare_parameter('pose_transform_a', -0.893249246800)
         self.declare_parameter('pose_transform_b', 0.005839516878)
@@ -802,11 +829,6 @@ class Room315KinematicShuttleNode(Node):
         initial_s = float(self.get_parameter('initial_s').value)
         speed = float(self.get_parameter('speed').value)
         update_rate_hz = float(self.get_parameter('update_rate_hz').value)
-        self.sensor_detection_tolerance_m = float(
-            self.get_parameter('sensor_detection_tolerance_m').value
-        )
-        if self.sensor_detection_tolerance_m < 0.0:
-            raise ValueError('sensor_detection_tolerance_m must be greater than or equal to 0.0.')
         sensor_publish_rate_hz = float(self.get_parameter('sensor_publish_rate_hz').value)
         if sensor_publish_rate_hz <= 0.0:
             raise ValueError('sensor_publish_rate_hz must be greater than 0.0.')
@@ -997,6 +1019,10 @@ class Room315KinematicShuttleNode(Node):
             0.0,
             float(self.get_parameter('stopper_motion_delay_s').value),
         )
+        self.stopper_stop_before_m = max(
+            0.0,
+            float(self.get_parameter('stopper_stop_before_m').value),
+        )
         self.enable_gazebo_pose_transform = bool(
             self.get_parameter('enable_gazebo_pose_transform').value
         )
@@ -1171,11 +1197,6 @@ class Room315KinematicShuttleNode(Node):
         )
         self.rail_devices = load_rail_devices(devices_path, self.network)
         self.switch_states: Dict[str, str] = self.network.default_switch_states()
-        self.device_markers = (
-            self._make_device_markers()
-            if self.enable_device_markers
-            else []
-        )
         self.allowed_start_poses = self._load_allowed_start_poses()
         self.stopper_configs = self._load_stopper_configs()
         self.position_sensor_configs = self._load_position_sensor_configs()
@@ -1183,6 +1204,11 @@ class Room315KinematicShuttleNode(Node):
             name: config.default_state
             for name, config in self.stopper_configs.items()
         }
+        self.device_markers = (
+            self._make_device_markers()
+            if self.enable_device_markers
+            else []
+        )
         self.shuttle_state_topic = shuttle_state_topic
         self.add_shuttle_service = add_shuttle_service
         self.shuttle_control_command_topic = shuttle_control_command_topic
@@ -1321,7 +1347,7 @@ class Room315KinematicShuttleNode(Node):
             f'visual_switch_state_topic={visual_switch_state_topic}, '
             f'switch_motion_delay_s={self.switch_motion_delay_s:.3f}, '
             f'stopper_motion_delay_s={self.stopper_motion_delay_s:.3f}, '
-            f'sensor_detection_tolerance_m={self.sensor_detection_tolerance_m:.3f}, '
+            f'stopper_stop_before_m={self.stopper_stop_before_m:.3f}, '
             f'sensor_publish_rate_hz={sensor_publish_rate_hz:.3f}, '
             f'entity_prefix={self.entity_name_prefix}, '
             f'spawn_service={gazebo_spawn_service}, '
@@ -1475,6 +1501,7 @@ class Room315KinematicShuttleNode(Node):
                 str(raw_config.get('default_state', STOPPER_PASS_STATE))
             )
             default_stop_offset_m = float(raw_config.get('stop_offset_m', 0.08))
+            default_radius_m = raw_config.get('radius_m')
             stop_points: list[StopPoint] = []
 
             raw_stop_points = raw_config.get('stop_points')
@@ -1500,10 +1527,23 @@ class Room315KinematicShuttleNode(Node):
                     )
                     stop_s = segment.length - stop_offset_m
                 stop_s = max(0.0, min(stop_s, segment.length))
+                radius_value = raw_stop_point.get('radius_m', default_radius_m)
+                if radius_value is None:
+                    raise ValueError(
+                        f'Stopper {name} approach sensor on segment {segment_name} '
+                        'must define radius_m.'
+                    )
+                radius_m = float(radius_value)
+                if radius_m < 0.0:
+                    raise ValueError(
+                        f'Stopper {name} approach sensor radius_m must be greater '
+                        'than or equal to 0.0.'
+                    )
                 stop_points.append(
                     StopPoint(
                         segment=segment_name,
                         stop_s=stop_s,
+                        radius_m=radius_m,
                         sensor_name=f'{name}_APPROACH',
                     )
                 )
@@ -1555,14 +1595,18 @@ class Room315KinematicShuttleNode(Node):
                 approach_device = approach_by_stopper_segment.get(
                     (stopper_name, stopper_device.segment)
                 )
-                sensor_name = f'{stopper_name}_APPROACH'
-                if approach_device is not None:
-                    sensor_name = approach_device.name
+                if approach_device is None or approach_device.radius_m is None:
+                    raise ValueError(
+                        f'Stopper {stopper_name} point on segment '
+                        f'{stopper_device.segment} must have a matching approach '
+                        'sensor with radius_m.'
+                    )
                 stop_points.append(
                     StopPoint(
                         segment=stopper_device.segment,
                         stop_s=stopper_device.s,
-                        sensor_name=sensor_name,
+                        radius_m=approach_device.radius_m,
+                        sensor_name=approach_device.name,
                     )
                 )
 
@@ -1630,10 +1674,20 @@ class Room315KinematicShuttleNode(Node):
                         )
                 sensor_s = max(0.0, min(sensor_s, segment.length))
 
+            radius_value = raw_point.get('radius_m', raw_config.get('radius_m'))
+            if radius_value is None:
+                raise ValueError(f'Position sensor {sensor_name} must define radius_m.')
+            radius_m = float(radius_value)
+            if radius_m < 0.0:
+                raise ValueError(
+                    f'Position sensor {sensor_name} radius_m must be greater '
+                    'than or equal to 0.0.'
+                )
             points.append(
                 PositionSensorPoint(
                     segment=segment_name,
                     sensor_s=sensor_s,
+                    radius_m=radius_m,
                 )
             )
 
@@ -1730,6 +1784,7 @@ class Room315KinematicShuttleNode(Node):
                 PositionSensorPoint(
                     segment=device.segment,
                     sensor_s=device.s,
+                    radius_m=device.radius_m,
                 )
                 for device in sensor_devices
             )
@@ -1852,6 +1907,7 @@ class Room315KinematicShuttleNode(Node):
             if pose_topic_override is not None
             else f'{self.pose_topic_prefix}/{self._topic_safe_name(entity_name)}/pose_cmd'
         )
+        gazebo_spawned = self._is_preloaded_shuttle_entity(entity_name)
         if not deployed:
             initial_stopped_by = 'NOT_DEPLOYED'
             initial_stopper_distance_m = 0.0
@@ -1878,11 +1934,16 @@ class Room315KinematicShuttleNode(Node):
             ),
             pose_publisher=self.create_publisher(PoseStamped, pose_topic, 10),
             last_gazebo_set_pose_time=self.get_clock().now(),
-            gazebo_spawned=self._is_preloaded_shuttle_entity(entity_name),
+            gazebo_spawned=gazebo_spawned,
             deployed=deployed,
             enabled=enabled,
             stopped_by=initial_stopped_by,
             stopper_distance_m=initial_stopper_distance_m,
+            spawned_visual_state=(
+                SHUTTLE_VISUAL_NORMAL
+                if gazebo_spawned
+                else None
+            ),
         )
 
     def _on_add_shuttle_request(
@@ -2024,6 +2085,7 @@ class Room315KinematicShuttleNode(Node):
             return
         if self._is_preloaded_shuttle_entity(shuttle.entity_name):
             shuttle.gazebo_spawned = True
+            shuttle.spawned_visual_state = SHUTTLE_VISUAL_NORMAL
             return
         if shuttle.pending_spawn is not None:
             return
@@ -2069,12 +2131,244 @@ class Room315KinematicShuttleNode(Node):
         factory.pose.orientation.w = qw
         return factory
 
+    @staticmethod
+    def _desired_shuttle_visual_state(shuttle: ManagedShuttle) -> str:
+        return (
+            SHUTTLE_VISUAL_FALLING
+            if shuttle.core.state.mode == FALLING
+            else SHUTTLE_VISUAL_NORMAL
+        )
+
+    @staticmethod
+    def _shuttle_visual_rgba(visual_state: str) -> tuple[float, float, float, float]:
+        if visual_state == SHUTTLE_VISUAL_FALLING:
+            return 1.0, 0.02, 0.02, 1.0
+        return 0.01, 0.01, 0.01, 1.0
+
+    def _shuttle_visual_sdf(self, entity_name: str, visual_state: str) -> str:
+        red, green, blue, alpha = self._shuttle_visual_rgba(visual_state)
+        return (
+            '<sdf version="1.9">'
+            f'<model name="{entity_name}">'
+            '<static>false</static>'
+            '<link name="room315_shuttle_link">'
+            '<kinematic>true</kinematic>'
+            '<gravity>false</gravity>'
+            '<pose>0 0 0 0 0 0</pose>'
+            '<inertial>'
+            '<mass>0.1</mass>'
+            '<inertia>'
+            '<ixx>0.001</ixx>'
+            '<ixy>0.0</ixy>'
+            '<ixz>0.0</ixz>'
+            '<iyy>0.001</iyy>'
+            '<iyz>0.0</iyz>'
+            '<izz>0.001</izz>'
+            '</inertia>'
+            '</inertial>'
+            '<visual name="room315_shuttle_visual">'
+            '<pose>-0.25 -0.100000024 -0.078499973 0 0 0</pose>'
+            '<geometry>'
+            '<mesh>'
+            '<uri>model://room315_shuttle/meshes/shuttle.STL</uri>'
+            '</mesh>'
+            '</geometry>'
+            '<material>'
+            f'<ambient>{red:.3f} {green:.3f} {blue:.3f} {alpha:.3f}</ambient>'
+            f'<diffuse>{red:.3f} {green:.3f} {blue:.3f} {alpha:.3f}</diffuse>'
+            '<specular>0.20 0.20 0.20 1</specular>'
+            '<emissive>0 0 0 1</emissive>'
+            '</material>'
+            '</visual>'
+            '<collision name="room315_shuttle_robot_collision">'
+            '<pose>-0.078417048 0 0 0 0 0</pose>'
+            '<geometry>'
+            '<box>'
+            '<size>0.36 0.22 0.17</size>'
+            '</box>'
+            '</geometry>'
+            '<surface>'
+            '<contact>'
+            '<collide_bitmask>0x0002</collide_bitmask>'
+            '</contact>'
+            '</surface>'
+            '</collision>'
+            '</link>'
+            '<plugin filename="gz-sim-pose-publisher-system" '
+            'name="gz::sim::systems::PosePublisher">'
+            '<publish_model_pose>true</publish_model_pose>'
+            '<publish_link_pose>true</publish_link_pose>'
+            '<publish_collision_pose>false</publish_collision_pose>'
+            '<publish_visual_pose>false</publish_visual_pose>'
+            '<publish_nested_model_pose>false</publish_nested_model_pose>'
+            '<update_frequency>30</update_frequency>'
+            '</plugin>'
+            '</model>'
+            '</sdf>'
+        )
+
+    def _make_shuttle_visual_factory(
+        self,
+        shuttle: ManagedShuttle,
+        visual_state: str,
+    ) -> EntityFactory:
+        pose = self._to_gazebo_pose(shuttle.core.pose())
+        factory = EntityFactory()
+        factory.name = shuttle.entity_name
+        factory.allow_renaming = False
+        factory.sdf = self._shuttle_visual_sdf(shuttle.entity_name, visual_state)
+        factory.relative_to = 'world'
+        factory.pose.position.x = pose.x
+        factory.pose.position.y = pose.y
+        factory.pose.position.z = pose.z
+        qx, qy, qz, qw = _yaw_to_quaternion(pose.yaw)
+        factory.pose.orientation.x = qx
+        factory.pose.orientation.y = qy
+        factory.pose.orientation.z = qz
+        factory.pose.orientation.w = qw
+        return factory
+
+    def _update_shuttle_visuals(self) -> None:
+        for shuttle in self.shuttles:
+            self._process_shuttle_visual_futures(shuttle)
+            self._request_shuttle_visual_refresh_if_needed(shuttle)
+
+    def _process_shuttle_visual_futures(self, shuttle: ManagedShuttle) -> None:
+        if (
+            shuttle.pending_visual_delete is not None
+            and shuttle.pending_visual_delete.done()
+        ):
+            try:
+                response = shuttle.pending_visual_delete.result()
+            except Exception as error:
+                shuttle.pending_visual_delete = None
+                shuttle.visual_refresh_in_progress = False
+                shuttle.next_visual_refresh_time = (
+                    time.monotonic() + SHUTTLE_VISUAL_REFRESH_RETRY_INTERVAL_S
+                )
+                if not shuttle.visual_refresh_failure_logged:
+                    self.get_logger().warn(
+                        f'Gazebo shuttle visual delete request for '
+                        f'{shuttle.entity_name} failed: {error}'
+                    )
+                    shuttle.visual_refresh_failure_logged = True
+                return
+
+            shuttle.pending_visual_delete = None
+            if not response.success:
+                shuttle.visual_refresh_in_progress = False
+                shuttle.next_visual_refresh_time = (
+                    time.monotonic() + SHUTTLE_VISUAL_REFRESH_RETRY_INTERVAL_S
+                )
+                if not shuttle.visual_refresh_failure_logged:
+                    self.get_logger().warn(
+                        f'Gazebo shuttle visual delete service rejected '
+                        f'{shuttle.entity_name}.'
+                    )
+                    shuttle.visual_refresh_failure_logged = True
+                return
+
+            shuttle.gazebo_spawned = False
+            shuttle.spawned_visual_state = None
+
+        if (
+            shuttle.pending_visual_spawn is not None
+            and shuttle.pending_visual_spawn.done()
+        ):
+            requested_state = shuttle.pending_visual_spawn_state
+            try:
+                response = shuttle.pending_visual_spawn.result()
+            except Exception as error:
+                shuttle.pending_visual_spawn = None
+                shuttle.pending_visual_spawn_state = None
+                shuttle.next_visual_refresh_time = (
+                    time.monotonic() + SHUTTLE_VISUAL_REFRESH_RETRY_INTERVAL_S
+                )
+                if not shuttle.visual_refresh_failure_logged:
+                    self.get_logger().warn(
+                        f'Gazebo shuttle visual spawn request for '
+                        f'{shuttle.entity_name} failed: {error}'
+                    )
+                    shuttle.visual_refresh_failure_logged = True
+                return
+
+            shuttle.pending_visual_spawn = None
+            shuttle.pending_visual_spawn_state = None
+            if not response.success:
+                shuttle.next_visual_refresh_time = (
+                    time.monotonic() + SHUTTLE_VISUAL_REFRESH_RETRY_INTERVAL_S
+                )
+                if not shuttle.visual_refresh_failure_logged:
+                    self.get_logger().warn(
+                        f'Gazebo shuttle visual spawn service rejected '
+                        f'{shuttle.entity_name}.'
+                    )
+                    shuttle.visual_refresh_failure_logged = True
+                return
+
+            shuttle.gazebo_spawned = True
+            shuttle.spawned_visual_state = requested_state
+            shuttle.visual_refresh_in_progress = False
+            shuttle.visual_refresh_failure_logged = False
+            self.deleted_preloaded_entity_names.discard(shuttle.entity_name)
+
+    def _request_shuttle_visual_refresh_if_needed(
+        self,
+        shuttle: ManagedShuttle,
+    ) -> None:
+        if not shuttle.deployed:
+            return
+
+        desired_state = self._desired_shuttle_visual_state(shuttle)
+        shuttle.visual_state = desired_state
+
+        if (
+            shuttle.pending_visual_delete is not None
+            or shuttle.pending_visual_spawn is not None
+        ):
+            return
+        if time.monotonic() < shuttle.next_visual_refresh_time:
+            return
+
+        if shuttle.visual_refresh_in_progress and not shuttle.gazebo_spawned:
+            self._request_shuttle_visual_spawn(shuttle, desired_state)
+            return
+
+        if not shuttle.gazebo_spawned or shuttle.spawned_visual_state == desired_state:
+            return
+
+        if self.delete_client is None or not self.delete_client.service_is_ready():
+            return
+
+        request = DeleteEntity.Request()
+        request.entity.name = shuttle.entity_name
+        request.entity.type = Entity.MODEL
+        shuttle.pending_visual_delete = self.delete_client.call_async(request)
+        shuttle.visual_refresh_in_progress = True
+        self.get_logger().info(
+            f'Refreshing shuttle visual {shuttle.entity_name}: {desired_state}.'
+        )
+
+    def _request_shuttle_visual_spawn(
+        self,
+        shuttle: ManagedShuttle,
+        visual_state: str,
+    ) -> None:
+        if self.spawn_client is None or not self.spawn_client.service_is_ready():
+            return
+
+        request = SpawnEntity.Request()
+        request.entity_factory = self._make_shuttle_visual_factory(
+            shuttle,
+            visual_state,
+        )
+        shuttle.pending_visual_spawn = self.spawn_client.call_async(request)
+        shuttle.pending_visual_spawn_state = visual_state
+
     def _make_device_markers(self) -> list[DeviceMarker]:
         markers: list[DeviceMarker] = []
         marker_specs = [
-            ('slots', 'slot', self.rail_devices.slots),
             ('position_sensors', 'position_sensor', self.rail_devices.position_sensors),
-            ('approach_sensors', 'approach_sensor', self.rail_devices.approach_sensors),
             ('stoppers', 'stopper', self.rail_devices.stoppers),
         ]
         for category, marker_type, grouped_devices in marker_specs:
@@ -2102,10 +2396,19 @@ class Room315KinematicShuttleNode(Node):
                         mode=WAITING,
                     )
                     gazebo_pose = self._to_gazebo_pose(raw_pose)
+                    style = DEVICE_MARKER_STYLES[marker_type]
+                    visual_state = self._initial_device_marker_visual_state(
+                        marker_type,
+                        device.name,
+                    )
                     marker_pose = ShuttlePose(
                         x=gazebo_pose.x,
                         y=gazebo_pose.y,
-                        z=gazebo_pose.z + self.device_marker_z_offset_m,
+                        z=(
+                            gazebo_pose.z
+                            + self.device_marker_z_offset_m
+                            + float(style.get('z_offset_m', 0.0))
+                        ),
                         yaw=gazebo_pose.yaw,
                         current_segment=gazebo_pose.current_segment,
                         s=gazebo_pose.s,
@@ -2118,10 +2421,44 @@ class Room315KinematicShuttleNode(Node):
                             device_name=device.name,
                             segment=device.segment,
                             pose=marker_pose,
-                            sdf=self._device_marker_sdf(entity_name, marker_type),
+                            sdf=self._device_marker_sdf(
+                                entity_name,
+                                marker_type,
+                                visual_state,
+                            ),
+                            sensor_s=(
+                                device.s
+                                if marker_type == 'position_sensor'
+                                else None
+                            ),
+                            sensor_radius_m=(
+                                device.radius_m
+                                if marker_type == 'position_sensor'
+                                else None
+                            ),
+                            visual_state=visual_state,
                         )
                     )
         return markers
+
+    def _initial_device_marker_visual_state(
+        self,
+        marker_type: str,
+        device_name: str,
+    ) -> str:
+        if marker_type == 'position_sensor':
+            return MARKER_VISUAL_INACTIVE
+        if marker_type == 'stopper':
+            stopper_name = _canonical_switch_name(device_name)
+            return (
+                MARKER_VISUAL_ACTIVE
+                if (
+                    self.stopper_states.get(stopper_name, STOPPER_PASS_STATE)
+                    == STOPPER_STOP_STATE
+                )
+                else MARKER_VISUAL_INACTIVE
+            )
+        return MARKER_VISUAL_DEFAULT
 
     def _device_marker_entity_name(
         self,
@@ -2132,12 +2469,8 @@ class Room315KinematicShuttleNode(Node):
         device: RailDevice | None,
         duplicate_suffix: str,
     ) -> str:
-        if category == 'slots':
-            raw_name = f'marker_{self.rail_side}_slot_{public_name}'
-        elif marker_type == 'position_sensor':
+        if marker_type == 'position_sensor':
             raw_name = f'marker_{self.rail_side}_{device.name}'
-        elif marker_type == 'approach_sensor':
-            raw_name = f'marker_{self.rail_side}_approach_{device.name}'
         elif marker_type == 'stopper':
             raw_name = f'marker_{self.rail_side}_stopper_{public_name}'
         else:
@@ -2148,11 +2481,16 @@ class Room315KinematicShuttleNode(Node):
             raw_name = f'{raw_name}_{duplicate_suffix}'
         return re.sub(r'[^A-Za-z0-9_]+', '_', raw_name).strip('_')
 
-    def _device_marker_sdf(self, entity_name: str, marker_type: str) -> str:
+    def _device_marker_sdf(
+        self,
+        entity_name: str,
+        marker_type: str,
+        visual_state: str = MARKER_VISUAL_DEFAULT,
+    ) -> str:
         style = DEVICE_MARKER_STYLES[marker_type]
         radius = style['radius'] * self.device_marker_scale
         length = style['length'] * self.device_marker_scale
-        red, green, blue, alpha = style['rgba']
+        red, green, blue, alpha = self._device_marker_rgba(marker_type, visual_state)
         if style['shape'] == 'cylinder':
             geometry = (
                 '<cylinder>'
@@ -2184,6 +2522,15 @@ class Room315KinematicShuttleNode(Node):
             '</sdf>'
         )
 
+    @staticmethod
+    def _device_marker_rgba(
+        marker_type: str,
+        visual_state: str,
+    ) -> tuple[float, float, float, float]:
+        style = DEVICE_MARKER_STYLES[marker_type]
+        state_colors = style.get('rgba_by_state', {})
+        return state_colors.get(visual_state, style['rgba'])
+
     def _make_device_marker_factory(self, marker: DeviceMarker) -> EntityFactory:
         factory = EntityFactory()
         factory.name = marker.entity_name
@@ -2204,6 +2551,7 @@ class Room315KinematicShuttleNode(Node):
         if not self.enable_device_markers or not self.device_markers:
             return
         self._process_device_marker_futures()
+        self._request_device_marker_refreshes()
         self._request_device_marker_spawns()
 
     def _process_device_marker_futures(self) -> None:
@@ -2220,6 +2568,7 @@ class Room315KinematicShuttleNode(Node):
                     else:
                         marker.spawn_attempts = 0
                         marker.spawn_failure_logged = False
+                        marker.spawned_visual_state = None
                 except Exception as error:
                     self.get_logger().warn(
                         f'Gazebo marker delete request for {marker.entity_name} failed: {error}'
@@ -2234,6 +2583,7 @@ class Room315KinematicShuttleNode(Node):
                 response = marker.pending_spawn.result()
             except Exception as error:
                 marker.pending_spawn = None
+                marker.pending_spawn_visual_state = None
                 marker.next_spawn_attempt_time = now + self.device_marker_retry_interval_s
                 if self._marker_spawn_attempts_exhausted(marker):
                     if not marker.spawn_failure_logged:
@@ -2247,7 +2597,10 @@ class Room315KinematicShuttleNode(Node):
             marker.pending_spawn = None
             if response.success:
                 marker.spawned = True
+                marker.spawned_visual_state = marker.pending_spawn_visual_state
+                marker.pending_spawn_visual_state = None
                 continue
+            marker.pending_spawn_visual_state = None
 
             marker.next_spawn_attempt_time = now + self.device_marker_retry_interval_s
             if (
@@ -2279,6 +2632,24 @@ class Room315KinematicShuttleNode(Node):
             f'Refreshing device marker {marker.entity_name}: {reason}.'
         )
         return True
+
+    def _request_device_marker_refreshes(self) -> None:
+        if self.delete_client is None or not self.delete_client.service_is_ready():
+            return
+
+        for marker in self.device_markers:
+            if (
+                not marker.spawned
+                or marker.spawned_visual_state == marker.visual_state
+                or marker.pending_spawn is not None
+                or marker.pending_delete is not None
+            ):
+                continue
+
+            self._request_device_marker_delete(
+                marker,
+                reason=f'{marker.device_type} visual state {marker.visual_state}',
+            )
 
     def _marker_spawn_attempts_exhausted(self, marker: DeviceMarker) -> bool:
         return (
@@ -2314,13 +2685,93 @@ class Room315KinematicShuttleNode(Node):
             request = SpawnEntity.Request()
             request.entity_factory = self._make_device_marker_factory(marker)
             marker.pending_spawn = self.spawn_client.call_async(request)
+            marker.pending_spawn_visual_state = marker.visual_state
             marker.spawn_attempts += 1
             self.next_device_marker_spawn_time = (
                 now + self.device_marker_spawn_interval_s
             )
             return
 
+    def _set_device_marker_visual_state(
+        self,
+        marker: DeviceMarker,
+        visual_state: str,
+    ) -> bool:
+        if marker.visual_state == visual_state:
+            return False
+
+        marker.visual_state = visual_state
+        marker.sdf = self._device_marker_sdf(
+            marker.entity_name,
+            marker.device_type,
+            visual_state,
+        )
+        marker.spawn_failure_logged = False
+        if marker.pending_spawn is None:
+            marker.spawn_attempts = 0
+        marker.next_spawn_attempt_time = time.monotonic()
+        return True
+
+    def _update_sensor_marker_states(self) -> None:
+        if not self.enable_device_markers or not self.device_markers:
+            return
+
+        changed = False
+        for marker in self.device_markers:
+            if marker.device_type != 'position_sensor':
+                continue
+
+            active_shuttle = None
+            if marker.sensor_s is not None and marker.sensor_radius_m is not None:
+                active_shuttle = self._shuttle_on_sensor(
+                    marker.segment,
+                    marker.sensor_s,
+                    marker.sensor_radius_m,
+                )
+            visual_state = (
+                MARKER_VISUAL_ACTIVE
+                if active_shuttle is not None
+                else MARKER_VISUAL_INACTIVE
+            )
+            changed = (
+                self._set_device_marker_visual_state(marker, visual_state)
+                or changed
+            )
+
+        if changed:
+            self._request_device_marker_refreshes()
+
+    def _update_stopper_marker_states(self) -> None:
+        if not self.enable_device_markers or not self.device_markers:
+            return
+
+        changed = False
+        for marker in self.device_markers:
+            if marker.device_type != 'stopper':
+                continue
+
+            stopper_name = _canonical_switch_name(marker.device_name)
+            visual_state = (
+                MARKER_VISUAL_ACTIVE
+                if (
+                    self.stopper_states.get(stopper_name, STOPPER_PASS_STATE)
+                    == STOPPER_STOP_STATE
+                )
+                else MARKER_VISUAL_INACTIVE
+            )
+            changed = (
+                self._set_device_marker_visual_state(marker, visual_state)
+                or changed
+            )
+
+        if changed:
+            self._request_device_marker_refreshes()
+
     def _spawn_ready_for_motion(self, shuttle: ManagedShuttle) -> bool:
+        self._process_shuttle_visual_futures(shuttle)
+        if shuttle.visual_refresh_in_progress:
+            self._request_shuttle_visual_refresh_if_needed(shuttle)
+            return False
         if not shuttle.deployed:
             return False
         if shuttle.pending_spawn is None:
@@ -2353,6 +2804,7 @@ class Room315KinematicShuttleNode(Node):
 
         shuttle.pending_spawn = None
         shuttle.gazebo_spawned = True
+        shuttle.spawned_visual_state = self._desired_shuttle_visual_state(shuttle)
         self.deleted_preloaded_entity_names.discard(shuttle.entity_name)
         self.get_logger().info(f'Gazebo spawned {shuttle.entity_name}')
         return True
@@ -3351,6 +3803,7 @@ class Room315KinematicShuttleNode(Node):
         message = RailStopperState()
         self._fill_header(message)
         message.stoppers = self._named_states_from_map(self.stopper_states)
+        self._update_stopper_marker_states()
         self.stopper_state_publisher.publish(message)
 
     def _on_parameter_update(self, parameters) -> SetParametersResult:
@@ -3379,7 +3832,7 @@ class Room315KinematicShuttleNode(Node):
             'start_slot_occupancy_radius_m',
             'switch_motion_delay_s',
             'stopper_motion_delay_s',
-            'sensor_detection_tolerance_m',
+            'stopper_stop_before_m',
             'sensor_publish_rate_hz',
         }
         boolean_parameters = {
@@ -3401,7 +3854,7 @@ class Room315KinematicShuttleNode(Node):
                     elif parameter.name in {
                         'switch_motion_delay_s',
                         'stopper_motion_delay_s',
-                        'sensor_detection_tolerance_m',
+                        'stopper_stop_before_m',
                     }:
                         value = float(parameter.value)
                         if value < 0.0:
@@ -3436,6 +3889,7 @@ class Room315KinematicShuttleNode(Node):
         self.last_tick = now
         self._update_device_markers()
         self._apply_due_pending_state_updates()
+        self._update_shuttle_visuals()
 
         if not self.shuttles:
             self._publish_state([], [])
@@ -3489,6 +3943,7 @@ class Room315KinematicShuttleNode(Node):
         self._publish_state(raw_poses, gazebo_poses)
         self._publish_switch_state()
         self._publish_stopper_state()
+        self._update_shuttle_visuals()
 
     @staticmethod
     def _hidden_gazebo_pose(shuttle: ManagedShuttle) -> ShuttlePose:
@@ -3522,9 +3977,9 @@ class Room315KinematicShuttleNode(Node):
         effective_dt = dt
         stop_reached = False
         if active_stop is not None and shuttle.core.state.speed > 0.0:
-            stopper_name, stop_point, distance_m = active_stop
+            stopper_name, stop_point, target_s, distance_m = active_stop
             if distance_m <= 1e-6:
-                shuttle.core.state.s = stop_point.stop_s
+                shuttle.core.state.s = target_s
                 shuttle.core.state.mode = WAITING
                 shuttle.blocked_by = None
                 shuttle.collision_distance_m = None
@@ -3546,9 +4001,9 @@ class Room315KinematicShuttleNode(Node):
             return pose
 
         if stop_reached and active_stop is not None:
-            stopper_name, stop_point, _distance_m = active_stop
+            stopper_name, stop_point, target_s, _distance_m = active_stop
             if shuttle.core.state.current_segment == stop_point.segment:
-                shuttle.core.state.s = stop_point.stop_s
+                shuttle.core.state.s = target_s
             shuttle.core.state.mode = WAITING
             shuttle.stopped_by = stopper_name
             shuttle.stopper_distance_m = 0.0
@@ -3561,21 +4016,28 @@ class Room315KinematicShuttleNode(Node):
     def _active_stopper_ahead(
         self,
         shuttle: ManagedShuttle,
-    ) -> tuple[str, StopPoint, float] | None:
+    ) -> tuple[str, StopPoint, float, float] | None:
         state = shuttle.core.state
-        candidates: list[tuple[str, StopPoint, float]] = []
+        candidates: list[tuple[str, StopPoint, float, float]] = []
         for stopper_name, stopper_config in self.stopper_configs.items():
             if self.stopper_states.get(stopper_name, STOPPER_PASS_STATE) != STOPPER_STOP_STATE:
                 continue
             for stop_point in stopper_config.stop_points:
                 if stop_point.segment != state.current_segment:
                     continue
-                distance_m = stop_point.stop_s - state.s
-                if distance_m >= -1e-6:
-                    candidates.append((stopper_name, stop_point, max(0.0, distance_m)))
+                physical_distance_m = stop_point.stop_s - state.s
+                if physical_distance_m < -1e-6:
+                    continue
+
+                target_s = max(0.0, stop_point.stop_s - self.stopper_stop_before_m)
+                distance_m = target_s - state.s
+                if distance_m < -1e-6:
+                    target_s = state.s
+                    distance_m = 0.0
+                candidates.append((stopper_name, stop_point, target_s, distance_m))
         if not candidates:
             return None
-        return sorted(candidates, key=lambda item: item[2])[0]
+        return sorted(candidates, key=lambda item: item[3])[0]
 
     def _step_with_collision_avoidance(
         self,
@@ -3775,15 +4237,16 @@ class Room315KinematicShuttleNode(Node):
         self,
         segment: str,
         sensor_s: float,
+        radius_m: float,
     ) -> ManagedShuttle | None:
-        """Rail sensors are binary occupancy sensors; tolerance defines detection."""
+        """Rail sensors are binary occupancy sensors; YAML radius defines detection."""
         for shuttle in self.shuttles:
             if not shuttle.deployed:
                 continue
             state = shuttle.core.state
             if state.current_segment != segment:
                 continue
-            if abs(state.s - sensor_s) <= self.sensor_detection_tolerance_m:
+            if abs(state.s - sensor_s) <= radius_m:
                 return shuttle
         return None
 
@@ -3795,7 +4258,11 @@ class Room315KinematicShuttleNode(Node):
                     stop_point.sensor_name or f'{stopper_name}_APPROACH'
                 )
                 segment_length = self.network.segments[stop_point.segment].length
-                shuttle = self._shuttle_on_sensor(stop_point.segment, stop_point.stop_s)
+                shuttle = self._shuttle_on_sensor(
+                    stop_point.segment,
+                    stop_point.stop_s,
+                    stop_point.radius_m,
+                )
                 reading = {
                     'name': sensor_name,
                     'sensor_type': RAIL_SENSOR_TYPE,
@@ -3831,7 +4298,11 @@ class Room315KinematicShuttleNode(Node):
             active_point = None
             fallback_point = sensor_config.points[0]
             for point in sensor_config.points:
-                active_shuttle = self._shuttle_on_sensor(point.segment, point.sensor_s)
+                active_shuttle = self._shuttle_on_sensor(
+                    point.segment,
+                    point.sensor_s,
+                    point.radius_m,
+                )
                 if active_shuttle is not None:
                     active_point = point
                     break
@@ -3858,6 +4329,7 @@ class Room315KinematicShuttleNode(Node):
         message = SensorFeedback()
         self._fill_header(message)
         message.readings = self._approach_sensor_readings() + self._position_sensor_readings()
+        self._update_sensor_marker_states()
         self.sensor_feedback_publisher.publish(message)
 
     def _publish_all_sensor_feedback(self) -> None:
