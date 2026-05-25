@@ -390,6 +390,15 @@ class PositionSensorConfig:
 
 
 @dataclass(frozen=True)
+class ApproachSensorDefinition:
+    name: str
+    stopper_name: str
+    radius_m: float
+    before_switch: str | None = None
+    metadata: dict | None = None
+
+
+@dataclass(frozen=True)
 class RailDevice:
     name: str
     device_type: str
@@ -410,7 +419,7 @@ class RailDeviceSet:
     path: Path
     slots: Dict[str, RailDevice]
     position_sensors: Dict[str, tuple[RailDevice, ...]]
-    approach_sensors: Dict[str, tuple[RailDevice, ...]]
+    approach_sensors: Dict[str, ApproachSensorDefinition]
     stoppers: Dict[str, tuple[RailDevice, ...]]
 
 
@@ -483,7 +492,7 @@ def _require_device_fields(point: dict, category: str, name: str, index: int) ->
         context += f'.points[{index}]'
 
     required = ['segment', 's_ratio']
-    if category in {'position_sensors', 'approach_sensors'}:
+    if category == 'position_sensors':
         required.append('radius_m')
     elif category == 'stoppers':
         required.append('default_state')
@@ -525,7 +534,7 @@ def _rail_device_from_point(
         if 'radius_m' in point and point['radius_m'] is not None
         else None
     )
-    if device_type in {'position_sensors', 'approach_sensors'}:
+    if device_type == 'position_sensors':
         if radius_m is None:
             raise ValueError(f'{device_type}.{name} must define radius_m.')
         if radius_m < 0.0:
@@ -592,6 +601,70 @@ def _load_grouped_rail_devices(
     return devices
 
 
+def _load_approach_sensor_definitions(
+    config: dict,
+) -> Dict[str, ApproachSensorDefinition]:
+    definitions: Dict[str, ApproachSensorDefinition] = {}
+    seen_names: set[str] = set()
+    for raw_name, raw_entry in _category_entries(config, 'approach_sensors'):
+        name_key = _device_name_key('approach_sensors', raw_name)
+        sensor_name = str(raw_name).strip() or name_key
+        if name_key in seen_names:
+            raise ValueError(f'Duplicate approach_sensors name {raw_name!r}.')
+        seen_names.add(name_key)
+
+        location_fields = [
+            field
+            for field in ('segment', 's_ratio', 'points', 's', 'offset_m', 'reference')
+            if field in raw_entry
+        ]
+        if location_fields:
+            raise ValueError(
+                f'approach_sensors.{raw_name} must not define location field(s) '
+                f'{location_fields}; edit segment/s_ratio only under the matching '
+                'stoppers entry.'
+            )
+
+        if 'radius_m' not in raw_entry:
+            raise ValueError(f'approach_sensors.{raw_name} must define radius_m.')
+        try:
+            radius_m = float(raw_entry['radius_m'])
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                f'approach_sensors.{raw_name}.radius_m must be a number.'
+            ) from error
+        if radius_m < 0.0:
+            raise ValueError(
+                f'approach_sensors.{raw_name}.radius_m must be greater than or equal to 0.0.'
+            )
+
+        stopper_name = _canonical_switch_name(
+            str(raw_entry.get('stopper', name_key.replace('_APPROACH', '')))
+        )
+        if not stopper_name:
+            raise ValueError(
+                f'approach_sensors.{raw_name} must define stopper, for example A1.'
+            )
+        before_switch = raw_entry.get('before_switch')
+        metadata = {
+            key: value
+            for key, value in raw_entry.items()
+            if key not in {'name', 'stopper', 'before_switch', 'radius_m'}
+        }
+        definitions[name_key] = ApproachSensorDefinition(
+            name=sensor_name,
+            stopper_name=stopper_name,
+            radius_m=radius_m,
+            before_switch=(
+                _canonical_switch_name(str(before_switch))
+                if before_switch is not None
+                else None
+            ),
+            metadata=metadata,
+        )
+    return definitions
+
+
 def load_rail_devices(path: Path, rail_network: RailNetwork) -> RailDeviceSet:
     path = path.resolve()
     with path.open() as handle:
@@ -605,11 +678,7 @@ def load_rail_devices(path: Path, rail_network: RailNetwork) -> RailDeviceSet:
         'position_sensors',
         rail_network,
     )
-    approach_sensors = _load_grouped_rail_devices(
-        config,
-        'approach_sensors',
-        rail_network,
-    )
+    approach_sensors = _load_approach_sensor_definitions(config)
     stoppers = _load_grouped_rail_devices(config, 'stoppers', rail_network)
     missing_categories = [
         category
@@ -1558,26 +1627,21 @@ class Room315KinematicShuttleNode(Node):
             )
         return configs
 
-    def _approach_sensor_lookup(self) -> Dict[tuple[str, str], RailDevice]:
-        approach_by_stopper_segment: Dict[tuple[str, str], RailDevice] = {}
-        for approach_name, approach_devices in self.rail_devices.approach_sensors.items():
-            for approach_device in approach_devices:
-                metadata = approach_device.metadata or {}
-                stopper_name = _canonical_switch_name(
-                    str(metadata.get('stopper', approach_name)).replace('_APPROACH', '')
+    def _approach_sensor_lookup(self) -> Dict[str, ApproachSensorDefinition]:
+        approach_by_stopper: Dict[str, ApproachSensorDefinition] = {}
+        for approach_sensor in self.rail_devices.approach_sensors.values():
+            stopper_name = approach_sensor.stopper_name
+            if stopper_name in approach_by_stopper:
+                raise ValueError(
+                    f'Multiple approach sensors target stopper {stopper_name}; '
+                    'use one approach_sensors entry per stopper.'
                 )
-                key = (stopper_name, approach_device.segment)
-                if key in approach_by_stopper_segment:
-                    raise ValueError(
-                        f'Multiple approach sensors target stopper {stopper_name} '
-                        f'on segment {approach_device.segment}.'
-                    )
-                approach_by_stopper_segment[key] = approach_device
-        return approach_by_stopper_segment
+            approach_by_stopper[stopper_name] = approach_sensor
+        return approach_by_stopper
 
     def _load_stopper_configs_from_devices(self) -> Dict[str, StopperConfig]:
         configs: Dict[str, StopperConfig] = {}
-        approach_by_stopper_segment = self._approach_sensor_lookup()
+        approach_by_stopper = self._approach_sensor_lookup()
         for stopper_name, stopper_devices in self.rail_devices.stoppers.items():
             if not stopper_devices:
                 raise ValueError(f'Stopper {stopper_name} must define at least one point.')
@@ -1590,23 +1654,29 @@ class Room315KinematicShuttleNode(Node):
             default_state = self._normalize_stopper_state(
                 str(first_device.default_state)
             )
+            approach_sensor = approach_by_stopper.get(stopper_name)
+            if approach_sensor is None:
+                raise ValueError(
+                    f'Stopper {stopper_name} must have a matching approach_sensors '
+                    'entry with radius_m.'
+                )
+            if (
+                approach_sensor.before_switch is not None
+                and approach_sensor.before_switch != before_switch
+            ):
+                raise ValueError(
+                    f'approach_sensors.{approach_sensor.name}.before_switch='
+                    f'{approach_sensor.before_switch!r} does not match '
+                    f'stoppers.{stopper_name}.before_switch={before_switch!r}.'
+                )
             stop_points: list[StopPoint] = []
             for stopper_device in stopper_devices:
-                approach_device = approach_by_stopper_segment.get(
-                    (stopper_name, stopper_device.segment)
-                )
-                if approach_device is None or approach_device.radius_m is None:
-                    raise ValueError(
-                        f'Stopper {stopper_name} point on segment '
-                        f'{stopper_device.segment} must have a matching approach '
-                        'sensor with radius_m.'
-                    )
                 stop_points.append(
                     StopPoint(
                         segment=stopper_device.segment,
                         stop_s=stopper_device.s,
-                        radius_m=approach_device.radius_m,
-                        sensor_name=approach_device.name,
+                        radius_m=approach_sensor.radius_m,
+                        sensor_name=approach_sensor.name,
                     )
                 )
 
@@ -1615,6 +1685,14 @@ class Room315KinematicShuttleNode(Node):
                 before_switch=before_switch,
                 default_state=default_state,
                 stop_points=tuple(stop_points),
+            )
+        unused_stoppers = sorted(
+            set(approach_by_stopper) - set(self.rail_devices.stoppers)
+        )
+        if unused_stoppers:
+            raise ValueError(
+                'approach_sensors entries reference unknown stopper(s): '
+                f'{unused_stoppers}.'
             )
         return configs
 

@@ -556,8 +556,10 @@ ros2 launch mfja_3rd_floor_bringup room_315_only.launch.py \
 ### 10. Read Sensor Feedback
 
 Room 315 rail sensors are binary occupancy sensors, not distance sensors.
-Each `SensorReading` has `active: 1` when a shuttle is on top of the
-configured sensor point within its YAML `radius_m`, and `active: 0` otherwise.
+For normal rail-point sensors, `active: 1` means a shuttle is on top of the
+sensor point within its YAML `radius_m`. For `A*_APPROACH` sensors, the point is
+the matching stopper location and only `radius_m` comes from `approach_sensors`.
+`active: 0` means the sensor is clear.
 A sensor only reports occupancy; it does not stop a
 shuttle. Stopping is controlled independently by the matching stopper state.
 All rail readings use `sensor_type: sensor`; the sensor name explains the
@@ -692,13 +694,34 @@ position_sensors:
     radius_m: 0.08
 ```
 
-To move a device:
+Example stopper and matching approach sensor:
+
+```yaml
+approach_sensors:
+  - name: A1_APPROACH
+    stopper: A1
+    radius_m: 0.08
+
+stoppers:
+  - name: A1
+    before_switch: A1
+    segment: A23
+    s_ratio: 0.711151221
+    default_state: '0'
+```
+
+To move a position sensor, stopper, or slot:
 
 1. Choose the correct YAML file for the rail side.
-2. Change `segment` or `s_ratio`.
+2. Change `segment` or `s_ratio` on that position sensor, stopper, or slot.
 3. Save the file.
 4. Relaunch Gazebo.
 5. The runtime device position and visual marker move together.
+
+Approach sensors do not have their own `segment`, `s_ratio`, or `points`; each
+one inherits the location of its matching stopper. Move the stopper entry under
+`stoppers`, and the approach feedback moves with it. If a stopper has multiple
+physical points, edit only `stoppers[].points`.
 
 ### 12. Check Visual Device Markers in Gazebo
 
@@ -712,10 +735,10 @@ spawned from the YAML-resolved positions:
   orange for state `1` / `EXTERIOR` / `G`
 
 Position sensor markers sit slightly above the rail so a visible part remains
-above the shuttle body while a shuttle is crossing the sensor. Approach sensors
-remain in YAML and feedback, but they do not spawn visual markers. The old
-continuous sensor distance field has been fully removed from the sensor
-interface.
+above the shuttle body while a shuttle is crossing the sensor. Approach sensor
+definitions remain in YAML and feedback, inherit stopper locations, and do not
+spawn visual markers. The old continuous sensor distance field has been fully
+removed from the sensor interface.
 
 Hide device markers when you want a cleaner Gazebo scene:
 
@@ -1584,9 +1607,11 @@ ros2 topic echo /room_315/rails/right/sensors/feedback mfja_rail_interfaces/msg/
 ```
 
 Each message contains one `SensorReading` per configured rail sensor.
-Rail sensors are binary occupancy sensors, not distance sensors: `active: 1`
-means a shuttle is on top of that sensor within its YAML `radius_m`, and
-`active: 0` means the sensor is clear. The published `sensor_type` is
+Rail sensors are binary occupancy sensors, not distance sensors: for normal
+sensors, `active: 1` means a shuttle is on top of that sensor within its YAML
+`radius_m`; for `A*_APPROACH`, the sensor point is inherited from the matching
+stopper and the YAML only supplies `radius_m`. `active: 0` means the sensor is
+clear. The published `sensor_type` is
 always `sensor`. When active, `shuttle_name` identifies the detected shuttle.
 
 The intended manual workflow is:

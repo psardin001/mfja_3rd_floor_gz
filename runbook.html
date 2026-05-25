@@ -369,6 +369,7 @@
       <a href="#scenario-switches">Switches and stoppers</a>
       <a href="#scenario-sensors">One shuttle and sensors</a>
       <a href="#scenario-markers">Show or hide sensors</a>
+      <a href="#scenario-device-positions">Edit device positions</a>
       <a href="#scenario-floor">Full third floor</a>
       <a href="#scenario-single-robot">One robot with table</a>
       <a href="#scenario-all-robots">Full floor with all robots</a>
@@ -438,6 +439,9 @@ source install/setup.bash</code></pre>
           In code, every rail detector is the same binary <code>sensor</code> type.
           Use these names when reading the <code>/room_315/rails/right/sensors/feedback</code>
           or <code>/room_315/rails/left/sensors/feedback</code> topics.
+          <code>A*_APPROACH</code> sensors inherit their physical position from the matching
+          <code>stoppers</code> entry; their own YAML entries only keep the public name,
+          stopper link, and <code>radius_m</code>.
         </p>
         <table>
           <thead>
@@ -662,6 +666,7 @@ ros2 topic pub --once /room_315/rails/right/stoppers/command \
         <h2>Scenario 4: Move One Shuttle and Watch Sensor Output</h2>
         <p>
           The sensors are binary: they report <code>active: 1</code> when a shuttle is on the sensor point and <code>active: 0</code> when it is clear.
+          For <code>A*_APPROACH</code>, the sensor point is the matching stopper point.
           Every reading uses <code>sensor_type: sensor</code>. All sensor names are published together on one topic:
           <code>/room_315/rails/right/sensors/feedback</code>.
         </p>
@@ -751,6 +756,145 @@ ros2 launch mfja_robot_control_config room_315_dual_kinematic_shuttles.launch.py
   start_enabled:=false \
   show_device_markers:=false</code></pre>
         </div>
+      </section>
+
+      <section id="scenario-device-positions">
+        <h2>Tool: Edit Rail Device Positions from the Terminal</h2>
+        <p>
+          Use <code>room_315_device_position_tool.py</code> when you have a desired Gazebo
+          <code>x/y/z</code> point and want the YAML tool to convert it to the nearest rail
+          <code>segment</code> plus <code>s_ratio</code>. The tool can update
+          <code>slots</code>, <code>position_sensors</code>, and <code>stoppers</code>.
+          It intentionally does not move <code>approach_sensors</code>; approach feedback
+          follows the matching stopper automatically.
+        </p>
+        <p>
+          Get the target <code>x/y/z</code> from the Gazebo pose inspector, from a temporary
+          reference model, or from a known point you want the device to snap near. Use
+          <code>--side left</code> for <code>rail_devices_left.yaml</code> and
+          <code>--side right</code> for <code>rail_devices_right.yaml</code>.
+        </p>
+
+        <div class="callout">
+          New stopper rule: to move <code>A1_APPROACH</code>, <code>A2_APPROACH</code>,
+          <code>A3_APPROACH</code>, or <code>A4_APPROACH</code>, move the matching
+          stopper in <code>stoppers</code>. Only edit <code>approach_sensors.radius_m</code>
+          when you want a larger or smaller detection area.
+        </div>
+
+        <h3>Step 1: Dry Run the Closest Rail Position</h3>
+        <p>
+          Start with no <code>--write</code>. The tool prints the closest rail
+          <code>segment</code>, computed <code>s_ratio</code>, projected Gazebo point, and
+          distance from your target. If the distance is above <code>--max-distance-m</code>,
+          the tool refuses to write unless you explicitly add <code>--force</code>.
+        </p>
+        <div class="command">
+          <div class="command-bar"><span>Dry run: convert Gazebo XYZ</span><button class="copy-btn" data-copy="cmd-device-position-dry-run">Copy</button></div>
+          <pre><code id="cmd-device-position-dry-run">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 run mfja_robot_control_config room_315_device_position_tool.py \
+  --side left \
+  --x -10.50 \
+  --y -4.20 \
+  --z 0.84</code></pre>
+        </div>
+
+        <h3>Step 2: Move a Normal Position Sensor</h3>
+        <p>
+          Use <code>--category position_sensors</code> for <code>DZI*</code> and
+          <code>DA*</code> detectors. Add <code>--write</code> only after the dry-run
+          distance looks reasonable.
+        </p>
+        <div class="command">
+          <div class="command-bar"><span>Move DA2GL</span><button class="copy-btn" data-copy="cmd-device-position-move-sensor">Copy</button></div>
+          <pre><code id="cmd-device-position-move-sensor">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 run mfja_robot_control_config room_315_device_position_tool.py \
+  --side left \
+  --x -10.50 \
+  --y -4.20 \
+  --z 0.84 \
+  --category position_sensors \
+  --name DA2GL \
+  --write</code></pre>
+        </div>
+
+        <h3>Step 3: Move a Single-Point Stopper</h3>
+        <p>
+          Use <code>--category stoppers</code>. Moving the stopper also moves the matching
+          approach feedback. Do not run the tool with <code>--category approach_sensors</code>
+          for location changes.
+        </p>
+        <div class="command">
+          <div class="command-bar"><span>Move stopper A1</span><button class="copy-btn" data-copy="cmd-device-position-move-stopper-single">Copy</button></div>
+          <pre><code id="cmd-device-position-move-stopper-single">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 run mfja_robot_control_config room_315_device_position_tool.py \
+  --side left \
+  --x -10.50 \
+  --y -4.20 \
+  --z 0.84 \
+  --category stoppers \
+  --name A1 \
+  --write</code></pre>
+        </div>
+
+        <h3>Step 4: Move One Point of a Multi-Point Stopper</h3>
+        <p>
+          Some stoppers, such as <code>A2</code> and <code>A4</code>, have
+          <code>points</code> because the shuttle can approach from two segments. Select the
+          point either by its current segment with <code>--point-segment</code>, or by list
+          index with <code>--point-index</code>. The matching <code>A2_APPROACH</code> or
+          <code>A4_APPROACH</code> follows all stopper points automatically.
+        </p>
+        <div class="grid">
+          <div class="command">
+            <div class="command-bar"><span>Move A2 point by segment</span><button class="copy-btn" data-copy="cmd-device-position-move-stopper-segment">Copy</button></div>
+            <pre><code id="cmd-device-position-move-stopper-segment">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 run mfja_robot_control_config room_315_device_position_tool.py \
+  --side left \
+  --x -10.50 \
+  --y -4.20 \
+  --z 0.84 \
+  --category stoppers \
+  --name A2 \
+  --point-segment A34E \
+  --write</code></pre>
+          </div>
+          <div class="command">
+            <div class="command-bar"><span>Move A2 point by index</span><button class="copy-btn" data-copy="cmd-device-position-move-stopper-index">Copy</button></div>
+            <pre><code id="cmd-device-position-move-stopper-index">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 run mfja_robot_control_config room_315_device_position_tool.py \
+  --side left \
+  --x -10.50 \
+  --y -4.20 \
+  --z 0.84 \
+  --category stoppers \
+  --name A2 \
+  --point-index 0 \
+  --write</code></pre>
+          </div>
+        </div>
+
+        <h3>Step 5: Reload and Verify</h3>
+        <ol>
+          <li>Relaunch the Room 315 rail nodes or the full Room 315 launch so the YAML is loaded again.</li>
+          <li>Enable <code>room315_show_device_markers:=true</code> to visually check position sensor and stopper markers.</li>
+          <li>Watch <code>/room_315/rails/left/sensors/feedback</code> or <code>/room_315/rails/right/sensors/feedback</code> to confirm the binary feedback.</li>
+        </ol>
       </section>
 
       <section id="scenario-floor">

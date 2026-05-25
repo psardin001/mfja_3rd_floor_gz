@@ -166,34 +166,16 @@ position_sensors:
 approach_sensors:
 - name: A3_APPROACH
   stopper: A3
-  before_switch: A3
-  segment: A23
-  s_ratio: 0.711151221
   radius_m: 0.08
 - name: A4_APPROACH
   stopper: A4
-  before_switch: A4
   radius_m: 0.08
-  points:
-  - segment: A34E
-    s_ratio: 0.964078719
-  - segment: A34I
-    s_ratio: 0.943533612
 - name: A1_APPROACH
   stopper: A1
-  before_switch: A1
-  segment: A14
-  s_ratio: 0.937923811
   radius_m: 0.08
 - name: A2_APPROACH
   stopper: A2
-  before_switch: A2
   radius_m: 0.08
-  points:
-  - segment: A12E
-    s_ratio: 0.964090232
-  - segment: A12I
-    s_ratio: 0.943278327
 stoppers:
 - name: A3
   before_switch: A3
