@@ -382,14 +382,14 @@
     <main>
       <section id="setup">
         <h2>Terminal Setup</h2>
-        <p>Build once after changing code, messages, config, or launch files. The commands use <code>${MFJA_WS:-$HOME/test_mfja_ws}</code>, so set <code>MFJA_WS</code> only if your workspace is somewhere else.</p>
+        <p>Build once after changing code, messages, config, or launch files. The commands use <code>${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}</code>, so set <code>MFJA_WS</code> only if your workspace is somewhere else.</p>
 
         <div class="grid">
           <div>
             <h3>Build</h3>
             <div class="command">
               <div class="command-bar"><span>Build workspace</span><button class="copy-btn" data-copy="cmd-build">Copy</button></div>
-              <pre><code id="cmd-build">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+              <pre><code id="cmd-build">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 
 colcon build --symlink-install
@@ -401,7 +401,7 @@ source install/setup.bash</code></pre>
             <h3>Source Only</h3>
             <div class="command">
               <div class="command-bar"><span>New terminal</span><button class="copy-btn" data-copy="cmd-source">Copy</button></div>
-              <pre><code id="cmd-source">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+              <pre><code id="cmd-source">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash</code></pre>
             </div>
@@ -439,9 +439,9 @@ source install/setup.bash</code></pre>
           In code, every rail detector is the same binary <code>sensor</code> type.
           Use these names when reading the <code>/room_315/rails/right/sensors/feedback</code>
           or <code>/room_315/rails/left/sensors/feedback</code> topics.
-          <code>A*_APPROACH</code> sensors inherit their physical position from the matching
-          <code>stoppers</code> entry; their own YAML entries only keep the public name,
-          stopper link, and <code>radius_m</code>.
+          <code>A*_STOPPER_SENSOR</code> names are regular position sensors linked to matching
+          <code>stoppers</code> entries; their YAML keeps the stopper link,
+          <code>before_stopper_m</code>, and <code>radius_m</code>.
         </p>
         <table>
           <thead>
@@ -451,8 +451,8 @@ source install/setup.bash</code></pre>
             <tr>
               <td>Before-stopper detection</td>
               <td><code>sensor</code></td>
-              <td><code>A1_APPROACH</code>, <code>A2_APPROACH</code>, <code>A3_APPROACH</code>, <code>A4_APPROACH</code></td>
-              <td><code>A1_APPROACH</code>, <code>A2_APPROACH</code>, <code>A3_APPROACH</code>, <code>A4_APPROACH</code></td>
+              <td><code>A1_STOPPER_SENSOR</code>, <code>A2_STOPPER_SENSOR</code>, <code>A3_STOPPER_SENSOR</code>, <code>A4_STOPPER_SENSOR</code></td>
+              <td><code>A1_STOPPER_SENSOR</code>, <code>A2_STOPPER_SENSOR</code>, <code>A3_STOPPER_SENSOR</code>, <code>A4_STOPPER_SENSOR</code></td>
             </tr>
             <tr>
               <td>Indexing zones</td>
@@ -491,7 +491,7 @@ source install/setup.bash</code></pre>
 
         <div class="command">
           <div class="command-bar"><span>Terminal 1: launch Room 315</span><button class="copy-btn" data-copy="cmd-room315-both">Copy</button></div>
-          <pre><code id="cmd-room315-both">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+          <pre><code id="cmd-room315-both">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -514,7 +514,7 @@ ros2 launch mfja_3rd_floor_bringup room_315_only.launch.py \
         <div class="grid">
           <div class="command">
             <div class="command-bar"><span>Terminal 2: start / stop left shuttle</span><button class="copy-btn" data-copy="cmd-left-on-off">Copy</button></div>
-            <pre><code id="cmd-left-on-off">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+            <pre><code id="cmd-left-on-off">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -528,7 +528,7 @@ ros2 topic pub --once /room_315/rails/left/shuttles/command \
           </div>
           <div class="command">
             <div class="command-bar"><span>Terminal 2: start / stop right shuttle</span><button class="copy-btn" data-copy="cmd-right-on-off">Copy</button></div>
-            <pre><code id="cmd-right-on-off">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+            <pre><code id="cmd-right-on-off">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -544,7 +544,7 @@ ros2 topic pub --once /room_315/rails/right/shuttles/command \
 
         <div class="command">
           <div class="command-bar"><span>Terminal 3: watch shuttle states</span><button class="copy-btn" data-copy="cmd-watch-both-shuttles">Copy</button></div>
-          <pre><code id="cmd-watch-both-shuttles">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+          <pre><code id="cmd-watch-both-shuttles">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -566,7 +566,7 @@ ros2 topic echo /room_315/rails/left/shuttles/state \
           <div class="details-body">
             <div class="command">
               <div class="command-bar"><span>Add / ON / OFF / RESET / REMOVE</span><button class="copy-btn" data-copy="cmd-shuttle-life-one">Copy</button></div>
-              <pre><code id="cmd-shuttle-life-one">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+              <pre><code id="cmd-shuttle-life-one">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -623,7 +623,7 @@ ros2 topic pub --once /room_315/rails/right/shuttles/command \
         <div class="grid">
           <div class="command">
             <div class="command-bar"><span>Switch route test</span><button class="copy-btn" data-copy="cmd-switch-test">Copy</button></div>
-            <pre><code id="cmd-switch-test">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+            <pre><code id="cmd-switch-test">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -640,7 +640,7 @@ ros2 topic echo /room_315/rails/right/switches/state \
           </div>
           <div class="command">
             <div class="command-bar"><span>Stopper close / open test</span><button class="copy-btn" data-copy="cmd-stopper-test">Copy</button></div>
-            <pre><code id="cmd-stopper-test">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+            <pre><code id="cmd-stopper-test">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -666,14 +666,15 @@ ros2 topic pub --once /room_315/rails/right/stoppers/command \
         <h2>Scenario 4: Move One Shuttle and Watch Sensor Output</h2>
         <p>
           The sensors are binary: they report <code>active: 1</code> when a shuttle is on the sensor point and <code>active: 0</code> when it is clear.
-          For <code>A*_APPROACH</code>, the sensor point is the matching stopper point.
+          For <code>A*_STOPPER_SENSOR</code>, the sensor point is derived from the matching
+          stopper point minus <code>before_stopper_m</code>.
           Every reading uses <code>sensor_type: sensor</code>. All sensor names are published together on one topic:
           <code>/room_315/rails/right/sensors/feedback</code>.
         </p>
 
         <div class="command">
           <div class="command-bar"><span>Terminal 1: one slow moving shuttle</span><button class="copy-btn" data-copy="cmd-one-shuttle-sensors-launch">Copy</button></div>
-          <pre><code id="cmd-one-shuttle-sensors-launch">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+          <pre><code id="cmd-one-shuttle-sensors-launch">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -694,7 +695,7 @@ ros2 launch mfja_3rd_floor_bringup room_315_only.launch.py \
 
         <div class="command">
           <div class="command-bar"><span>Terminal 2: all rail sensor feedback</span><button class="copy-btn" data-copy="cmd-watch-sensors">Copy</button></div>
-          <pre><code id="cmd-watch-sensors">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+          <pre><code id="cmd-watch-sensors">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -713,7 +714,7 @@ ros2 topic echo /room_315/rails/right/sensors/feedback \
         <div class="grid">
           <div class="command">
             <div class="command-bar"><span>Show markers at launch</span><button class="copy-btn" data-copy="cmd-show-markers">Copy</button></div>
-            <pre><code id="cmd-show-markers">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+            <pre><code id="cmd-show-markers">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -726,7 +727,7 @@ ros2 launch mfja_3rd_floor_bringup room_315_only.launch.py \
           </div>
           <div class="command">
             <div class="command-bar"><span>Hide markers at launch</span><button class="copy-btn" data-copy="cmd-hide-markers">Copy</button></div>
-            <pre><code id="cmd-hide-markers">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+            <pre><code id="cmd-hide-markers">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -743,7 +744,7 @@ ros2 launch mfja_3rd_floor_bringup room_315_only.launch.py \
         <p class="note">Use <code>show_device_markers:=false</code> if you start Gazebo first and then start the rail nodes separately.</p>
         <div class="command">
           <div class="command-bar"><span>Manual rail nodes with hidden markers</span><button class="copy-btn" data-copy="cmd-manual-hidden-markers">Copy</button></div>
-          <pre><code id="cmd-manual-hidden-markers">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+          <pre><code id="cmd-manual-hidden-markers">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -765,8 +766,9 @@ ros2 launch mfja_robot_control_config room_315_dual_kinematic_shuttles.launch.py
           <code>x/y/z</code> point and want the YAML tool to convert it to the nearest rail
           <code>segment</code> plus <code>s_ratio</code>. The tool can update
           <code>slots</code>, <code>position_sensors</code>, and <code>stoppers</code>.
-          It intentionally does not move <code>approach_sensors</code>; approach feedback
-          follows the matching stopper automatically.
+          Stopper-linked position sensors are derived from the matching stopper and
+          <code>before_stopper_m</code>, so the tool does not write
+          <code>segment</code> or <code>s_ratio</code> directly on them.
         </p>
         <p>
           Get the target <code>x/y/z</code> from the Gazebo pose inspector, from a temporary
@@ -776,10 +778,11 @@ ros2 launch mfja_robot_control_config room_315_dual_kinematic_shuttles.launch.py
         </p>
 
         <div class="callout">
-          New stopper rule: to move <code>A1_APPROACH</code>, <code>A2_APPROACH</code>,
-          <code>A3_APPROACH</code>, or <code>A4_APPROACH</code>, move the matching
-          stopper in <code>stoppers</code>. Only edit <code>approach_sensors.radius_m</code>
-          when you want a larger or smaller detection area.
+          Stopper-linked sensor rule: to move <code>A1_STOPPER_SENSOR</code>,
+          <code>A2_STOPPER_SENSOR</code>, <code>A3_STOPPER_SENSOR</code>, or
+          <code>A4_STOPPER_SENSOR</code>, move the matching stopper in
+          <code>stoppers</code> or edit <code>before_stopper_m</code>. Edit
+          <code>radius_m</code> only when you want a larger or smaller detection area.
         </div>
 
         <h3>Step 1: Dry Run the Closest Rail Position</h3>
@@ -791,7 +794,7 @@ ros2 launch mfja_robot_control_config room_315_dual_kinematic_shuttles.launch.py
         </p>
         <div class="command">
           <div class="command-bar"><span>Dry run: convert Gazebo XYZ</span><button class="copy-btn" data-copy="cmd-device-position-dry-run">Copy</button></div>
-          <pre><code id="cmd-device-position-dry-run">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+          <pre><code id="cmd-device-position-dry-run">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -817,7 +820,7 @@ ros2 run mfja_robot_control_config room_315_device_position_tool.py \
         </p>
         <div class="command">
           <div class="command-bar"><span>Move DA2EL</span><button class="copy-btn" data-copy="cmd-device-position-move-sensor">Copy</button></div>
-          <pre><code id="cmd-device-position-move-sensor">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+          <pre><code id="cmd-device-position-move-sensor">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -833,13 +836,13 @@ ros2 run mfja_robot_control_config room_315_device_position_tool.py \
 
         <h3>Step 3: Move a Single-Point Stopper</h3>
         <p>
-          Use <code>--category stoppers</code>. Moving the stopper also moves the matching
-          approach feedback. Do not run the tool with <code>--category approach_sensors</code>
-          for location changes.
+          Use <code>--category stoppers</code>. Moving the stopper also moves the
+          matching stopper-linked position sensor, because its runtime position is
+          derived from the stopper point.
         </p>
         <div class="command">
           <div class="command-bar"><span>Move stopper A1</span><button class="copy-btn" data-copy="cmd-device-position-move-stopper-single">Copy</button></div>
-          <pre><code id="cmd-device-position-move-stopper-single">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+          <pre><code id="cmd-device-position-move-stopper-single">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -856,15 +859,16 @@ ros2 run mfja_robot_control_config room_315_device_position_tool.py \
         <h3>Step 4: Move One Point of a Multi-Point Stopper</h3>
         <p>
           Some stoppers, such as <code>A2</code> and <code>A4</code>, have
-          <code>points</code> because the shuttle can approach from two segments. Select the
+          <code>points</code> because the shuttle can arrive from two segments. Select the
           point either by its current segment with <code>--point-segment</code>, or by list
-          index with <code>--point-index</code>. The matching <code>A2_APPROACH</code> or
-          <code>A4_APPROACH</code> follows all stopper points automatically.
+          index with <code>--point-index</code>. The matching <code>A2_STOPPER_SENSOR</code> or
+          <code>A4_STOPPER_SENSOR</code> position sensor follows all stopper points
+          automatically.
         </p>
         <div class="grid">
           <div class="command">
             <div class="command-bar"><span>Move A2 point by segment</span><button class="copy-btn" data-copy="cmd-device-position-move-stopper-segment">Copy</button></div>
-            <pre><code id="cmd-device-position-move-stopper-segment">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+            <pre><code id="cmd-device-position-move-stopper-segment">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -880,7 +884,7 @@ ros2 run mfja_robot_control_config room_315_device_position_tool.py \
           </div>
           <div class="command">
             <div class="command-bar"><span>Move A2 point by index</span><button class="copy-btn" data-copy="cmd-device-position-move-stopper-index">Copy</button></div>
-            <pre><code id="cmd-device-position-move-stopper-index">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+            <pre><code id="cmd-device-position-move-stopper-index">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -910,7 +914,7 @@ ros2 run mfja_robot_control_config room_315_device_position_tool.py \
 
         <div class="command">
           <div class="command-bar"><span>Full third floor, rails enabled</span><button class="copy-btn" data-copy="cmd-full-floor">Copy</button></div>
-          <pre><code id="cmd-full-floor">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+          <pre><code id="cmd-full-floor">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -948,7 +952,7 @@ ros2 launch mfja_3rd_floor_bringup full_floor.launch.py \
 
         <div class="command">
           <div class="command-bar"><span>Single robot with table</span><button class="copy-btn" data-copy="cmd-single-robot">Copy</button></div>
-          <pre><code id="cmd-single-robot">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+          <pre><code id="cmd-single-robot">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -965,7 +969,7 @@ ros2 launch mfja_3rd_floor_bringup single_industrial_robot.launch.py \
 
         <div class="command">
           <div class="command-bar"><span>Full floor with all robots and shuttles</span><button class="copy-btn" data-copy="cmd-all-robots">Copy</button></div>
-          <pre><code id="cmd-all-robots">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+          <pre><code id="cmd-all-robots">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -1019,7 +1023,7 @@ ros2 launch mfja_3rd_floor_bringup full_floor.launch.py \
         <div class="grid">
           <div class="command">
             <div class="command-bar"><span>Build after YAML/model changes</span><button class="copy-btn" data-copy="cmd-build-tiago-variants">Copy</button></div>
-            <pre><code id="cmd-build-tiago-variants">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+            <pre><code id="cmd-build-tiago-variants">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 
 colcon build --base-paths src/mfja_3rd_floor_gz \
@@ -1030,7 +1034,7 @@ source install/setup.bash</code></pre>
           </div>
           <div class="command">
             <div class="command-bar"><span>Confirm ROS sees the expected packages</span><button class="copy-btn" data-copy="cmd-tiago-prefix-check">Copy</button></div>
-            <pre><code id="cmd-tiago-prefix-check">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+            <pre><code id="cmd-tiago-prefix-check">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -1041,7 +1045,7 @@ ros2 pkg prefix mfja_3rd_floor_description</code></pre>
 
         <div class="command">
           <div class="command-bar"><span>Launch both TIAGo variants only</span><button class="copy-btn" data-copy="cmd-tiago-variants-launch">Copy</button></div>
-          <pre><code id="cmd-tiago-variants-launch">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+          <pre><code id="cmd-tiago-variants-launch">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -1054,7 +1058,7 @@ ros2 launch mfja_3rd_floor_bringup full_floor.launch.py \
 
         <div class="command">
           <div class="command-bar"><span>Check both TIAGo namespaces</span><button class="copy-btn" data-copy="cmd-tiago-variants-check">Copy</button></div>
-          <pre><code id="cmd-tiago-variants-check">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+          <pre><code id="cmd-tiago-variants-check">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -1069,6 +1073,8 @@ ros2 topic list | grep -E '^/(tiago1|tiago_base1)/'</code></pre>
           The configured robots are controlled through ROS topics bridged to Gazebo.
           Fixed-base robots use <code>/&lt;robot_name&gt;/joint_trajectory</code>.
           TIAGo variants also have <code>/&lt;robot_name&gt;/cmd_vel</code> for mobile-base motion.
+          For <code>tiago_base</code>, <code>/joint_trajectory</code> is only for the
+          existing torso joint; there is no arm or head to command.
         </p>
 
         <table>
@@ -1081,13 +1087,13 @@ ros2 topic list | grep -E '^/(tiago1|tiago_base1)/'</code></pre>
             <tr><td><code>hc10</code> or <code>3</code></td><td><code>yaskawa_hc10_1</code></td><td><code>yaskawa_hc10</code></td><td><code>/yaskawa_hc10_1/joint_trajectory</code></td></tr>
             <tr><td><code>hc10dt</code> or <code>4</code></td><td><code>yaskawa_hc10dt_1</code></td><td><code>yaskawa_hc10dt</code></td><td><code>/yaskawa_hc10dt_1/joint_trajectory</code></td></tr>
             <tr><td><code>tiago1</code>, <code>tiago_with_arm</code>, or <code>5</code></td><td><code>tiago1</code></td><td><code>tiago_with_arm</code></td><td><code>/tiago1/joint_trajectory</code> and <code>/tiago1/cmd_vel</code></td></tr>
-            <tr><td><code>tiago_base1</code>, <code>tiago_base</code>, or <code>6</code></td><td><code>tiago_base1</code></td><td><code>tiago_base</code></td><td><code>/tiago_base1/joint_trajectory</code> and <code>/tiago_base1/cmd_vel</code></td></tr>
+            <tr><td><code>tiago_base1</code>, <code>tiago_base</code>, or <code>6</code></td><td><code>tiago_base1</code></td><td><code>tiago_base</code></td><td><code>/tiago_base1/joint_trajectory</code> for torso only, and <code>/tiago_base1/cmd_vel</code> for mobile base</td></tr>
           </tbody>
         </table>
 
         <div class="command">
           <div class="command-bar"><span>Robot topic and interface check</span><button class="copy-btn" data-copy="cmd-robot-topic-check">Copy</button></div>
-          <pre><code id="cmd-robot-topic-check">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+          <pre><code id="cmd-robot-topic-check">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -1107,7 +1113,7 @@ ros2 interface show geometry_msgs/msg/Twist</code></pre>
 
         <div class="command">
           <div class="command-bar"><span>Launch full floor with one robot</span><button class="copy-btn" data-copy="cmd-full-floor-one-robot">Copy</button></div>
-          <pre><code id="cmd-full-floor-one-robot">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+          <pre><code id="cmd-full-floor-one-robot">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -1123,7 +1129,7 @@ ros2 launch mfja_3rd_floor_bringup full_floor.launch.py \
           <div class="details-body">
             <div class="command">
               <div class="command-bar"><span>Move kuka1</span><button class="copy-btn" data-copy="cmd-move-kuka">Copy</button></div>
-              <pre><code id="cmd-move-kuka">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+              <pre><code id="cmd-move-kuka">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -1138,7 +1144,7 @@ ros2 topic pub --once /kuka1/joint_trajectory trajectory_msgs/msg/JointTrajector
           <div class="details-body">
             <div class="command">
               <div class="command-bar"><span>Move staubli1</span><button class="copy-btn" data-copy="cmd-move-staubli">Copy</button></div>
-              <pre><code id="cmd-move-staubli">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+              <pre><code id="cmd-move-staubli">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -1153,7 +1159,7 @@ ros2 topic pub --once /staubli1/joint_trajectory trajectory_msgs/msg/JointTrajec
           <div class="details-body">
             <div class="command">
               <div class="command-bar"><span>Move yaskawa_hc10_1</span><button class="copy-btn" data-copy="cmd-move-hc10">Copy</button></div>
-              <pre><code id="cmd-move-hc10">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+              <pre><code id="cmd-move-hc10">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -1168,7 +1174,7 @@ ros2 topic pub --once /yaskawa_hc10_1/joint_trajectory trajectory_msgs/msg/Joint
           <div class="details-body">
             <div class="command">
               <div class="command-bar"><span>Move yaskawa_hc10dt_1</span><button class="copy-btn" data-copy="cmd-move-hc10dt">Copy</button></div>
-              <pre><code id="cmd-move-hc10dt">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+              <pre><code id="cmd-move-hc10dt">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -1184,7 +1190,7 @@ ros2 topic pub --once /yaskawa_hc10dt_1/joint_trajectory trajectory_msgs/msg/Joi
             <div class="grid">
               <div class="command">
                 <div class="command-bar"><span>Move tiago1 arm and head</span><button class="copy-btn" data-copy="cmd-move-tiago-arm">Copy</button></div>
-                <pre><code id="cmd-move-tiago-arm">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+                <pre><code id="cmd-move-tiago-arm">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -1193,7 +1199,7 @@ ros2 topic pub --once /tiago1/joint_trajectory trajectory_msgs/msg/JointTrajecto
               </div>
               <div class="command">
                 <div class="command-bar"><span>Move and stop tiago1 base</span><button class="copy-btn" data-copy="cmd-move-tiago-base">Copy</button></div>
-                <pre><code id="cmd-move-tiago-base">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+                <pre><code id="cmd-move-tiago-base">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -1213,7 +1219,7 @@ ros2 topic pub --once /tiago1/cmd_vel geometry_msgs/msg/Twist \
             <div class="grid">
               <div class="command">
                 <div class="command-bar"><span>Move tiago_base1 torso</span><button class="copy-btn" data-copy="cmd-move-tiago-base-body">Copy</button></div>
-                <pre><code id="cmd-move-tiago-base-body">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+                <pre><code id="cmd-move-tiago-base-body">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -1222,7 +1228,7 @@ ros2 topic pub --once /tiago_base1/joint_trajectory trajectory_msgs/msg/JointTra
               </div>
               <div class="command">
                 <div class="command-bar"><span>Move and stop tiago_base1</span><button class="copy-btn" data-copy="cmd-move-tiago-base1-mobile">Copy</button></div>
-                <pre><code id="cmd-move-tiago-base1-mobile">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+                <pre><code id="cmd-move-tiago-base1-mobile">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -1244,7 +1250,7 @@ ros2 topic pub --once /tiago_base1/cmd_vel geometry_msgs/msg/Twist \
             <h3>Inspect topics and messages</h3>
             <div class="command">
               <div class="command-bar"><span>ROS API check</span><button class="copy-btn" data-copy="cmd-api-check">Copy</button></div>
-              <pre><code id="cmd-api-check">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
+              <pre><code id="cmd-api-check">cd "${MFJA_WS:-$HOME/mfja_3rd_floor_ros2_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 

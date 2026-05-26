@@ -557,11 +557,11 @@ ros2 launch mfja_3rd_floor_bringup room_315_only.launch.py \
 
 Room 315 rail sensors are binary occupancy sensors, not distance sensors.
 For normal rail-point sensors, `active: 1` means a shuttle is on top of the
-sensor point within its YAML `radius_m`. For `A*_APPROACH` sensors, the point is
-the matching stopper location and only `radius_m` comes from `approach_sensors`.
-`active: 0` means the sensor is clear.
-A sensor only reports occupancy; it does not stop a
-shuttle. Stopping is controlled independently by the matching stopper state.
+sensor point within its YAML `radius_m`. `A*_STOPPER_SENSOR` names are regular
+position sensors linked to their matching stoppers; their point is the stopper
+point minus `before_stopper_m`. `active: 0` means the sensor is clear.
+A sensor only reports occupancy; stopping is controlled by the matching stopper
+state and uses the linked before-stopper sensor point as the stop trigger.
 All rail readings use `sensor_type: sensor`; the sensor name explains the
 purpose of the detector.
 
@@ -663,8 +663,8 @@ Expected right-rail position sensor families:
 - `DA1IR`, `DA2IR`, `DA3IR`, `DA4IR`
 
 To test all right-rail before-stopper sensors, watch `/sensors/feedback` during the
-same route sweep. Expected names are `A1_APPROACH`, `A2_APPROACH`,
-`A3_APPROACH`, and `A4_APPROACH`:
+same route sweep. Expected names are `A1_STOPPER_SENSOR`, `A2_STOPPER_SENSOR`,
+`A3_STOPPER_SENSOR`, and `A4_STOPPER_SENSOR`:
 
 ```bash
 timeout 120s ros2 topic echo /room_315/rails/right/sensors/feedback \
@@ -694,12 +694,13 @@ position_sensors:
     radius_m: 0.08
 ```
 
-Example stopper and matching approach sensor:
+Example stopper and matching before-stopper position sensor:
 
 ```yaml
-approach_sensors:
-  - name: A1_APPROACH
+position_sensors:
+  - name: A1_STOPPER_SENSOR
     stopper: A1
+    before_stopper_m: 0.1
     radius_m: 0.08
 
 stoppers:
@@ -718,10 +719,11 @@ To move a position sensor, stopper, or slot:
 4. Relaunch Gazebo.
 5. The runtime device position and visual marker move together.
 
-Approach sensors do not have their own `segment`, `s_ratio`, or `points`; each
-one inherits the location of its matching stopper. Move the stopper entry under
-`stoppers`, and the approach feedback moves with it. If a stopper has multiple
-physical points, edit only `stoppers[].points`.
+Stopper-linked position sensors do not have their own `segment`, `s_ratio`, or
+`points`; each one is derived from the matching stopper and
+`before_stopper_m`. Move the stopper entry under `stoppers`, and the linked
+sensor moves with it. If a stopper has multiple physical points, edit only
+`stoppers[].points`.
 
 ### 12. Check Visual Device Markers in Gazebo
 
@@ -1609,9 +1611,9 @@ ros2 topic echo /room_315/rails/right/sensors/feedback mfja_rail_interfaces/msg/
 Each message contains one `SensorReading` per configured rail sensor.
 Rail sensors are binary occupancy sensors, not distance sensors: for normal
 sensors, `active: 1` means a shuttle is on top of that sensor within its YAML
-`radius_m`; for `A*_APPROACH`, the sensor point is inherited from the matching
-stopper and the YAML only supplies `radius_m`. `active: 0` means the sensor is
-clear. The published `sensor_type` is
+`radius_m`; `A*_STOPPER_SENSOR` names are regular position sensors whose point is
+derived from the matching stopper minus `before_stopper_m`. `active: 0` means
+the sensor is clear. The published `sensor_type` is
 always `sensor`. When active, `shuttle_name` identifies the detected shuttle.
 
 The intended manual workflow is:
@@ -1872,7 +1874,7 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
 | `pose_offset_command_topic` | `/room_315/rails/right/shuttles/pose_offset_command` | Runtime pose calibration topic for the right rail. The left rail default is `/room_315/rails/left/shuttles/pose_offset_command`. |
 | `switch_motion_delay_s` | `0.3` | Delay before requested switch state becomes actual and the visible Gazebo switch model moves. |
 | `stopper_motion_delay_s` | `0.1` | Delay before requested stopper state becomes actual. |
-| `stopper_stop_before_m` | `0.1` | Distance before an active stopper where a shuttle stops. |
+| `stopper_stop_before_m` | `0.1` | Fallback stop distance for legacy network-only stopper definitions. Device-YAML stoppers use linked `position_sensors.before_stopper_m`. |
 | `publish_visual_switch_commands` | `true` | Move the visible Gazebo switch models when delayed actual switch states are applied. |
 | `sync_from_visual_switch_states` | `true` | Sync route logic from the latest visual switch state. |
 
