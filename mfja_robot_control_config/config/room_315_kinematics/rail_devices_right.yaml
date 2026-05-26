@@ -51,9 +51,12 @@ position_sensors:
   radius_m: 0.07
 - name: DA4R
   switch: A4
-  segment: A4E
-  s_ratio: 0.969477997
-  radius_m: 0.07
+  radius_m: 0.08
+  points:
+  - segment: A4E
+    s_ratio: 0.969477997
+  - segment: A4I
+    s_ratio: 0.969477997
 - name: DA4ER
   switch: A4
   branch: E
@@ -100,18 +103,22 @@ position_sensors:
   segment: A12I
   s_ratio: 0.872376235
   radius_m: 0.08
-approach_sensors:
-- name: A3_APPROACH
+# Stopper-linked position sensors are derived from the matching stopper point.
+- name: A3_STOPPER_SENSOR
   stopper: A3
+  before_stopper_m: 0.1
   radius_m: 0.08
-- name: A4_APPROACH
+- name: A4_STOPPER_SENSOR
   stopper: A4
+  before_stopper_m: 0.1
   radius_m: 0.08
-- name: A1_APPROACH
+- name: A1_STOPPER_SENSOR
   stopper: A1
+  before_stopper_m: 0.1
   radius_m: 0.08
-- name: A2_APPROACH
+- name: A2_STOPPER_SENSOR
   stopper: A2
+  before_stopper_m: 0.1
   radius_m: 0.08
 stoppers:
 - name: A3

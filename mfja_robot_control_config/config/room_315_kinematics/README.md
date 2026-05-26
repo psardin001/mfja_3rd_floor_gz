@@ -18,9 +18,9 @@ switch states, and controlling the robots.
 - `rail_network_left.yaml`: explicit graph topology for the left rail with its
   own switch labeling and routing layout.
 - `rail_devices_right.yaml`: user-editable right-rail slots, position sensors,
-  approach sensor definitions, and stoppers.
+  stopper-linked position sensors, and stoppers.
 - `rail_devices_left.yaml`: user-editable left-rail slots, position sensors,
-  approach sensor definitions, and stoppers.
+  stopper-linked position sensors, and stoppers.
 
 ## Segment Direction
 
@@ -100,18 +100,18 @@ upstream means decreasing its `s_ratio` on `A14`. For stoppers that cover two
 converging branch segments, keep one public stopper name and edit the individual
 entries under `stoppers[].points`.
 
-Approach sensor locations are derived from the matching stopper entry. Their
-YAML entries define only the public sensor name, the stopper they follow, and
-`radius_m`. Do not put `segment`, `s_ratio`, or `points` under
-`approach_sensors`; the loader rejects those fields so the stopper and approach
-feedback cannot drift apart.
+Before-stopper detectors are regular `position_sensors` entries linked to a
+matching stopper. They define `stopper`, `before_stopper_m`, and `radius_m`.
+Their runtime point is derived from the stopper point minus `before_stopper_m`,
+so moving the stopper also moves the linked detector. Do not put `segment`,
+`s_ratio`, or `points` on a stopper-linked position sensor.
 
-Position sensor entries and approach sensor definitions use `radius_m` as their
-occupancy radius. Missing `radius_m` is a configuration error so sensor behavior
-stays explicit in YAML. The canonical
-rail sensor topic is `/room_315/rails/right/sensors/feedback` or
+All position sensor entries use `radius_m` as their occupancy radius. Missing
+`radius_m` is a configuration error so sensor behavior stays explicit in YAML.
+The canonical rail sensor topic is
+`/room_315/rails/right/sensors/feedback` or
 `/room_315/rails/left/sensors/feedback`; it contains both before-stopper
-sensors and rail-point sensors.
+detectors and rail-point sensors.
 The public rail API uses typed `mfja_rail_interfaces` messages only.
 
 ### Moving Single-Point and Multi-Point Devices
@@ -138,11 +138,13 @@ A stopper can keep one public name while using multiple physical points:
     s_ratio: 0.943533612
 ```
 
-The matching approach sensor follows those stopper points automatically:
+The matching before-stopper position sensor follows those stopper points
+automatically:
 
 ```yaml
-- name: A4_APPROACH
+- name: A4_STOPPER_SENSOR
   stopper: A4
+  before_stopper_m: 0.1
   radius_m: 0.08
 ```
 
@@ -167,9 +169,9 @@ Colors:
   orange for state `E` / `EXTERIOR`
 
 Position sensor markers sit slightly above the rail so a visible part remains
-above the shuttle body while a shuttle is crossing the sensor. Approach sensor
-definitions remain in YAML and feedback, inherit their positions from the
-matching stopper, and do not spawn visual markers. The old continuous sensor
+above the shuttle body while a shuttle is crossing the sensor. Stopper-linked
+position sensors are normal position sensors, so they also publish normal
+sensor feedback and can spawn normal sensor markers. The old continuous sensor
 distance field has been fully removed from the sensor interface.
 
 Example marker names:
@@ -384,9 +386,9 @@ Expected right-rail position sensor families:
 - Exterior branch sensors: `DA1ER`, `DA2ER`, `DA3ER`, `DA4ER`.
 - Interior branch sensors: `DA1IR`, `DA2IR`, `DA3IR`, `DA4IR`.
 
-### Test All Right-Rail Approach Sensors
+### Test All Right-Rail Before-Stopper Position Sensors
 
-Use the same slow right-rail launch and route sweep, but watch the approach
+Use the same slow right-rail launch and route sweep, but watch the normal sensor
 feedback topic:
 
 ```bash
@@ -394,16 +396,16 @@ timeout 120s ros2 topic echo /room_315/rails/right/sensors/feedback \
   mfja_rail_interfaces/msg/SensorFeedback
 ```
 
-Expected right-rail approach sensors:
+Expected right-rail stopper-linked position sensors:
 
-- `A1_APPROACH`
-- `A2_APPROACH`
-- `A3_APPROACH`
-- `A4_APPROACH`
+- `A1_STOPPER_SENSOR`
+- `A2_STOPPER_SENSOR`
+- `A3_STOPPER_SENSOR`
+- `A4_STOPPER_SENSOR`
 
 These sensors use the same code type as all other rail sensors:
-`sensor_type=sensor`, `active=1` when a shuttle is on top of the matching
-stopper point within the approach sensor YAML `radius_m`, and `active=0`
+`sensor_type=sensor`, `active=1` when a shuttle is on top of the derived
+before-stopper detector point within the YAML `radius_m`, and `active=0`
 otherwise.
 
 ### Test All Left-Rail Sensors
@@ -526,9 +528,10 @@ ros2 param set /room_315/rails/right/room_315_kinematic_shuttle stopper_motion_d
 ros2 param set /room_315/rails/right/room_315_kinematic_shuttle stopper_stop_before_m 0.1
 ```
 
-When a stopper is active, the shuttle stops `stopper_stop_before_m` meters before
-the stopper point defined in the rail device YAML. The stopper marker and sensor
-remain at the configured stopper point.
+With the current rail device YAML, a closed stopper stops the shuttle at the
+matching stopper-linked position sensor point, which is derived from
+`before_stopper_m`. `stopper_stop_before_m` remains as the fallback distance for
+legacy network-only stopper definitions.
 
 ## Stopper and Sensor Workflow
 
@@ -552,8 +555,9 @@ sensor -> stop shuttle -> move switch -> unstop shuttle
 Sensor messages use `mfja_rail_interfaces/msg/SensorFeedback`. Its `readings`
 field contains binary occupancy readings. For normal rail-point sensors,
 `active=1` means the named sensor is occupied within the configured YAML
-`radius_m`. For `A*_APPROACH`, the sensor point is inherited from the matching
-stopper and the YAML only supplies `radius_m`; `active=0` means it is clear.
+`radius_m`. `A*_STOPPER_SENSOR` names are regular position sensors linked to their
+matching stoppers; their point is the stopper point minus
+`before_stopper_m`. `active=0` means the detector is clear.
 When active,
 `shuttle_name` identifies the detected shuttle. Sensors do not publish
 continuous distance values.

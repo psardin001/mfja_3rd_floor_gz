@@ -279,12 +279,6 @@ def _find_device_entry(
     category: str,
     name: str,
 ) -> dict[str, Any]:
-    if category == 'approach_sensors':
-        raise ValueError(
-            'approach_sensors do not have independent locations. '
-            'Update the matching stoppers entry instead; the approach feedback '
-            'inherits the stopper segment+s_ratio.'
-        )
     if category not in DEVICE_CATEGORIES:
         allowed = ', '.join(sorted(DEVICE_CATEGORIES))
         raise ValueError(f'Unsupported category {category!r}; use one of: {allowed}.')
@@ -322,6 +316,12 @@ def _target_mapping_for_update(
     point_index: int,
     point_segment: str | None,
 ) -> dict[str, Any]:
+    if 'stopper' in entry and 'before_stopper_m' in entry:
+        raise ValueError(
+            'This position sensor is linked to a stopper. Move the matching '
+            'stoppers entry or edit before_stopper_m instead of writing '
+            'segment+s_ratio directly.'
+        )
     if 'points' not in entry:
         if point_segment is not None:
             raise ValueError('point-segment can only be used when the device has points.')
@@ -404,11 +404,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--z', type=float, required=True, help='Gazebo Z coordinate.')
     parser.add_argument(
         '--category',
-        choices=sorted([*DEVICE_CATEGORIES, 'approach_sensors']),
+        choices=sorted(DEVICE_CATEGORIES),
         default=None,
         help=(
-            'Device category to update. Use stoppers for before-stopper locations; '
-            'approach_sensors only define radius_m and cannot be moved.'
+            'Device category to update. Stopper-linked position sensors are '
+            'derived from the matching stopper and before_stopper_m.'
         ),
     )
     parser.add_argument('--name', help='Device name to update, for example DZI1R.')
