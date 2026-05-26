@@ -172,6 +172,44 @@ If you only edit README files, no rebuild is required. If you edit launch files,
 Python scripts, package metadata, interfaces, models, worlds, URDF, SDF, or
 config files, rebuild and source again.
 
+## Multiple TIAGo Robots From YAML
+
+`mfja_robot_control_config/config/robots.yaml` and
+`mfja_robot_control_config/config/robots_room_315_only.yaml` are the robot spawn
+lists. Add or remove TIAGo robots by editing the `robots:` list. Each entry must
+have a unique `name`.
+
+Supported TIAGo variants:
+
+- `model: tiago_with_arm` for the mobile TIAGo with torso, head, and arm
+  (`tiago` and `tiago_arm` are accepted aliases).
+- `model: tiago_base` for the mobile TIAGo body without the arm or head
+  (`tiago_no_arm` and `tiago_mobile_base` are accepted aliases).
+
+Example:
+
+```yaml
+robots:
+  - name: tiago_arm1
+    model: tiago_with_arm
+    x_pose: -6.4
+    y_pose: -3.0
+    z_pose: 0.0
+    yaw: 1.57
+    enabled: true
+
+  - name: tiago_base1
+    model: tiago_base
+    x_pose: -7.2
+    y_pose: -3.0
+    z_pose: 0.0
+    yaw: 1.57
+    enabled: true
+```
+
+You can also keep `model: tiago` and switch the variant with `arm: true` or
+`arm: false`.
+
 ## Step-by-Step Feature Guide
 
 This section is the practical runbook. Use it when you want to test one feature
@@ -213,7 +251,6 @@ ros2 launch mfja_3rd_floor_bringup room_315_only.launch.py \
   start_paused:=false \
   gui:=true \
   enable_room315_kinematic_shuttles:=true \
-  room315_sensor_detection_tolerance_m:=0.01 \
   room315_sensor_publish_rate_hz:=10.0 \
   room315_show_device_markers:=true
 ```
@@ -248,7 +285,6 @@ ros2 launch mfja_3rd_floor_bringup full_floor.launch.py \
   start_paused:=false \
   gui:=true \
   enable_room315_kinematic_shuttles:=true \
-  room315_sensor_detection_tolerance_m:=0.01 \
   room315_sensor_publish_rate_hz:=10.0 \
   room315_show_device_markers:=true
 ```
@@ -439,8 +475,8 @@ ros2 topic echo /room_315/rails/right/shuttles/state \
 ### 8. Move Switches with Command and State Topics
 
 Commands are requests. State topics report the actual state after the configured
-motion delay. Switch states accept `0`/`INTERIOR`/`SMALL`/`S` and
-`1`/`EXTERIOR`/`BIG`/`G`. Stopper states accept `0`/`PASS`/`OPEN` and
+motion delay. Switch states accept `I`/`INTERIOR` and `E`/`EXTERIOR`.
+Stopper states accept `0`/`PASS`/`OPEN` and
 `1`/`STOP`/`CLOSED`.
 
 Terminal 2 - watch actual switch state:
@@ -520,9 +556,11 @@ ros2 launch mfja_3rd_floor_bringup room_315_only.launch.py \
 ### 10. Read Sensor Feedback
 
 Room 315 rail sensors are binary occupancy sensors, not distance sensors.
-Each `SensorReading` has `active: 1` when a shuttle is on top of the
-configured sensor point within `room315_sensor_detection_tolerance_m`, and
-`active: 0` otherwise. A sensor only reports occupancy; it does not stop a
+For normal rail-point sensors, `active: 1` means a shuttle is on top of the
+sensor point within its YAML `radius_m`. For `A*_APPROACH` sensors, the point is
+the matching stopper location and only `radius_m` comes from `approach_sensors`.
+`active: 0` means the sensor is clear.
+A sensor only reports occupancy; it does not stop a
 shuttle. Stopping is controlled independently by the matching stopper state.
 All rail readings use `sensor_type: sensor`; the sensor name explains the
 purpose of the detector.
@@ -621,8 +659,8 @@ Expected right-rail position sensor families:
 
 - `DZI1R`, `DZI2R`, `DZI3R`, `DZI4R`
 - `DA1R`, `DA2R`, `DA3R`, `DA4R`
-- `DA1GR`, `DA2GR`, `DA3GR`, `DA4GR`
-- `DA1SR`, `DA2SR`, `DA3SR`, `DA4SR`
+- `DA1ER`, `DA2ER`, `DA3ER`, `DA4ER`
+- `DA1IR`, `DA2IR`, `DA3IR`, `DA4IR`
 
 To test all right-rail before-stopper sensors, watch `/sensors/feedback` during the
 same route sweep. Expected names are `A1_APPROACH`, `A2_APPROACH`,
@@ -656,26 +694,50 @@ position_sensors:
     radius_m: 0.08
 ```
 
-To move a device:
+Example stopper and matching approach sensor:
+
+```yaml
+approach_sensors:
+  - name: A1_APPROACH
+    stopper: A1
+    radius_m: 0.08
+
+stoppers:
+  - name: A1
+    before_switch: A1
+    segment: A23
+    s_ratio: 0.711151221
+    default_state: '0'
+```
+
+To move a position sensor, stopper, or slot:
 
 1. Choose the correct YAML file for the rail side.
-2. Change `segment` or `s_ratio`.
+2. Change `segment` or `s_ratio` on that position sensor, stopper, or slot.
 3. Save the file.
 4. Relaunch Gazebo.
 5. The runtime device position and visual marker move together.
+
+Approach sensors do not have their own `segment`, `s_ratio`, or `points`; each
+one inherits the location of its matching stopper. Move the stopper entry under
+`stoppers`, and the approach feedback moves with it. If a stopper has multiple
+physical points, edit only `stoppers[].points`.
 
 ### 12. Check Visual Device Markers in Gazebo
 
 Launch Room 315 or the full floor with the rail stack enabled. Markers are
 spawned from the YAML-resolved positions:
 
-- slots and sensors: blue
-- stoppers: red
-- switch bodies: green for state `0` / `INTERIOR` / `S`,
-  orange for state `1` / `EXTERIOR` / `G`
+- position sensors: blue when inactive, green when active
+- stoppers: amber when released, red when active
+- shuttles: black normally, red in `FALLING` mode
+- switch bodies: green for state `I` / `INTERIOR`,
+  orange for state `E` / `EXTERIOR`
 
-All rail sensors use the same marker color because they are all binary
-occupancy sensors. The old continuous sensor distance field has been fully
+Position sensor markers sit slightly above the rail so a visible part remains
+above the shuttle body while a shuttle is crossing the sensor. Approach sensor
+definitions remain in YAML and feedback, inherit stopper locations, and do not
+spawn visual markers. The old continuous sensor distance field has been fully
 removed from the sensor interface.
 
 Hide device markers when you want a cleaner Gazebo scene:
@@ -1171,6 +1233,11 @@ ros2 launch mfja_3rd_floor_bringup full_floor.launch.py \
   gui:=true
 ```
 
+Room 315 shuttles use the same `use_sim_time` clock as the rest of the full-floor
+simulation, so robot motion and shuttle motion stay synchronized. If the full
+scene runs below real time, the shuttle will look slower in wall-clock time
+because the whole simulation is slower.
+
 Room 315 only with all configured robots:
 
 ```bash
@@ -1540,9 +1607,11 @@ ros2 topic echo /room_315/rails/right/sensors/feedback mfja_rail_interfaces/msg/
 ```
 
 Each message contains one `SensorReading` per configured rail sensor.
-Rail sensors are binary occupancy sensors, not distance sensors: `active: 1`
-means a shuttle is on top of that sensor within `sensor_detection_tolerance_m`,
-and `active: 0` means the sensor is clear. The published `sensor_type` is
+Rail sensors are binary occupancy sensors, not distance sensors: for normal
+sensors, `active: 1` means a shuttle is on top of that sensor within its YAML
+`radius_m`; for `A*_APPROACH`, the sensor point is inherited from the matching
+stopper and the YAML only supplies `radius_m`. `active: 0` means the sensor is
+clear. The published `sensor_type` is
 always `sensor`. When active, `shuttle_name` identifies the detected shuttle.
 
 The intended manual workflow is:
@@ -1574,9 +1643,9 @@ for switches and stoppers:
   `slot 1`, `slot 2`, `slot 3`, and `slot 4`.
 - `DA1R`, `DA2R`, `DA3R`, `DA4R`: right-rail detector on the single-track side
   of each switch.
-- `DA1GR`, `DA2GR`, `DA3GR`, `DA4GR`: right-rail detector on the `EXTERIOR`
+- `DA1ER`, `DA2ER`, `DA3ER`, `DA4ER`: right-rail detector on the `EXTERIOR`
   branch.
-- `DA1SR`, `DA2SR`, `DA3SR`, `DA4SR`: right-rail detector on the `INTERIOR`
+- `DA1IR`, `DA2IR`, `DA3IR`, `DA4IR`: right-rail detector on the `INTERIOR`
   branch.
 
 Echo the position detectors:
@@ -1597,8 +1666,8 @@ Expected detector families:
 
 - `slot 1`, `slot 2`, `slot 3`, and `slot 4` startup positions trigger
   `DZI2R`, `DZI1R`, `DZI4R`, and `DZI3R`.
-- `ALL=EXTERIOR` makes the shuttle pass through `...GR` branch detectors.
-- `ALL=INTERIOR` makes the shuttle pass through `...SR` branch detectors.
+- `ALL=EXTERIOR` makes the shuttle pass through `...ER` branch detectors.
+- `ALL=INTERIOR` makes the shuttle pass through `...IR` branch detectors.
 
 Position detectors use the same `sensor_type: sensor` and binary `active`
 semantics as every other rail sensor.
@@ -1761,10 +1830,10 @@ Offline kinematic core test:
 ```bash
 ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
   --path-backend cubic_hermite \
-  --switch A1=G \
-  --switch A2=G \
-  --switch A3=G \
-  --switch A4=G
+  --switch A1=E \
+  --switch A2=E \
+  --switch A3=E \
+  --switch A4=E
 ```
 
 ## Important Parameters
@@ -1786,9 +1855,8 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
 | `speed` | `0.25` | Shuttle speed in m/s. |
 | `update_rate_hz` | `30.0` | Internal kinematic update rate. |
 | `gazebo_set_pose_rate_hz` | `10.0` | Rate for Gazebo `set_pose` calls. |
-| `sensor_detection_tolerance_m` | `0.01` | Binary rail sensor detection tolerance. A sensor is active only when a shuttle is within this tolerance of the configured sensor point. |
 | `sensor_publish_rate_hz` | `10.0` | Publish rate for binary `SensorFeedback` messages. |
-| `show_device_markers` | `true` | Spawn visual markers for slots, sensors, and stoppers. Switch bodies are colored separately by switch state. |
+| `show_device_markers` | `true` | Spawn visual markers for position sensors and stoppers. Switch bodies are colored separately by switch state. |
 | `path_backend` | `cubic_hermite` | Geometry sampler used by the shuttle core. Use `cubic_hermite` for normal continuous motion or `polyline` for direct CSV comparison. |
 | `arc_length_samples_per_edge` | `16` | Sub-samples per CSV edge used to parameterize the continuous path by arc length. |
 | `enable_collision_avoidance` | `true` | Stop before center-distance collision. |
@@ -1804,6 +1872,7 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
 | `pose_offset_command_topic` | `/room_315/rails/right/shuttles/pose_offset_command` | Runtime pose calibration topic for the right rail. The left rail default is `/room_315/rails/left/shuttles/pose_offset_command`. |
 | `switch_motion_delay_s` | `0.3` | Delay before requested switch state becomes actual and the visible Gazebo switch model moves. |
 | `stopper_motion_delay_s` | `0.1` | Delay before requested stopper state becomes actual. |
+| `stopper_stop_before_m` | `0.1` | Distance before an active stopper where a shuttle stops. |
 | `publish_visual_switch_commands` | `true` | Move the visible Gazebo switch models when delayed actual switch states are applied. |
 | `sync_from_visual_switch_states` | `true` | Sync route logic from the latest visual switch state. |
 

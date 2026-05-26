@@ -38,6 +38,7 @@ install(
 install(
   PROGRAMS
     scripts/conveyor_loop_mode_controller.py
+    scripts/room_315_device_position_tool.py
     scripts/room_315_kinematic_shuttle.py
     scripts/room_315_kinematic_shuttle_node.py
   DESTINATION lib/${PROJECT_NAME}

@@ -1,0 +1,162 @@
+<?xml version="1.0"?>
+<robot name="tiago_base">
+  <material name="tiago_white">
+    <color rgba="0.85 0.85 0.85 1.0"/>
+  </material>
+  <material name="tiago_dark">
+    <color rgba="0.25 0.25 0.25 1.0"/>
+  </material>
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0.22" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.20" length="0.20"/>
+      </geometry>
+      <material name="tiago_dark"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.22" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.22" length="0.20"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="base_footprint"/>
+
+  <link name="left_wheel_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.10" length="0.05"/>
+      </geometry>
+      <material name="tiago_dark"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.10" length="0.05"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="right_wheel_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.10" length="0.05"/>
+      </geometry>
+      <material name="tiago_dark"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.10" length="0.05"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="caster_front_link">
+    <visual>
+      <geometry>
+        <sphere radius="0.03"/>
+      </geometry>
+      <material name="tiago_dark"/>
+    </visual>
+    <collision>
+      <geometry>
+        <sphere radius="0.03"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="caster_rear_link">
+    <visual>
+      <geometry>
+        <sphere radius="0.03"/>
+      </geometry>
+      <material name="tiago_dark"/>
+    </visual>
+    <collision>
+      <geometry>
+        <sphere radius="0.03"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="torso_fixed_link">
+    <visual>
+      <geometry>
+        <mesh filename="package://mfja_3rd_floor_description/models/tiago/meshes/torso/torso_fix.stl"/>
+      </geometry>
+      <material name="tiago_white"/>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://mfja_3rd_floor_description/models/tiago/meshes/torso/torso_fix.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="torso_lift_link">
+    <visual>
+      <geometry>
+        <mesh filename="package://mfja_3rd_floor_description/models/tiago/meshes/torso/torso_lift_with_arm.stl"/>
+      </geometry>
+      <material name="tiago_white"/>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://mfja_3rd_floor_description/models/tiago/meshes/torso/torso_lift_with_arm.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="base_footprint"/>
+  </joint>
+
+  <joint name="left_wheel_joint" type="continuous">
+    <origin xyz="0 0.23 0.10" rpy="-1.57079632679 0 0"/>
+    <parent link="base_link"/>
+    <child link="left_wheel_link"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+  <joint name="right_wheel_joint" type="continuous">
+    <origin xyz="0 -0.23 0.10" rpy="-1.57079632679 0 0"/>
+    <parent link="base_link"/>
+    <child link="right_wheel_link"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+  <joint name="caster_front_joint" type="fixed">
+    <origin xyz="0.18 0 0.03" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="caster_front_link"/>
+  </joint>
+
+  <joint name="caster_rear_joint" type="fixed">
+    <origin xyz="-0.18 0 0.03" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="caster_rear_link"/>
+  </joint>
+
+  <joint name="base_to_torso_fixed" type="fixed">
+    <origin xyz="-0.062 0 0.193" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="torso_fixed_link"/>
+  </joint>
+
+  <joint name="torso_lift_joint" type="prismatic">
+    <origin xyz="0 0 0.597" rpy="0 0 0"/>
+    <parent link="torso_fixed_link"/>
+    <child link="torso_lift_link"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="0.0" upper="0.35" effort="2000.0" velocity="0.07"/>
+  </joint>
+
+</robot>

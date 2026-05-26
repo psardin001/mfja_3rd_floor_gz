@@ -18,9 +18,9 @@ switch states, and controlling the robots.
 - `rail_network_left.yaml`: explicit graph topology for the left rail with its
   own switch labeling and routing layout.
 - `rail_devices_right.yaml`: user-editable right-rail slots, position sensors,
-  approach sensors, and stoppers.
+  approach sensor definitions, and stoppers.
 - `rail_devices_left.yaml`: user-editable left-rail slots, position sensors,
-  approach sensors, and stoppers.
+  approach sensor definitions, and stoppers.
 
 ## Segment Direction
 
@@ -64,7 +64,8 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle_node.py --ros-args
   -p devices_yaml:=/absolute/path/to/my_devices.yaml
 ```
 
-Each device is placed on a rail segment with `segment` and `s_ratio`:
+Slots, position sensors, and stoppers are placed on a rail segment with
+`segment` and `s_ratio`:
 
 ```yaml
 position_sensors:
@@ -85,15 +86,29 @@ s = s_ratio * segment.length
 The node then resolves device pose from the existing
 `SegmentGeometry.sample(s)` method.
 
-To move a sensor, stopper, or slot, edit only its `segment` and `s_ratio` in the
-matching rail device YAML. For example, moving `DA1R` slightly upstream means
-decreasing its `s_ratio` on `A14`. For stoppers or approach sensors that cover
-two converging branch segments, keep one public device name and edit the
-individual entries under `points:`.
+For `position_sensors`, binary feedback is driven only by `segment`,
+`s_ratio`, and `radius_m`. Fields such as `switch` and `branch` are descriptive
+YAML labels kept for readability and compatibility; changing them does not move
+the detector. Older custom files may also contain `index_zone`, `start_slot`, or
+`aliases`, but those legacy labels do not move the detector either. To move a
+`DZI*` or `DA*` detector, edit its `segment` and `s_ratio`, or use the device
+position tool.
 
-Position and approach sensor entries use `radius_m` as their occupancy radius.
-Missing `radius_m` is a configuration error so sensor behavior stays explicit in
-YAML. The canonical
+To move a position sensor, stopper, or slot, edit only its `segment` and
+`s_ratio` in the matching rail device YAML. For example, moving `DA1R` slightly
+upstream means decreasing its `s_ratio` on `A14`. For stoppers that cover two
+converging branch segments, keep one public stopper name and edit the individual
+entries under `stoppers[].points`.
+
+Approach sensor locations are derived from the matching stopper entry. Their
+YAML entries define only the public sensor name, the stopper they follow, and
+`radius_m`. Do not put `segment`, `s_ratio`, or `points` under
+`approach_sensors`; the loader rejects those fields so the stopper and approach
+feedback cannot drift apart.
+
+Position sensor entries and approach sensor definitions use `radius_m` as their
+occupancy radius. Missing `radius_m` is a configuration error so sensor behavior
+stays explicit in YAML. The canonical
 rail sensor topic is `/room_315/rails/right/sensors/feedback` or
 `/room_315/rails/left/sensors/feedback`; it contains both before-stopper
 sensors and rail-point sensors.
@@ -110,12 +125,12 @@ A single-point device has `segment` and `s_ratio` directly on the device entry:
   radius_m: 0.09
 ```
 
-A multi-point device keeps one public name but has multiple physical points:
+A stopper can keep one public name while using multiple physical points:
 
 ```yaml
-- name: A4_APPROACH
-  stopper: A4
+- name: A4
   before_switch: A4
+  default_state: '0'
   points:
   - segment: A34E
     s_ratio: 0.964078719
@@ -123,9 +138,16 @@ A multi-point device keeps one public name but has multiple physical points:
     s_ratio: 0.943533612
 ```
 
-If an approach sensor is meant to stay aligned with a stopper, update the
-matching `stoppers` entry too. Rail sensors publish feedback; the stopper is
-what actually stops the shuttle when its state is `1`.
+The matching approach sensor follows those stopper points automatically:
+
+```yaml
+- name: A4_APPROACH
+  stopper: A4
+  radius_m: 0.08
+```
+
+Rail sensors publish feedback; the stopper is what actually stops the shuttle
+when its state is `1`.
 
 ## Gazebo Device Markers
 
@@ -141,14 +163,14 @@ Colors:
 - position sensors: blue when inactive, green when active (`active=1`)
 - stoppers: amber when released (`state=0`), red when active (`state=1`)
 - shuttles: black normally, red in `FALLING` mode
-- switch bodies: green for state `0` / `INTERIOR` / `S`,
-  orange for state `1` / `EXTERIOR` / `G`
+- switch bodies: green for state `I` / `INTERIOR`,
+  orange for state `E` / `EXTERIOR`
 
 Position sensor markers sit slightly above the rail so a visible part remains
-above the shuttle body while a shuttle is crossing the sensor. Approach sensors
-remain in YAML and feedback, but they do not spawn visual markers. The old
-continuous sensor distance field has been fully removed from the sensor
-interface.
+above the shuttle body while a shuttle is crossing the sensor. Approach sensor
+definitions remain in YAML and feedback, inherit their positions from the
+matching stopper, and do not spawn visual markers. The old continuous sensor
+distance field has been fully removed from the sensor interface.
 
 Example marker names:
 
@@ -157,9 +179,10 @@ marker_right_DZI1R
 marker_right_stopper_A1
 ```
 
-To test marker movement, edit a device `segment` or `s_ratio` in the matching
-`rail_devices_*.yaml`, rebuild or use a symlink install, then relaunch Gazebo
-and the shuttle node. The marker will be recreated at the new
+To test marker movement, edit a position sensor or stopper `segment` or
+`s_ratio` in the matching `rail_devices_*.yaml`, rebuild or use a symlink
+install, then relaunch Gazebo and the shuttle node. The marker will be recreated
+at the new
 `SegmentGeometry.sample(s_ratio * segment.length)` position.
 
 ## Build After Changes
@@ -358,8 +381,8 @@ Expected right-rail position sensor families:
 
 - Indexing zone sensors: `DZI1R`, `DZI2R`, `DZI3R`, `DZI4R`.
 - Main switch sensors: `DA1R`, `DA2R`, `DA3R`, `DA4R`.
-- Exterior branch sensors: `DA1GR`, `DA2GR`, `DA3GR`, `DA4GR`.
-- Interior branch sensors: `DA1SR`, `DA2SR`, `DA3SR`, `DA4SR`.
+- Exterior branch sensors: `DA1ER`, `DA2ER`, `DA3ER`, `DA4ER`.
+- Interior branch sensors: `DA1IR`, `DA2IR`, `DA3IR`, `DA4IR`.
 
 ### Test All Right-Rail Approach Sensors
 
@@ -379,8 +402,9 @@ Expected right-rail approach sensors:
 - `A4_APPROACH`
 
 These sensors use the same code type as all other rail sensors:
-`sensor_type=sensor`, `active=1` when a shuttle is on top of the configured
-point within its YAML `radius_m`, and `active=0` otherwise.
+`sensor_type=sensor`, `active=1` when a shuttle is on top of the matching
+stopper point within the approach sensor YAML `radius_m`, and `active=0`
+otherwise.
 
 ### Test All Left-Rail Sensors
 
@@ -526,9 +550,11 @@ sensor -> stop shuttle -> move switch -> unstop shuttle
 ```
 
 Sensor messages use `mfja_rail_interfaces/msg/SensorFeedback`. Its `readings`
-field contains binary occupancy readings. `active=1` means the named sensor
-is occupied within the configured YAML `radius_m`; `active=0` means it is
-clear. When active,
+field contains binary occupancy readings. For normal rail-point sensors,
+`active=1` means the named sensor is occupied within the configured YAML
+`radius_m`. For `A*_APPROACH`, the sensor point is inherited from the matching
+stopper and the YAML only supplies `radius_m`; `active=0` means it is clear.
+When active,
 `shuttle_name` identifies the detected shuttle. Sensors do not publish
 continuous distance values.
 
@@ -553,18 +579,18 @@ The public detector set is:
 - `DZI2R`, `DZI1R`, `DZI4R`, `DZI3R` for the right-rail indexing-zone
   detector positions near the four slot areas.
 - `DA1R`, `DA2R`, `DA3R`, `DA4R` on the single-track side of each switch.
-- `DA1GR`, `DA2GR`, `DA3GR`, `DA4GR` on the `EXTERIOR` branch.
-- `DA1SR`, `DA2SR`, `DA3SR`, `DA4SR` on the `INTERIOR` branch.
+- `DA1ER`, `DA2ER`, `DA3ER`, `DA4ER` on the `EXTERIOR` branch.
+- `DA1IR`, `DA2IR`, `DA3IR`, `DA4IR` on the `INTERIOR` branch.
 
 Practical use:
 
 - Spawn or reset on `slot 1`, `slot 2`, `slot 3`, and `slot 4` to check the
   nearby `DZI...R` indexing-zone detectors.
 - Send `ALL=EXTERIOR` on `/room_315/rails/right/switches/command` with
-  `mfja_rail_interfaces/msg/SwitchCommand` to observe the `...GR` branch
+  `mfja_rail_interfaces/msg/SwitchCommand` to observe the `...ER` branch
   detectors.
 - Send `ALL=INTERIOR` on `/room_315/rails/right/switches/command` with
-  `mfja_rail_interfaces/msg/SwitchCommand` to observe the `...SR` branch
+  `mfja_rail_interfaces/msg/SwitchCommand` to observe the `...IR` branch
   detectors.
 
 ## Start Slots
