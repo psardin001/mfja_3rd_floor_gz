@@ -1,0 +1,930 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>شرح المنطق العام لمنظومة Room 315</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #5c6b80;
+      --line: #d8e0eb;
+      --accent: #0b6bcb;
+      --accent-soft: #e8f2ff;
+      --ok-soft: #eaf8ef;
+      --warn-soft: #fff7e8;
+      --warn-line: #ffd596;
+      --code: #0f172a;
+      --code-bg: #eef2f7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.85;
+    }
+
+    main {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+    }
+
+    h1, h2, h3 {
+      line-height: 1.35;
+      margin: 0 0 12px;
+    }
+
+    h1 {
+      font-size: 2rem;
+    }
+
+    h2 {
+      margin-top: 34px;
+      padding-top: 4px;
+      color: #102a4c;
+      font-size: 1.45rem;
+    }
+
+    h3 {
+      margin-top: 22px;
+      color: #233956;
+      font-size: 1.12rem;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    code, .mono {
+      direction: ltr;
+      unicode-bidi: embed;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      background: var(--code-bg);
+      color: var(--code);
+      border: 1px solid #dce4ef;
+      border-radius: 6px;
+      padding: 0.12rem 0.35rem;
+      white-space: nowrap;
+    }
+
+    pre {
+      direction: ltr;
+      text-align: left;
+      overflow: auto;
+      background: #111827;
+      color: #f8fafc;
+      border-radius: 8px;
+      padding: 16px;
+      line-height: 1.5;
+      border: 1px solid #0b1220;
+    }
+
+    pre code {
+      background: transparent;
+      color: inherit;
+      border: 0;
+      padding: 0;
+      white-space: pre;
+    }
+
+    .toc {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 8px;
+      margin: 18px 0 28px;
+    }
+
+    .toc a {
+      display: block;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-decoration: none;
+      color: var(--accent);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+
+    .card, .note, .warning {
+      border-radius: 8px;
+      padding: 16px;
+      margin: 14px 0;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+
+    .note {
+      background: var(--accent-soft);
+      border: 1px solid #bcd9ff;
+    }
+
+    .warning {
+      background: var(--warn-soft);
+      border: 1px solid var(--warn-line);
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
+      margin: 16px 0 24px;
+      direction: rtl;
+      text-align: right;
+    }
+
+    .flow div {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 86px;
+      direction: rtl;
+      text-align: right;
+    }
+
+    .flow strong {
+      display: block;
+      color: #102a4c;
+      margin-bottom: 6px;
+      direction: ltr;
+      unicode-bidi: isolate;
+      text-align: left;
+    }
+
+    .flow span {
+      color: var(--muted);
+      font-size: 0.95rem;
+      direction: rtl;
+      unicode-bidi: plaintext;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 14px 0 24px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+      text-align: right;
+    }
+
+    th {
+      background: #eef3f9;
+      color: #19324f;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    td.ltr, th.ltr {
+      direction: ltr;
+      text-align: left;
+    }
+
+    ul, ol {
+      margin-top: 6px;
+      padding-inline-start: 24px;
+    }
+
+    .pill {
+      display: inline-block;
+      background: var(--ok-soft);
+      border: 1px solid #b7e4c7;
+      border-radius: 999px;
+      padding: 0.1rem 0.55rem;
+      margin: 0.1rem;
+      color: #1f6b3b;
+      font-size: 0.93rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>شرح المنطق العام لمنظومة Room 315</h1>
+      <p>
+        هذا الملف يعطيك خريطة عامة لكيف تتحرك الرسائل داخل الكود: من ينشر، من يشترك،
+        ماذا يحدث عند وصول command، وكيف ترتبط السكة والشاتلات وGazebo والروبوتات.
+      </p>
+      <p>
+        الهدف ليس شرح كل سطر، بل أن تقرأه وتعرف أين تبدأ التتبع عندما تريد فهم
+        سبب حركة شاتل، تغير حساس، تغير سويتش، أو وصول أمر إلى روبوت.
+      </p>
+    </header>
+
+    <nav class="toc" aria-label="جدول المحتويات">
+      <a href="#mental-map">الخريطة الذهنية</a>
+      <a href="#nodes">العقد التي تعمل</a>
+      <a href="#topics">التوبيكات والخدمات</a>
+      <a href="#startup">ماذا يحدث عند التشغيل</a>
+      <a href="#switch-flow">منطق السويتشات</a>
+      <a href="#stopper-flow">منطق الـ stoppers</a>
+      <a href="#shuttle-flow">منطق الشاتلات</a>
+      <a href="#tick-loop">اللوب الداخلي</a>
+      <a href="#sensors">منطق الحساسات</a>
+      <a href="#gazebo">التعامل مع Gazebo</a>
+      <a href="#robots">منطق الروبوتات</a>
+      <a href="#trace">كيف تتتبع مشكلة</a>
+    </nav>
+
+    <section id="mental-map">
+      <h2>1. الخريطة الذهنية السريعة</h2>
+      <p>
+        عندك ثلاث طبقات أساسية:
+      </p>
+      <div class="grid">
+        <div class="card">
+          <h3>طبقة منطق السكة</h3>
+          <p>
+            موجودة في <code>room_315_kinematic_shuttle_node.py</code> و
+            <code>room_315_kinematic_shuttle.py</code>. هذه الطبقة تحسب أين الشاتل
+            على السكة، أي segment يستخدم، وماذا يحصل عند السويتش أو stopper.
+          </p>
+        </div>
+        <div class="card">
+          <h3>طبقة Gazebo والمرئيات</h3>
+          <p>
+            الشاتل منطقي في الكود، لكن لكي تراه في Gazebo، الكود يرسل pose إلى
+            Gazebo. السويتشات البصرية تتحرك عبر <code>conveyor_loop_mode_controller.py</code>.
+          </p>
+        </div>
+        <div class="card">
+          <h3>طبقة الروبوتات</h3>
+          <p>
+            الروبوتات مثل <code>kuka1</code> و <code>staubli1</code> تُضاف من
+            <code>multi_robot_sim.launch.py</code>. التحكم بها يتم عبر توبيكات
+            joint trajectory والجسر بين ROS وGazebo.
+          </p>
+        </div>
+      </div>
+
+      <div class="flow">
+        <div>
+          <strong>User / Controller</strong>
+          <span>ينشر أوامر switches, stoppers, shuttles, robot trajectories</span>
+        </div>
+        <div>
+          <strong>Room315 rail node</strong>
+          <span>يحسب الحركة ويحدث الحالة وينشر feedback</span>
+        </div>
+        <div>
+          <strong>Gazebo bridge/services</strong>
+          <span>ينقل poses ويخلق أو يحذف models ويغير السويتشات المرئية</span>
+        </div>
+        <div>
+          <strong>Consumers</strong>
+          <span>واجهة، PLC خارجي، سكربت اختبار، أو روبوت يقرأ feedback ويتصرف</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="nodes">
+      <h2>2. العقد التي تعمل</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>العقدة / الملف</th>
+            <th>متى تعمل</th>
+            <th>دورها</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>room_315_kinematic_shuttle_node.py</code></td>
+            <td><code>room_315_dual_kinematic_shuttles.launch.py</code></td>
+            <td>
+              تعمل مرتين غالباً: مرة namespace <code>/room_315/rails/right</code>
+              ومرة namespace <code>/room_315/rails/left</code>. هي القلب الذي يحرك
+              الشاتلات وينشر state والحساسات.
+            </td>
+          </tr>
+          <tr>
+            <td><code>room_315_kinematic_shuttle.py</code></td>
+            <td>يستخدمه الـ node كـ library</td>
+            <td>
+              يحتوي منطق السكة الخام: قراءة <code>rail_network_*.yaml</code>،
+              حساب طول segments، وتحريك الشاتل داخل segment ثم اختيار successor.
+            </td>
+          </tr>
+          <tr>
+            <td><code>conveyor_loop_mode_controller.py</code></td>
+            <td>من launch العالم الكامل</td>
+            <td>
+              يشترك بأوامر السويتشات البصرية على <code>/mfja/conveyor/switch_cmd</code>،
+              يغير وضع models في Gazebo، ثم ينشر ملخص الحالة على
+              <code>/mfja/conveyor/switch_states</code>.
+            </td>
+          </tr>
+          <tr>
+            <td><code>multi_robot_sim.launch.py</code></td>
+            <td>عند تشغيل العالم والروبوتات</td>
+            <td>
+              يضيف الروبوتات إلى Gazebo، يشغل <code>robot_state_publisher</code>،
+              وينشئ bridges مثل <code>/kuka1/joint_trajectory</code> و
+              <code>/kuka1/joint_states</code>.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="topics">
+      <h2>3. التوبيكات والخدمات الأساسية</h2>
+      <p>
+        كل rail لها نفس البنية. استبدل <code>{side}</code> بـ <code>right</code>
+        أو <code>left</code>.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>الاسم</th>
+            <th>نوع الرسالة</th>
+            <th>الاتجاه</th>
+            <th>المعنى</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="ltr"><code>/room_315/rails/{side}/switches/command</code></td>
+            <td><code>mfja_rail_interfaces/msg/SwitchCommand</code></td>
+            <td>داخل إلى rail node</td>
+            <td>أمر تغيير سويتش: <code>A1=EXTERIOR</code> أو <code>A1=INTERIOR</code>.</td>
+          </tr>
+          <tr>
+            <td class="ltr"><code>/room_315/rails/{side}/switches/state</code></td>
+            <td><code>mfja_rail_interfaces/msg/SwitchState</code></td>
+            <td>خارج من rail node</td>
+            <td>الحالة الفعلية الحالية بعد delay الحركة، وليست مجرد request.</td>
+          </tr>
+          <tr>
+            <td class="ltr"><code>/room_315/rails/{side}/stoppers/command</code></td>
+            <td><code>mfja_rail_interfaces/msg/StopperCommand</code></td>
+            <td>داخل إلى rail node</td>
+            <td><code>1</code> يعني stop/closed. <code>0</code> يعني pass/open.</td>
+          </tr>
+          <tr>
+            <td class="ltr"><code>/room_315/rails/{side}/stoppers/state</code></td>
+            <td><code>mfja_rail_interfaces/msg/StopperState</code></td>
+            <td>خارج من rail node</td>
+            <td>الحالة الفعلية للـ stoppers بعد delay الحركة.</td>
+          </tr>
+          <tr>
+            <td class="ltr"><code>/room_315/rails/{side}/shuttles/command</code></td>
+            <td><code>mfja_rail_interfaces/msg/ShuttleCommand</code></td>
+            <td>داخل إلى rail node</td>
+            <td>تشغيل، إيقاف، reset، أو remove لشاتل موجود.</td>
+          </tr>
+          <tr>
+            <td class="ltr"><code>/room_315/rails/{side}/shuttles/state</code></td>
+            <td><code>mfja_rail_interfaces/msg/ShuttleState</code></td>
+            <td>خارج من rail node</td>
+            <td>حالة الشاتل الأول: segment, s, x/y/z, yaw, mode, speed.</td>
+          </tr>
+          <tr>
+            <td class="ltr"><code>/room_315/rails/{side}/sensors/feedback</code></td>
+            <td><code>mfja_rail_interfaces/msg/SensorFeedback</code></td>
+            <td>خارج من rail node</td>
+            <td>قراءات الحساسات الثنائية: active أو clear مع اسم الشاتل إن وجد.</td>
+          </tr>
+          <tr>
+            <td class="ltr"><code>/room_315/rails/{side}/shuttles/add</code></td>
+            <td><code>mfja_rail_interfaces/srv/AddShuttle</code></td>
+            <td>service داخل rail node</td>
+            <td>إضافة شاتل جديد على slot محدد مع speed وحالة تشغيل ابتدائية.</td>
+          </tr>
+          <tr>
+            <td class="ltr"><code>/mfja/conveyor/switch_cmd</code></td>
+            <td><code>std_msgs/msg/String</code></td>
+            <td>من rail node إلى visual controller</td>
+            <td>أمر بصري مثل <code>A1R=EXTERIOR</code> أو <code>A1L=INTERIOR</code>.</td>
+          </tr>
+          <tr>
+            <td class="ltr"><code>/mfja/conveyor/switch_states</code></td>
+            <td><code>std_msgs/msg/String</code></td>
+            <td>من visual controller إلى rail nodes</td>
+            <td>ملخص الحالة البصرية. الـ rail node يستطيع sync منه عند التشغيل.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        <p>
+          الرسالة <code>NamedState</code> بسيطة جداً: فيها <code>name</code> و
+          <code>state</code>. لذلك أوامر السويتش والـ stopper هي arrays من أزواج
+          اسم/حالة.
+        </p>
+      </div>
+    </section>
+
+    <section id="startup">
+      <h2>4. ماذا يحدث عند التشغيل؟</h2>
+      <ol>
+        <li>
+          <code>room_315_dual_kinematic_shuttles.launch.py</code> يشغل node للسكة اليمنى
+          وnode للسكة اليسرى حسب <code>enable_right</code> و <code>enable_left</code>.
+        </li>
+        <li>
+          كل node يحدد <code>rail_side</code>، ثم يختار ملفات YAML المناسبة:
+          <code>rail_network_right.yaml</code> أو <code>rail_network_left.yaml</code>،
+          ومعها <code>rail_devices_right.yaml</code> أو <code>rail_devices_left.yaml</code>.
+        </li>
+        <li>
+          <code>RailNetwork.from_yaml()</code> يقرأ segments وrouting والسويتشات.
+        </li>
+        <li>
+          <code>load_rail_devices()</code> يقرأ slots والحساسات والـ stoppers.
+        </li>
+        <li>
+          إذا <code>shuttle_count</code> أكبر من صفر، ينشئ الشاتلات الابتدائية.
+          في launch الحالي القيمة الافتراضية صفر، لذلك غالباً تضيف الشاتل عن طريق service.
+        </li>
+        <li>
+          يبدأ timer الحركة حسب <code>update_rate_hz</code>، ويبدأ timer الحساسات حسب
+          <code>sensor_publish_rate_hz</code>.
+        </li>
+      </ol>
+    </section>
+
+    <section id="switch-flow">
+      <h2>5. منطق السويتشات</h2>
+      <h3>عندما تنشر command</h3>
+      <pre><code>ros2 topic pub --once /room_315/rails/right/switches/command \
+  mfja_rail_interfaces/msg/SwitchCommand \
+  "{switches: [{name: 'A1', state: 'EXTERIOR'}]}"</code></pre>
+
+      <ol>
+        <li>
+          الرسالة تصل إلى <code>_on_switch_command()</code>.
+        </li>
+        <li>
+          الكود يحول الاسم والحالة إلى منطق داخلي. القيم المقبولة:
+          <span class="pill">E</span>
+          <span class="pill">EXTERIOR</span>
+          <span class="pill">I</span>
+          <span class="pill">INTERIOR</span>
+        </li>
+        <li>
+          <code>_schedule_switch_state_updates()</code> لا يغير الحالة فوراً إذا
+          <code>switch_motion_delay_s</code> أكبر من صفر. يضع update pending.
+        </li>
+        <li>
+          عند انتهاء delay، <code>_apply_due_pending_state_updates()</code> يضع الحالة
+          في <code>self.switch_states</code>.
+        </li>
+        <li>
+          بعد ذلك ينشر <code>SwitchState</code> على
+          <code>/room_315/rails/right/switches/state</code>.
+        </li>
+        <li>
+          إذا <code>publish_visual_switch_commands</code> مفعلة، ينشر أيضاً string على
+          <code>/mfja/conveyor/switch_cmd</code> حتى يتحرك model السويتش في Gazebo.
+        </li>
+      </ol>
+
+      <h3>لماذا الحالة الفعلية مهمة؟</h3>
+      <p>
+        الشاتل لا يستخدم command الخام. عند نهاية segment يستخدم
+        <code>self.switch_states</code>، أي الحالة الفعلية بعد delay. لهذا ممكن ترسل
+        command الآن، لكن route لا يتغير إلا بعد تطبيق delay.
+      </p>
+
+      <h3>دور visual controller</h3>
+      <ol>
+        <li>
+          <code>conveyor_loop_mode_controller.py</code> يشترك على
+          <code>/mfja/conveyor/switch_cmd</code>.
+        </li>
+        <li>
+          عندما يستقبل <code>A1R=EXTERIOR</code> مثلاً، يغير yaw وcolor للـ model في Gazebo.
+        </li>
+        <li>
+          ينشر ملخصاً على <code>/mfja/conveyor/switch_states</code>.
+        </li>
+        <li>
+          rail nodes مشتركة اختيارياً بهذا الملخص. إذا بدأت node بعد أن Gazebo كان
+          على وضع معين، تستطيع مزامنة route logic من الحالة البصرية.
+        </li>
+      </ol>
+    </section>
+
+    <section id="stopper-flow">
+      <h2>6. منطق الـ stoppers</h2>
+      <pre><code>ros2 topic pub --once /room_315/rails/right/stoppers/command \
+  mfja_rail_interfaces/msg/StopperCommand \
+  "{stoppers: [{name: 'A1', state: '1'}]}"</code></pre>
+
+      <ol>
+        <li>
+          الرسالة تصل إلى <code>_on_stopper_command()</code>.
+        </li>
+        <li>
+          <code>1</code> أو <code>STOP</code> أو <code>CLOSED</code> تتحول إلى state stop.
+          <code>0</code> أو <code>PASS</code> أو <code>OPEN</code> تتحول إلى state pass.
+        </li>
+        <li>
+          <code>_schedule_stopper_state_updates()</code> يستخدم
+          <code>stopper_motion_delay_s</code>.
+        </li>
+        <li>
+          عندما تصبح الحالة actual، ينشر node <code>StopperState</code>.
+        </li>
+        <li>
+          في loop الحركة، <code>_active_stopper_ahead()</code> يبحث عن stopper مغلق
+          أمام الشاتل على نفس segment. إذا وجده، يوقف الشاتل قبل النقطة بمسافة
+          <code>stopper_stop_before_m</code>.
+        </li>
+      </ol>
+
+      <div class="note">
+        <p>
+          حساس الاقتراب ليس مكاناً مستقلاً بعد التحديث الأخير. هو يتبع موقع stopper
+          نفسه، ويبقى له فقط <code>radius_m</code> الخاص بالكشف.
+        </p>
+      </div>
+    </section>
+
+    <section id="shuttle-flow">
+      <h2>7. منطق الشاتلات</h2>
+      <h3>إضافة شاتل</h3>
+      <pre><code>ros2 service call /room_315/rails/right/shuttles/add \
+  mfja_rail_interfaces/srv/AddShuttle \
+  "{name: 'room315_right_shuttle_1', start_slot: '2', speed: 0.2, start_enabled: true}"</code></pre>
+      <ol>
+        <li>
+          الطلب يصل إلى <code>_on_add_shuttle_request()</code>.
+        </li>
+        <li>
+          الكود يبحث عن <code>start_slot</code> داخل <code>rail_devices_*.yaml</code>.
+        </li>
+        <li>
+          يحول slot إلى segment و <code>s_ratio</code> ثم ينشئ
+          <code>KinematicShuttleCore</code>.
+        </li>
+        <li>
+          إذا Gazebo spawn مفعّل، ينشئ model للشاتل أو يستخدم model موجود مسبقاً.
+        </li>
+      </ol>
+
+      <h3>تشغيل وإيقاف شاتل</h3>
+      <pre><code>ros2 topic pub --once /room_315/rails/right/shuttles/command \
+  mfja_rail_interfaces/msg/ShuttleCommand \
+  "{name: 'ALL', command: 'ON'}"</code></pre>
+      <p>
+        <code>_on_shuttle_control_command()</code> يقبل:
+        <span class="pill">ON</span>
+        <span class="pill">OFF</span>
+        <span class="pill">RESET</span>
+        <span class="pill">REMOVE</span>
+      </p>
+      <p>
+        إذا الشاتل disabled، يبقى mode غالباً <code>WAITING</code> ولا يتقدم على السكة.
+        إذا enabled، يدخل loop الحركة في كل tick.
+      </p>
+    </section>
+
+    <section id="tick-loop">
+      <h2>8. اللوب الداخلي للحركة</h2>
+      <p>
+        <code>_tick()</code> هو heartbeat الرئيسي. يعمل حسب <code>update_rate_hz</code>.
+        في كل tick يحدث التالي:
+      </p>
+      <ol>
+        <li>
+          يحسب <code>dt</code> من آخر tick.
+        </li>
+        <li>
+          يحدث markers إذا كانت مفعلة.
+        </li>
+        <li>
+          يطبق switch وstopper updates التي انتهى delay الخاص بها.
+        </li>
+        <li>
+          لكل شاتل، يفحص إن كان deployed وenabled.
+        </li>
+        <li>
+          يفحص stopper أمام الشاتل. إذا يوجد stopper مغلق أمامه، يوقفه عند مسافة أمان.
+        </li>
+        <li>
+          يفحص collision avoidance مع الشاتلات الأخرى. إذا يوجد شاتل قريب، ينتظر.
+        </li>
+        <li>
+          إذا لا يوجد مانع، يستدعي <code>KinematicShuttleCore.step()</code>.
+        </li>
+        <li>
+          <code>step()</code> يحرك الشاتل داخل segment. إذا وصل نهاية segment، يسأل
+          <code>routing_table</code> عن successor حسب actual switch state.
+        </li>
+        <li>
+          إذا لم يوجد successor صالح، يدخل الشاتل mode <code>FALLING</code>.
+        </li>
+        <li>
+          ينشر pose للشاتل ويرسل pose إلى Gazebo إذا كانت service جاهزة.
+        </li>
+        <li>
+          ينشر <code>ShuttleState</code> و <code>SwitchState</code> و
+          <code>StopperState</code>.
+        </li>
+      </ol>
+
+      <div class="flow">
+        <div>
+          <strong>tick</strong>
+          <span>apply pending states</span>
+        </div>
+        <div>
+          <strong>guards</strong>
+          <span>stopper and collision checks</span>
+        </div>
+        <div>
+          <strong>core.step</strong>
+          <span>move on current segment</span>
+        </div>
+        <div>
+          <strong>routing</strong>
+          <span>choose next segment or FALLING</span>
+        </div>
+        <div>
+          <strong>publish</strong>
+          <span>pose, states, Gazebo pose</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="sensors">
+      <h2>9. منطق الحساسات</h2>
+      <p>
+        الحساسات ليست subscribers. هي feedback محسوب من موضع الشاتل الحالي.
+        timer مستقل يعمل حسب <code>sensor_publish_rate_hz</code> وينشر
+        <code>SensorFeedback</code>.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>نوع الحساس في YAML</th>
+            <th>كيف يصبح active؟</th>
+            <th>أين ينشر؟</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>position_sensors</code></td>
+            <td>
+              إذا كان أي شاتل على نفس <code>segment</code> وضمن
+              <code>radius_m</code> من موقع الحساس.
+            </td>
+            <td rowspan="2"><code>/room_315/rails/{side}/sensors/feedback</code></td>
+          </tr>
+          <tr>
+            <td><code>approach_sensors</code></td>
+            <td>
+              يتبع stopper مطابق. إذا صار شاتل ضمن radius من نقطة stopper، يصبح
+              approach sensor active.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>
+        كل reading يحتوي:
+        <code>name</code>,
+        <code>active</code>,
+        <code>shuttle_name</code>,
+        <code>segment</code>,
+        <code>s</code>,
+        <code>s_ratio</code>.
+      </p>
+    </section>
+
+    <section id="gazebo">
+      <h2>10. التعامل مع Gazebo</h2>
+      <p>
+        المنطق الحقيقي للسكة داخل ROS node. Gazebo يستخدم للعرض والتفاعل البصري.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>ما الذي يحدث</th>
+            <th>كيف يصل إلى Gazebo؟</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>تحريك model الشاتل</td>
+            <td>
+              rail node ينشر <code>PoseStamped</code> ويستدعي service
+              <code>/world/&lt;world&gt;/set_pose</code> إذا <code>enable_gazebo_set_pose</code> مفعلة.
+            </td>
+          </tr>
+          <tr>
+            <td>إضافة أو حذف شاتل</td>
+            <td>
+              rail node يستخدم services <code>/world/&lt;world&gt;/create</code> و
+              <code>/world/&lt;world&gt;/remove</code>.
+            </td>
+          </tr>
+          <tr>
+            <td>إظهار markers للحساسات والـ stoppers</td>
+            <td>
+              rail node ينشئ models صغيرة في Gazebo ويحدث ألوانها حسب active/state.
+            </td>
+          </tr>
+          <tr>
+            <td>تحريك السويتشات البصرية</td>
+            <td>
+              rail node ينشر <code>/mfja/conveyor/switch_cmd</code>، و
+              <code>conveyor_loop_mode_controller.py</code> يطبق pose/color على models السويتشات.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="robots">
+      <h2>11. منطق التحكم بالروبوتات</h2>
+      <p>
+        الروبوتات لا تتحكم مباشرة بمنطق السكة داخل <code>room_315_kinematic_shuttle_node.py</code>.
+        هي طبقة مستقلة في <code>multi_robot_sim.launch.py</code>. الربط العملي بين
+        الروبوت والسكة يكون عبر controller خارجي أو سكربت يقرأ حساسات السكة ثم يرسل
+        أوامر للروبوت.
+      </p>
+
+      <h3>ما الذي يفعله launch الروبوتات؟</h3>
+      <ol>
+        <li>
+          يقرأ <code>robots.yaml</code> أو <code>robots_room_315_only.yaml</code>.
+        </li>
+        <li>
+          يضيف model لكل روبوت إلى Gazebo في pose المحدد.
+        </li>
+        <li>
+          يشغل <code>robot_state_publisher</code> لكل روبوت.
+        </li>
+        <li>
+          ينشئ bridge بين ROS وGazebo لكل روبوت.
+        </li>
+      </ol>
+
+      <table>
+        <thead>
+          <tr>
+            <th>توبيك ROS</th>
+            <th>الاتجاه</th>
+            <th>الدور</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="ltr"><code>/{robot_name}/joint_trajectory</code></td>
+            <td>ROS إلى Gazebo</td>
+            <td>ترسل trajectory للروبوت، مثل <code>/kuka1/joint_trajectory</code>.</td>
+          </tr>
+          <tr>
+            <td class="ltr"><code>/{robot_name}/joint_states</code></td>
+            <td>Gazebo إلى ROS</td>
+            <td>حالة joints الحالية من Gazebo.</td>
+          </tr>
+          <tr>
+            <td class="ltr"><code>/{robot_name}/joint_trajectory_progress</code></td>
+            <td>Gazebo إلى ROS</td>
+            <td>تقدم تنفيذ trajectory.</td>
+          </tr>
+          <tr>
+            <td class="ltr"><code>/{robot_name}/cmd_vel</code></td>
+            <td>ROS إلى Gazebo</td>
+            <td>فقط للروبوتات المتحركة مثل TIAGo base.</td>
+          </tr>
+          <tr>
+            <td class="ltr"><code>/{robot_name}/odom</code></td>
+            <td>Gazebo إلى ROS</td>
+            <td>فقط للروبوتات المتحركة.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        <p>
+          المثال العملي: controller خارجي يراقب
+          <code>/room_315/rails/right/sensors/feedback</code>. عندما يرى
+          <code>DZI1R.active=1</code>، يرسل trajectory إلى <code>/kuka1/joint_trajectory</code>.
+          هذا الربط غير موجود تلقائياً داخل rail node، بل تضيفه أنت في controller أعلى.
+        </p>
+      </div>
+    </section>
+
+    <section id="trace">
+      <h2>12. كيف تتتبع مشكلة؟</h2>
+      <h3>إذا السويتش لا يغير route</h3>
+      <ol>
+        <li>انشر الأمر على <code>/room_315/rails/right/switches/command</code>.</li>
+        <li>راقب <code>/room_315/rails/right/switches/state</code>.</li>
+        <li>إذا state لم تتغير، افحص قيمة state: يجب أن تكون <code>E</code>/<code>I</code> أو <code>EXTERIOR</code>/<code>INTERIOR</code>.</li>
+        <li>إذا state تغيرت لكن الشاتل يسقط، افحص <code>routing_table</code> للـ segment الحالي.</li>
+      </ol>
+
+      <h3>إذا السويتش يتحرك بصرياً لكن route لا يتغير</h3>
+      <ol>
+        <li>راقب <code>/mfja/conveyor/switch_states</code>.</li>
+        <li>راقب <code>/room_315/rails/right/switches/state</code>.</li>
+        <li>إذا visual state فقط تغيرت، تأكد أن <code>sync_from_visual_switch_states</code> مفعلة أو أرسل command typed إلى rail node.</li>
+      </ol>
+
+      <h3>إذا حساس لا يصبح active</h3>
+      <ol>
+        <li>راقب <code>/room_315/rails/right/shuttles/state</code> واعرف <code>current_segment</code> و <code>s</code>.</li>
+        <li>افتح <code>rail_devices_right.yaml</code> أو <code>rail_devices_left.yaml</code>.</li>
+        <li>تأكد أن الحساس على نفس segment وأن <code>s_ratio</code> قريب من موضع الشاتل.</li>
+        <li>إذا المشكلة approach sensor، عدل stopper المقابل لأن approach sensor يتبع stopper.</li>
+      </ol>
+
+      <h3>إذا الروبوت لا يتحرك</h3>
+      <ol>
+        <li>تأكد أن الروبوت مضاف في <code>robots_room_315_only.yaml</code> أو <code>robots.yaml</code> و <code>enabled: true</code>.</li>
+        <li>راقب <code>/{robot_name}/joint_states</code> لترى إن كان Gazebo يعيد حالة joints.</li>
+        <li>انشر trajectory على <code>/{robot_name}/joint_trajectory</code>.</li>
+        <li>راقب <code>/{robot_name}/joint_trajectory_progress</code>.</li>
+      </ol>
+    </section>
+
+    <section id="quick-reference">
+      <h2>13. ملخص سريع للحفظ</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>إذا رأيت هذا</th>
+            <th>فكر بهذا</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>switches/command</code></td>
+            <td>طلب تغيير. ليس بالضرورة actual بعد.</td>
+          </tr>
+          <tr>
+            <td><code>switches/state</code></td>
+            <td>الحالة الفعلية التي يستخدمها route logic.</td>
+          </tr>
+          <tr>
+            <td><code>stoppers/state</code></td>
+            <td>إذا stopper مغلق أمام الشاتل، الشاتل ينتظر قبل النقطة.</td>
+          </tr>
+          <tr>
+            <td><code>sensors/feedback</code></td>
+            <td>feedback محسوب من موقع الشاتل، وليس message قادم من Gazebo.</td>
+          </tr>
+          <tr>
+            <td><code>shuttles/state.current_segment</code></td>
+            <td>أهم قيمة لفهم أين الشاتل ولماذا حساس معين مفعل أو غير مفعل.</td>
+          </tr>
+          <tr>
+            <td><code>FALLING</code></td>
+            <td>وصل الشاتل لنهاية segment ولم يجد successor صالح حسب routing والسويتش.</td>
+          </tr>
+          <tr>
+            <td><code>/mfja/conveyor/switch_cmd</code></td>
+            <td>أمر مرئي للسويتشات في Gazebo، وليس هو topic التحكم الرئيسي بالسكة.</td>
+          </tr>
+          <tr>
+            <td><code>/{robot_name}/joint_trajectory</code></td>
+            <td>مدخل التحكم بالروبوت عبر bridge إلى Gazebo.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

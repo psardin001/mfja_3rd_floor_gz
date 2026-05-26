@@ -1,0 +1,890 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>شرح rail_devices_left.yaml</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #607086;
+      --line: #d9e0ea;
+      --accent: #0b6bcb;
+      --accent-soft: #e8f2ff;
+      --good: #0f7b3b;
+      --warn: #9a5b00;
+      --code: #0f172a;
+      --code-bg: #eef2f7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.85;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+    }
+
+    h1, h2, h3 {
+      line-height: 1.35;
+      margin: 0 0 12px;
+    }
+
+    h1 {
+      font-size: 2rem;
+    }
+
+    h2 {
+      margin-top: 34px;
+      padding-top: 4px;
+      font-size: 1.45rem;
+      color: #102a4c;
+    }
+
+    h3 {
+      margin-top: 24px;
+      font-size: 1.15rem;
+      color: #233956;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    a {
+      color: var(--accent);
+    }
+
+    code, .mono {
+      direction: ltr;
+      unicode-bidi: embed;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      background: var(--code-bg);
+      color: var(--code);
+      border: 1px solid #dce4ef;
+      border-radius: 6px;
+      padding: 0.12rem 0.35rem;
+      white-space: nowrap;
+    }
+
+    pre {
+      direction: ltr;
+      text-align: left;
+      overflow: auto;
+      background: #111827;
+      color: #f8fafc;
+      border-radius: 8px;
+      padding: 16px;
+      line-height: 1.5;
+      border: 1px solid #0b1220;
+    }
+
+    pre code {
+      background: transparent;
+      color: inherit;
+      border: 0;
+      padding: 0;
+      white-space: pre;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin: 16px 0;
+    }
+
+    .note {
+      background: var(--accent-soft);
+      border: 1px solid #bcd9ff;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 16px 0;
+    }
+
+    .warning {
+      background: #fff7e8;
+      border: 1px solid #ffd596;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 16px 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 14px 0 24px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+      text-align: right;
+    }
+
+    th {
+      background: #eef3f9;
+      color: #19324f;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    td.num, th.num {
+      direction: ltr;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    ul, ol {
+      margin-top: 6px;
+      padding-inline-start: 24px;
+    }
+
+    .toc {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px;
+      margin: 18px 0 28px;
+    }
+
+    .toc a {
+      display: block;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-decoration: none;
+    }
+
+    .badge {
+      display: inline-block;
+      direction: ltr;
+      background: #eef2f7;
+      border: 1px solid #d8e1ec;
+      border-radius: 999px;
+      padding: 0.05rem 0.5rem;
+      margin-inline: 0.1rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    .ok {
+      color: var(--good);
+      font-weight: 700;
+    }
+
+    .warn {
+      color: var(--warn);
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>شرح تفصيلي لملف <code>rail_devices_left.yaml</code></h1>
+      <p>
+        هذا الملف هو ملف إعدادات المستخدم للـ <span class="mono">left rail</span> في غرفة
+        <span class="mono">Room 315</span>. هو لا يعرّف شكل السكة نفسها، بل يضع الأجهزة
+        التي تقع فوق السكة: <span class="mono">slots</span>، حساسات الموضع
+        <span class="mono">position_sensors</span>، حساسات الاقتراب
+        <span class="mono">approach_sensors</span>، والـ <span class="mono">stoppers</span>.
+      </p>
+      <p>
+        السكة والمسارات الحقيقية معرفة في <code>rail_network_left.yaml</code>. أما هذا الملف
+        فيقول أين توضع الأجهزة ذات الموقع المباشر، مثل <code>slots</code>،
+        <code>position_sensors</code>، و <code>stoppers</code>، عبر
+        <span class="mono">segment</span> و <span class="mono">s_ratio</span>. أما
+        <code>approach_sensors</code> فلا تملك موقعاً مستقلاً؛ موقعها مأخوذ دائماً من
+        الـ <code>stopper</code> المطابق.
+      </p>
+    </header>
+
+    <nav class="toc" aria-label="جدول المحتويات">
+      <a href="#big-picture">الفكرة العامة</a>
+      <a href="#loader">كيف يقرأه الكود</a>
+      <a href="#fields">شرح الحقول</a>
+      <a href="#slots">قسم slots</a>
+      <a href="#position-sensors">قسم position_sensors</a>
+      <a href="#approach-sensors">قسم approach_sensors</a>
+      <a href="#stoppers">قسم stoppers</a>
+      <a href="#editing">كيف تعدله بأمان</a>
+      <a href="#quick-map">خريطة سريعة للأسماء</a>
+    </nav>
+
+    <section id="big-picture">
+      <h2>1. الفكرة العامة</h2>
+      <div class="card">
+        <p>
+          الملف يبدأ بهذه القيم:
+        </p>
+        <pre><code>schema_version: 1
+rail_side: left
+description: Room 315 left-rail user-editable slots, sensors, and stoppers.</code></pre>
+        <p>
+          <code>schema_version</code> رقم إصدار بسيط لشكل الملف. <code>rail_side: left</code>
+          يعني أن هذه التعريفات تخص السكة اليسرى. هذا مهم لأن نفس أسماء المفاتيح
+          <code>A1</code> إلى <code>A4</code> موجودة يمين ويسار، لكن مواقعها الفيزيائية تختلف
+          حسب ملف الشبكة <code>rail_network_left.yaml</code>.
+        </p>
+      </div>
+
+      <h3>ما هي أنواع الأجهزة الموجودة؟</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>القسم</th>
+            <th>معناه</th>
+            <th>هل يظهر كـ marker في Gazebo؟</th>
+            <th>هل يؤثر على المنطق؟</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>slots</code></td>
+            <td>أماكن بداية أو تخزين للشاتل. منها يبدأ الشاتل عند <code>start_slot</code>.</td>
+            <td>لا، تم إلغاء slot markers.</td>
+            <td>نعم، تستخدم لاختيار مكان بداية الشاتل ومنع إضافة shuttle فوق slot مشغول.</td>
+          </tr>
+          <tr>
+            <td><code>position_sensors</code></td>
+            <td>حساسات binary على السكة مثل <code>DZI*</code> و <code>DA*</code>.</td>
+            <td>نعم. تظهر أزرق عندما inactive وأخضر عندما active.</td>
+            <td>نعم، تنشر ضمن <code>SensorFeedback</code>.</td>
+          </tr>
+          <tr>
+            <td><code>approach_sensors</code></td>
+            <td>حساسات اقتراب مرتبطة بالـ <code>stoppers</code>.</td>
+            <td>لا. بقيت في YAML والمنطق، لكن لا تنشئ visual markers.</td>
+            <td>نعم، تعطي اسم feedback و <code>radius_m</code>، وتتبنى موقع الـ stopper المطابق.</td>
+          </tr>
+          <tr>
+            <td><code>stoppers</code></td>
+            <td>نقاط إيقاف الشاتل عند تفعيل stopper.</td>
+            <td>نعم. تظهر كهرماني عندما released وحمراء عندما active.</td>
+            <td>نعم، عندما state = <code>1</code> يوقف الشاتل قبلها بمقدار <code>stopper_stop_before_m</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="loader">
+      <h2>2. كيف يقرأ الكود هذا الملف؟</h2>
+      <p>
+        الملف يقرأه <code>room_315_kinematic_shuttle_node.py</code> عبر دالة
+        <code>load_rail_devices()</code>. التسلسل المنطقي كالتالي:
+      </p>
+      <ol>
+        <li>يفتح YAML ويحوله إلى <span class="mono">mapping</span>.</li>
+        <li>يقرأ الأقسام الأربعة: <code>slots</code>, <code>position_sensors</code>, <code>approach_sensors</code>, <code>stoppers</code>.</li>
+        <li>كل entry يجب أن يملك <code>name</code>.</li>
+        <li>النقاط في <code>slots</code>, <code>position_sensors</code>, و <code>stoppers</code> يجب أن تملك <code>segment</code> و <code>s_ratio</code>.</li>
+        <li><code>approach_sensors</code> يجب أن تملك <code>stopper</code> و <code>radius_m</code> فقط كمعلومات أساسية؛ لا تضع فيها <code>segment</code> أو <code>s_ratio</code> أو <code>points</code>.</li>
+        <li>الحساسات <code>position_sensors</code> و <code>approach_sensors</code> يجب أن تملك <code>radius_m</code>. إذا ناقص، الكود يعطي error.</li>
+        <li>الـ <code>stoppers</code> يجب أن تملك <code>default_state</code>.</li>
+      </ol>
+
+      <div class="note">
+        <p>
+          أهم قاعدة في الحساب:
+        </p>
+        <pre><code>s = s_ratio * segment.length</code></pre>
+        <p>
+          يعني <code>s_ratio</code> ليست متر. هي نسبة من طول الـ <code>segment</code>.
+          إذا كانت <code>0.0</code> فهذا أول الـ segment، وإذا كانت <code>1.0</code> فهذا آخره.
+        </p>
+      </div>
+
+      <h3>كيف تعمل <code>points</code>؟</h3>
+      <p>
+        بعض الأجهزة لها نقطة واحدة، فتكتب <code>segment</code> و <code>s_ratio</code> مباشرة
+        على نفس الـ entry. وبعضها له أكثر من نقطة، فتكتب <code>points</code>. هذا ينطبق
+        على <code>position_sensors</code> و <code>stoppers</code>، وليس على
+        <code>approach_sensors</code>. مثال stopper متعدد النقاط:
+      </p>
+      <pre><code>- name: A2
+  before_switch: A2
+  default_state: '0'
+  points:
+  - segment: A34E
+    s_ratio: 0.964078719
+  - segment: A34I
+    s_ratio: 0.943533612</code></pre>
+      <p>
+        هنا كل نقطة سترث <code>name</code>, <code>before_switch</code>, و
+        <code>default_state</code>. حساس الاقتراب <code>A2_APPROACH</code> لا يحتاج
+        نقاطاً مطابقة؛ هو يتبع نقاط <code>A2</code> تلقائياً.
+      </p>
+    </section>
+
+    <section id="fields">
+      <h2>3. شرح الحقول المهمة</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>الحقل</th>
+            <th>النوع</th>
+            <th>المعنى</th>
+            <th>ملاحظات مهمة</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>name</code></td>
+            <td>string</td>
+            <td>اسم الجهاز كما سيظهر في الرسائل أو كاسم marker.</td>
+            <td>يجب أن يكون فريد ضمن نفس القسم. مثال: <code>DA1L</code>.</td>
+          </tr>
+          <tr>
+            <td><code>segment</code></td>
+            <td>string</td>
+            <td>اسم مقطع السكة الذي يقع عليه الجهاز.</td>
+            <td>يجب أن يكون موجود في <code>rail_network_left.yaml</code>. لا يستخدم داخل <code>approach_sensors</code>.</td>
+          </tr>
+          <tr>
+            <td><code>s_ratio</code></td>
+            <td>number</td>
+            <td>موقع الجهاز كنسبة من طول الـ segment.</td>
+            <td>القيمة المقبولة من <code>0.0</code> إلى <code>1.0</code>. لا يستخدم داخل <code>approach_sensors</code>.</td>
+          </tr>
+          <tr>
+            <td><code>radius_m</code></td>
+            <td>meters</td>
+            <td>نصف قطر الكشف للحساس.</td>
+            <td>في <code>position_sensors</code> يستخدم مع موقع الحساس نفسه. في <code>approach_sensors</code> يستخدم مع موقع الـ stopper المطابق.</td>
+          </tr>
+          <tr>
+            <td><code>stopper</code></td>
+            <td>string</td>
+            <td>اسم الـ stopper الذي يتبعه حساس الاقتراب.</td>
+            <td>يستخدم داخل <code>approach_sensors</code>. مثال: <code>A2_APPROACH</code> يتبع <code>A2</code>.</td>
+          </tr>
+          <tr>
+            <td><code>switch</code></td>
+            <td>string</td>
+            <td>اسم السويتش المرتبط بالحساس.</td>
+            <td>يستخدم مع <code>DA*</code> لتوضيح أن الحساس تابع لـ <code>A1</code> أو <code>A2</code>...</td>
+          </tr>
+          <tr>
+            <td><code>branch</code></td>
+            <td><code>E</code> أو <code>I</code></td>
+            <td>فرع السويتش للحساسات من نوع <code>switch_branch</code>.</td>
+            <td><code>E</code> تعني <code>EXTERIOR</code> و <code>I</code> تعني <code>INTERIOR</code>.</td>
+          </tr>
+          <tr>
+            <td><code>default_state</code></td>
+            <td><code>0</code> أو <code>1</code></td>
+            <td>الحالة الابتدائية للـ stopper.</td>
+            <td><code>0</code> يعني open/released. <code>1</code> يعني stop/closed.</td>
+          </tr>
+          <tr>
+            <td><code>points</code></td>
+            <td>list</td>
+            <td>قائمة نقاط فيزيائية لجهاز واحد public.</td>
+            <td>تستخدم في <code>position_sensors</code> أو <code>stoppers</code> عندما جهاز واحد يحتاج أكثر من segment. لا تستخدم في <code>approach_sensors</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="slots">
+      <h2>4. قسم <code>slots</code></h2>
+      <p>
+        الـ <code>slots</code> هي أماكن بداية/تموضع للشاتلات. عندما تطلب تشغيل shuttle من
+        <code>start_slot: 2</code> مثلاً، الكود يبحث عن <code>slot_2</code> هنا ويحوّل
+        <code>segment + s_ratio</code> إلى pose على السكة.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>slot</th>
+            <th>segment</th>
+            <th class="num">s_ratio</th>
+            <th>الشرح</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>slot_1</code></td>
+            <td><code>A34E</code></td>
+            <td class="num">0.428330934</td>
+            <td>نقطة start slot على المسار الخارجي بين منطقة A3/A4 في left rail.</td>
+          </tr>
+          <tr>
+            <td><code>slot_2</code></td>
+            <td><code>A34E</code></td>
+            <td class="num">0.674370792</td>
+            <td>نقطة ثانية على نفس segment، أبعد على اتجاه الحركة.</td>
+          </tr>
+          <tr>
+            <td><code>slot_3</code></td>
+            <td><code>A12E</code></td>
+            <td class="num">0.427586575</td>
+            <td>نقطة start slot على المسار الخارجي بين منطقة A1/A2.</td>
+          </tr>
+          <tr>
+            <td><code>slot_4</code></td>
+            <td><code>A12E</code></td>
+            <td class="num">0.668424664</td>
+            <td>نقطة ثانية على نفس segment، أبعد على اتجاه الحركة.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="warning">
+        <p>
+          تعديل slot يغير مكان بداية الشاتل أو مكان reset/add. لكنه لا يغير مكان الحساسات.
+          إذا حركت slot وتريد أن يبقى <code>DZI</code> معه، يجب تعديل <code>DZI*</code>
+          المناسب أيضاً.
+        </p>
+      </div>
+    </section>
+
+    <section id="position-sensors">
+      <h2>5. قسم <code>position_sensors</code></h2>
+      <p>
+        هذه هي الحساسات التي تراها كـ visual markers في Gazebo. كل حساس binary:
+        <span class="badge">active=0</span> عندما لا يوجد shuttle ضمن <code>radius_m</code>،
+        و <span class="badge">active=1</span> عندما يمر shuttle فوقه.
+      </p>
+
+      <h3>5.1 حساسات <code>DZI*</code> - indexing zones</h3>
+      <p>
+        <code>DZI</code> هي حساسات مناطق الفهرسة أو أماكن الانتظار المرتبطة بالـ slots.
+        المهم للتشغيل هو <code>segment</code> و <code>s_ratio</code> و
+        <code>radius_m</code>. لذلك لا نضع داخل ملف الأجهزة حقول
+        <code>index_zone</code> أو <code>start_slot</code> لحساسات <code>DZI</code>.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>name</th>
+            <th>segment</th>
+            <th class="num">s_ratio</th>
+            <th class="num">radius_m</th>
+            <th>الشرح</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>DZI2L</code></td>
+            <td><code>A34E</code></td>
+            <td class="num">0.674370792</td>
+            <td class="num">0.09</td>
+            <td>feedback يتفعل عند هذا <code>segment/s_ratio</code>.</td>
+          </tr>
+          <tr>
+            <td><code>DZI1L</code></td>
+            <td><code>A34E</code></td>
+            <td class="num">0.428330934</td>
+            <td class="num">0.09</td>
+            <td>feedback يتفعل عند هذا <code>segment/s_ratio</code>.</td>
+          </tr>
+          <tr>
+            <td><code>DZI4L</code></td>
+            <td><code>A12E</code></td>
+            <td class="num">0.668424664</td>
+            <td class="num">0.09</td>
+            <td>feedback يتفعل عند هذا <code>segment/s_ratio</code>.</td>
+          </tr>
+          <tr>
+            <td><code>DZI3L</code></td>
+            <td><code>A12E</code></td>
+            <td class="num">0.427586575</td>
+            <td class="num">0.09</td>
+            <td>feedback يتفعل عند هذا <code>segment/s_ratio</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>5.2 حساسات <code>DA*</code> - switch detectors</h3>
+      <p>
+        حساسات <code>DA</code> مرتبطة بالسويتشات <code>A1</code> إلى <code>A4</code>.
+        الحساس الرئيسي يكتب معه <code>switch</code> فقط. حساس الفرع يكتب معه
+        <code>switch</code> و <code>branch</code>.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>name</th>
+            <th>switch</th>
+            <th>branch</th>
+            <th>segment</th>
+            <th class="num">s_ratio</th>
+            <th class="num">radius_m</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>DA1L</code></td><td><code>A1</code></td><td>-</td><td><code>A23</code></td><td class="num">0.982548832</td><td class="num">0.08</td></tr>
+          <tr><td><code>DA1EL</code></td><td><code>A1</code></td><td><code>E</code></td><td><code>A3E</code></td><td class="num">0.993647404</td><td class="num">0.07</td></tr>
+          <tr><td><code>DA1IL</code></td><td><code>A1</code></td><td><code>I</code></td><td><code>A34I</code></td><td class="num">0.007953208</td><td class="num">0.07</td></tr>
+          <tr><td><code>DA2L</code></td><td><code>A2</code></td><td>-</td><td><code>A14</code></td><td class="num">0.077595236</td><td class="num">0.07</td></tr>
+          <tr><td><code>DA2EL</code></td><td><code>A2</code></td><td><code>E</code></td><td><code>A34E</code></td><td class="num">0.99243909</td><td class="num">0.08</td></tr>
+          <tr><td><code>DA2IL</code></td><td><code>A2</code></td><td><code>I</code></td><td><code>A34I</code></td><td class="num">0.98840961</td><td class="num">0.08</td></tr>
+          <tr><td><code>DA3L</code></td><td><code>A3</code></td><td>-</td><td><code>A14</code></td><td class="num">0.989730547</td><td class="num">0.08</td></tr>
+          <tr><td><code>DA3EL</code></td><td><code>A3</code></td><td><code>E</code></td><td><code>A1E</code></td><td class="num">0.954620974</td><td class="num">0.07</td></tr>
+          <tr><td><code>DA3IL</code></td><td><code>A3</code></td><td><code>I</code></td><td><code>A12I</code></td><td class="num">0.018279507</td><td class="num">0.07</td></tr>
+          <tr><td><code>DA4L</code></td><td><code>A4</code></td><td>-</td><td><code>A2I</code></td><td class="num">0.966501924</td><td class="num">0.07</td></tr>
+          <tr><td><code>DA4EL</code></td><td><code>A4</code></td><td><code>E</code></td><td><code>A2E</code></td><td class="num">0.008802129</td><td class="num">0.08</td></tr>
+          <tr><td><code>DA4IL</code></td><td><code>A4</code></td><td><code>I</code></td><td><code>A12I</code></td><td class="num">0.997265003</td><td class="num">0.08</td></tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        <p>
+          اللاحقة <code>L</code> تعني left rail. الحرف <code>E</code> يعني
+          <code>EXTERIOR</code>. الحرف <code>I</code> يعني <code>INTERIOR</code>.
+        </p>
+      </div>
+    </section>
+
+    <section id="approach-sensors">
+      <h2>6. قسم <code>approach_sensors</code></h2>
+      <p>
+        هذه حساسات اقتراب مرتبطة بالـ <code>stoppers</code>. هي موجودة في YAML والكود
+        كي تنشر feedback وتحدد <code>radius_m</code> لكل stopper، لكنها لا تملك
+        <code>segment</code> أو <code>s_ratio</code> خاصاً بها ولا تولد visual markers حالياً.
+        لذلك لن ترى <code>marker_left_approach_*</code> في Gazebo.
+      </p>
+      <div class="warning">
+        <p>
+          قاعدة مهمة: لا تضع <code>segment</code> أو <code>s_ratio</code> أو
+          <code>points</code> داخل <code>approach_sensors</code>. الكود يرفض هذه الحقول.
+          إذا أردت تغيير مكان feedback الاقتراب، عدل مكان الـ <code>stopper</code>
+          المطابق في قسم <code>stoppers</code>.
+        </p>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>name</th>
+            <th>stopper</th>
+            <th class="num">radius_m</th>
+            <th>الموقع الفعلي يأتي من</th>
+            <th>لماذا موجود؟</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>A1_APPROACH</code></td>
+            <td><code>A1</code></td>
+            <td class="num">0.08</td>
+            <td><code>stoppers.A1</code></td>
+            <td>ينشر feedback الاقتراب حول نقطة stopper A1.</td>
+          </tr>
+          <tr>
+            <td><code>A2_APPROACH</code></td>
+            <td><code>A2</code></td>
+            <td class="num">0.08</td>
+            <td><code>stoppers.A2.points</code></td>
+            <td>يتبع كل نقاط stopper A2 تلقائياً، حتى لو كانت على فرعين.</td>
+          </tr>
+          <tr>
+            <td><code>A3_APPROACH</code></td>
+            <td><code>A3</code></td>
+            <td class="num">0.08</td>
+            <td><code>stoppers.A3</code></td>
+            <td>ينشر feedback الاقتراب حول نقطة stopper A3.</td>
+          </tr>
+          <tr>
+            <td><code>A4_APPROACH</code></td>
+            <td><code>A4</code></td>
+            <td class="num">0.08</td>
+            <td><code>stoppers.A4.points</code></td>
+            <td>يتبع كل نقاط stopper A4 تلقائياً، حتى لو كانت على فرعين.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>كيف ترتبط مع <code>stoppers</code>؟</h3>
+      <p>
+        الكود يبني lookup حسب اسم الـ stopper فقط:
+      </p>
+      <pre><code>key = stopper_name</code></pre>
+      <p>
+        بعدها عندما يقرأ نقاط الـ stopper، يعطي كل نقطة نفس اسم حساس الاقتراب ونفس
+        <code>radius_m</code>. لذلك إذا حركت stopper point إلى segment آخر أو أضفت point
+        جديد، فالـ approach feedback يتحرك معه تلقائياً.
+      </p>
+    </section>
+
+    <section id="stoppers">
+      <h2>7. قسم <code>stoppers</code></h2>
+      <p>
+        الـ <code>stoppers</code> هي نقاط إيقاف الشاتل. عندما ترسل state = <code>1</code>
+        للـ stopper، الشاتل يتوقف قبل نقطة stopper بمقدار parameter اسمه
+        <code>stopper_stop_before_m</code>، وقيمته الحالية الافتراضية <code>0.1 m</code>.
+      </p>
+      <p>
+        لون stopper marker:
+      </p>
+      <ul>
+        <li><span class="ok">كهرماني</span>: عندما state = <code>0</code>، يعني released/open.</li>
+        <li><span class="warn">أحمر</span>: عندما state = <code>1</code>، يعني active/closed.</li>
+      </ul>
+
+      <table>
+        <thead>
+          <tr>
+            <th>name</th>
+            <th>before_switch</th>
+            <th>segment / points</th>
+            <th class="num">s_ratio</th>
+            <th>default_state</th>
+            <th>الشرح</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>A1</code></td>
+            <td><code>A1</code></td>
+            <td><code>A23</code></td>
+            <td class="num">0.711151221</td>
+            <td><code>0</code></td>
+            <td>Stopper واحد على segment واحد، قبل switch A1.</td>
+          </tr>
+          <tr>
+            <td><code>A2</code></td>
+            <td><code>A2</code></td>
+            <td><code>A34E</code>, <code>A34I</code></td>
+            <td class="num">0.964078719 / 0.943533612</td>
+            <td><code>0</code></td>
+            <td>Stopper له نقطتان لأن المسار قد يأتي من الفرع الخارجي أو الداخلي.</td>
+          </tr>
+          <tr>
+            <td><code>A3</code></td>
+            <td><code>A3</code></td>
+            <td><code>A14</code></td>
+            <td class="num">0.937923811</td>
+            <td><code>0</code></td>
+            <td>Stopper واحد على segment واحد، قبل switch A3.</td>
+          </tr>
+          <tr>
+            <td><code>A4</code></td>
+            <td><code>A4</code></td>
+            <td><code>A12E</code>, <code>A12I</code></td>
+            <td class="num">0.964090232 / 0.943278327</td>
+            <td><code>0</code></td>
+            <td>Stopper له نقطتان لأن المسار قد يأتي من الفرع الخارجي أو الداخلي.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="warning">
+        <p>
+          مهم جداً: إذا حركت stopper له <code>points</code>، لا تعدل
+          <code>approach_sensors</code> لنفس الموقع. عدل فقط نقاط الـ
+          <code>stopper</code>، والـ approach feedback سيتبعها تلقائياً.
+        </p>
+      </div>
+    </section>
+
+    <section id="editing">
+      <h2>8. كيف تعدل الملف بأمان؟</h2>
+      <h3>تحريك حساس أو stopper</h3>
+      <ol>
+        <li>اختر الجهاز من القسم الصحيح.</li>
+        <li>إذا كان <code>slot</code> أو <code>position_sensor</code> أو <code>stopper</code>، غير <code>segment</code> إذا تريد نقله إلى مقطع آخر.</li>
+        <li>إذا كان <code>slot</code> أو <code>position_sensor</code> أو <code>stopper</code>، غير <code>s_ratio</code> إذا تريد تحريكه على نفس المقطع.</li>
+        <li>إذا كان <code>approach_sensor</code>، لا تغير مكانه هنا؛ غير مكان الـ <code>stopper</code> المطابق.</li>
+        <li>إذا كان حساساً، تأكد أن <code>radius_m</code> موجود وغير سالب. تغيير <code>radius_m</code> يغير مساحة الكشف فقط.</li>
+        <li>أعد تشغيل node أو launch حتى يحمل YAML الجديد.</li>
+      </ol>
+
+      <h3>مثال: تحريك <code>DA2EL</code> قليلاً</h3>
+      <p>
+        <code>DA2EL</code> موجود على <code>A34E</code> عند <code>s_ratio: 0.99243909</code>.
+        إذا أردته أبكر على نفس الاتجاه، قلل <code>s_ratio</code>. إذا أردته أقرب إلى نهاية
+        الـ segment، زوده بشرط ألا يتجاوز <code>1.0</code>.
+      </p>
+      <pre><code>- name: DA2EL
+  switch: A2
+  branch: E
+  segment: A34E
+  s_ratio: 0.990000000
+  radius_m: 0.08</code></pre>
+
+      <h3>إضافة حساس جديد</h3>
+      <p>
+        إذا تريد إضافة حساس binary جديد يظهر في
+        <code>/room_315/rails/left/sensors/feedback</code>، أضف entry جديد تحت
+        <code>position_sensors</code>. لا تحتاج تعديل <code>rail_network_left.yaml</code>
+        طالما الحساس موجود على segment موجود أصلاً.
+      </p>
+      <ol>
+        <li>اختر <code>name</code> جديد وغير مكرر. للسكة اليسرى استخدم غالباً suffix <code>L</code> مثل <code>DZI5L</code> أو <code>DA5L</code>.</li>
+        <li>إذا كان الحساس مرتبطاً بسويتش، أضف <code>switch: A1</code> مثلاً. وإذا كان على فرع، أضف <code>branch: E</code> أو <code>branch: I</code>. إذا كان حساس DZI عادي، لا تحتاج <code>switch</code> أو <code>branch</code>.</li>
+        <li>حدد المكان الحقيقي بـ <code>segment</code> و <code>s_ratio</code>. يجب أن يكون <code>segment</code> موجوداً في <code>rail_network_left.yaml</code>، و <code>s_ratio</code> بين <code>0.0</code> و <code>1.0</code>.</li>
+        <li>حدد <code>radius_m</code>. هذه مساحة الكشف حول النقطة، وليست مكان الحساس.</li>
+        <li>أعد تشغيل الـ node أو الـ launch حتى يقرأ YAML الجديد.</li>
+      </ol>
+      <pre><code>position_sensors:
+- name: DZI5L
+  segment: A34E
+  s_ratio: 0.750000000
+  radius_m: 0.09</code></pre>
+      <p>
+        إذا كنت تريد تحديد الموقع من نقطة <code>x/y/z</code> في Gazebo، أضف الحساس أولاً
+        بقيمة تقريبية، ثم استخدم أداة تعديل المواقع لتضبط <code>segment</code> و
+        <code>s_ratio</code> بدقة:
+      </p>
+      <pre><code>ros2 run mfja_robot_control_config room_315_device_position_tool.py \
+  --side left \
+  --category position_sensors \
+  --name DZI5L \
+  --x -10.50 \
+  --y -4.20 \
+  --z 0.84 \
+  --write</code></pre>
+
+      <h3>إضافة slot جديد</h3>
+      <p>
+        إذا تريد مكان بداية/reset جديد للشاتل، أضف entry جديد تحت <code>slots</code>.
+        مجرد إضافة <code>slot_5</code> هنا يجعله slot مسموحاً بعد إعادة التشغيل، ويمكن
+        استخدامه كـ <code>start_slot: '5'</code>.
+      </p>
+      <ol>
+        <li>اختر رقم slot جديد وغير مستخدم، مثل <code>slot_5</code>.</li>
+        <li>ضعه تحت قسم <code>slots</code>، وليس تحت <code>position_sensors</code>.</li>
+        <li>حدد <code>segment</code> موجود في <code>rail_network_left.yaml</code>.</li>
+        <li>حدد <code>s_ratio</code> بين <code>0.0</code> و <code>1.0</code>.</li>
+        <li>أعد تشغيل الـ node أو الـ launch.</li>
+        <li>استخدمه عند الإضافة أو التشغيل كـ <code>start_slot: '5'</code>. الكود يقبل أيضاً أسماء مثل <code>slot_5</code> أو <code>start_slot_5</code>.</li>
+      </ol>
+      <pre><code>slots:
+- name: slot_5
+  segment: A34E
+  s_ratio: 0.750000000</code></pre>
+      <p>
+        إضافة slot لا تضيف حساس DZI تلقائياً. إذا تريد feedback عند نفس المكان، أضف
+        أيضاً حساساً في <code>position_sensors</code> بنفس <code>segment</code> و
+        <code>s_ratio</code>.
+      </p>
+      <pre><code>position_sensors:
+- name: DZI5L
+  segment: A34E
+  s_ratio: 0.750000000
+  radius_m: 0.09</code></pre>
+      <p>
+        وبعد إضافة <code>slot_5</code> يمكنك ضبط موقعه من نقطة Gazebo بنفس الأداة:
+      </p>
+      <pre><code>ros2 run mfja_robot_control_config room_315_device_position_tool.py \
+  --side left \
+  --category slots \
+  --name slot_5 \
+  --x -10.50 \
+  --y -4.20 \
+  --z 0.84 \
+  --write</code></pre>
+
+      <h3>مثال: تحريك stopper متعدد النقاط</h3>
+      <p>
+        إذا حركت <code>A2</code> على <code>A34E</code>، عدل فقط
+        <code>stoppers.A2.points</code>. حساس <code>A2_APPROACH</code> سيبقى بنفس
+        <code>radius_m</code> ويتبع الموقع الجديد تلقائياً.
+      </p>
+      <pre><code>approach_sensors:
+- name: A2_APPROACH
+  stopper: A2
+  radius_m: 0.08
+
+stoppers:
+- name: A2
+  default_state: '0'
+  points:
+  - segment: A34E
+    s_ratio: 0.960000000
+  - segment: A34I
+    s_ratio: 0.943533612</code></pre>
+
+      <div class="note">
+        <p>
+          لا تحتاج تعديل <code>rail_network_left.yaml</code> إذا كنت فقط تحرك أجهزة فوق
+          السكة. عدل <code>rail_network_left.yaml</code> فقط إذا كنت تغير topology السكة
+          نفسها: segments, switches, routing.
+        </p>
+      </div>
+    </section>
+
+    <section id="quick-map">
+      <h2>9. خريطة سريعة للأسماء</h2>
+      <div class="grid">
+        <div class="card">
+          <h3><code>DZI*</code></h3>
+          <p>
+            حساسات indexing zones. غالباً فوق slots. أمثلة:
+            <code>DZI1L</code>, <code>DZI2L</code>, <code>DZI3L</code>, <code>DZI4L</code>.
+          </p>
+        </div>
+        <div class="card">
+          <h3><code>DA*</code></h3>
+          <p>
+            حساسات مرتبطة بالـ switches. <code>DA2EL</code> يعني detector للـ switch
+            <code>A2</code> على branch <code>E</code>/EXTERIOR في left rail.
+          </p>
+        </div>
+        <div class="card">
+          <h3><code>E</code> و <code>I</code></h3>
+          <p>
+            <code>E</code> هو <code>EXTERIOR</code>. <code>I</code> هو
+            <code>INTERIOR</code>. هذه القيم تستخدم في حقل <code>branch</code>.
+          </p>
+        </div>
+        <div class="card">
+          <h3><code>APPROACH</code></h3>
+          <p>
+            حساس اقتراب قبل stopper. لا يظهر marker حالياً، لكنه يظهر في
+            <code>SensorFeedback</code> ويعطي radius للـ stopper point. موقعه يأتي من
+            الـ <code>stopper</code> المطابق، وليس من حقول داخل <code>approach_sensors</code>.
+          </p>
+        </div>
+      </div>
+
+      <h3>قواعد مختصرة</h3>
+      <ul>
+        <li>لتحريك visual marker لحساس <code>DZI</code> أو <code>DA</code>: عدل entry في <code>position_sensors</code>.</li>
+        <li>لتحريك stopper marker ومكان توقف الشاتل و approach feedback معه: عدل entry في <code>stoppers</code>.</li>
+        <li>لا تضع <code>segment</code> أو <code>s_ratio</code> أو <code>points</code> داخل <code>approach_sensors</code>.</li>
+        <li>لا تحذف <code>approach_sensors</code> حتى لو لم تعد تظهر visual markers، لأنها لازمة للمنطق.</li>
+        <li>إذا غيرت <code>radius_m</code>، فأنت تغير مساحة كشف الحساس، وليس مكانه.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

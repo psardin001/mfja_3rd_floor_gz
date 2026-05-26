@@ -475,8 +475,8 @@ ros2 topic echo /room_315/rails/right/shuttles/state \
 ### 8. Move Switches with Command and State Topics
 
 Commands are requests. State topics report the actual state after the configured
-motion delay. Switch states accept `0`/`INTERIOR`/`SMALL`/`S` and
-`1`/`EXTERIOR`/`BIG`/`G`. Stopper states accept `0`/`PASS`/`OPEN` and
+motion delay. Switch states accept `I`/`INTERIOR` and `E`/`EXTERIOR`.
+Stopper states accept `0`/`PASS`/`OPEN` and
 `1`/`STOP`/`CLOSED`.
 
 Terminal 2 - watch actual switch state:
@@ -659,8 +659,8 @@ Expected right-rail position sensor families:
 
 - `DZI1R`, `DZI2R`, `DZI3R`, `DZI4R`
 - `DA1R`, `DA2R`, `DA3R`, `DA4R`
-- `DA1GR`, `DA2GR`, `DA3GR`, `DA4GR`
-- `DA1SR`, `DA2SR`, `DA3SR`, `DA4SR`
+- `DA1ER`, `DA2ER`, `DA3ER`, `DA4ER`
+- `DA1IR`, `DA2IR`, `DA3IR`, `DA4IR`
 
 To test all right-rail before-stopper sensors, watch `/sensors/feedback` during the
 same route sweep. Expected names are `A1_APPROACH`, `A2_APPROACH`,
@@ -731,8 +731,8 @@ spawned from the YAML-resolved positions:
 - position sensors: blue when inactive, green when active
 - stoppers: amber when released, red when active
 - shuttles: black normally, red in `FALLING` mode
-- switch bodies: green for state `0` / `INTERIOR` / `S`,
-  orange for state `1` / `EXTERIOR` / `G`
+- switch bodies: green for state `I` / `INTERIOR`,
+  orange for state `E` / `EXTERIOR`
 
 Position sensor markers sit slightly above the rail so a visible part remains
 above the shuttle body while a shuttle is crossing the sensor. Approach sensor
@@ -1643,9 +1643,9 @@ for switches and stoppers:
   `slot 1`, `slot 2`, `slot 3`, and `slot 4`.
 - `DA1R`, `DA2R`, `DA3R`, `DA4R`: right-rail detector on the single-track side
   of each switch.
-- `DA1GR`, `DA2GR`, `DA3GR`, `DA4GR`: right-rail detector on the `EXTERIOR`
+- `DA1ER`, `DA2ER`, `DA3ER`, `DA4ER`: right-rail detector on the `EXTERIOR`
   branch.
-- `DA1SR`, `DA2SR`, `DA3SR`, `DA4SR`: right-rail detector on the `INTERIOR`
+- `DA1IR`, `DA2IR`, `DA3IR`, `DA4IR`: right-rail detector on the `INTERIOR`
   branch.
 
 Echo the position detectors:
@@ -1666,8 +1666,8 @@ Expected detector families:
 
 - `slot 1`, `slot 2`, `slot 3`, and `slot 4` startup positions trigger
   `DZI2R`, `DZI1R`, `DZI4R`, and `DZI3R`.
-- `ALL=EXTERIOR` makes the shuttle pass through `...GR` branch detectors.
-- `ALL=INTERIOR` makes the shuttle pass through `...SR` branch detectors.
+- `ALL=EXTERIOR` makes the shuttle pass through `...ER` branch detectors.
+- `ALL=INTERIOR` makes the shuttle pass through `...IR` branch detectors.
 
 Position detectors use the same `sensor_type: sensor` and binary `active`
 semantics as every other rail sensor.
@@ -1830,10 +1830,10 @@ Offline kinematic core test:
 ```bash
 ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
   --path-backend cubic_hermite \
-  --switch A1=G \
-  --switch A2=G \
-  --switch A3=G \
-  --switch A4=G
+  --switch A1=E \
+  --switch A2=E \
+  --switch A3=E \
+  --switch A4=E
 ```
 
 ## Important Parameters

@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>شرح ملفات Nix في مشروع MFJA</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #607086;
+      --line: #d9e0ea;
+      --accent: #0b6bcb;
+      --accent-soft: #e8f2ff;
+      --warn-bg: #fff7e8;
+      --warn-line: #ffd596;
+      --ok-bg: #eaf8ef;
+      --ok-line: #b7e4c7;
+      --code: #0f172a;
+      --code-bg: #eef2f7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.85;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+    }
+
+    h1, h2, h3 {
+      line-height: 1.35;
+      margin: 0 0 12px;
+    }
+
+    h1 {
+      font-size: 2rem;
+    }
+
+    h2 {
+      margin-top: 34px;
+      padding-top: 4px;
+      color: #102a4c;
+      font-size: 1.45rem;
+    }
+
+    h3 {
+      margin-top: 24px;
+      color: #233956;
+      font-size: 1.15rem;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    code, .mono {
+      direction: ltr;
+      unicode-bidi: embed;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      background: var(--code-bg);
+      color: var(--code);
+      border: 1px solid #dce4ef;
+      border-radius: 6px;
+      padding: 0.12rem 0.35rem;
+      white-space: nowrap;
+    }
+
+    pre {
+      direction: ltr;
+      text-align: left;
+      overflow: auto;
+      background: #111827;
+      color: #f8fafc;
+      border-radius: 8px;
+      padding: 16px;
+      line-height: 1.5;
+      border: 1px solid #0b1220;
+    }
+
+    pre code {
+      background: transparent;
+      color: inherit;
+      border: 0;
+      padding: 0;
+      white-space: pre;
+    }
+
+    .toc {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px;
+      margin: 18px 0 28px;
+    }
+
+    .toc a {
+      display: block;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-decoration: none;
+      color: var(--accent);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+      gap: 12px;
+    }
+
+    .card, .note, .warning, .ok {
+      border-radius: 8px;
+      padding: 16px;
+      margin: 14px 0;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+
+    .note {
+      background: var(--accent-soft);
+      border: 1px solid #bcd9ff;
+    }
+
+    .warning {
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-line);
+    }
+
+    .ok {
+      background: var(--ok-bg);
+      border: 1px solid var(--ok-line);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 14px 0 24px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+      text-align: right;
+    }
+
+    th {
+      background: #eef3f9;
+      color: #19324f;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    td.ltr, th.ltr {
+      direction: ltr;
+      text-align: left;
+    }
+
+    ul, ol {
+      margin-top: 6px;
+      padding-inline-start: 24px;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin: 16px 0 24px;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .flow div {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 86px;
+    }
+
+    .flow strong {
+      display: block;
+      color: #102a4c;
+      margin-bottom: 6px;
+    }
+
+    .flow span {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>شرح ملفات Nix في مشروع MFJA</h1>
+      <p>
+        يوجد ملفان في جذر المشروع: <code>flake.nix</code> و <code>flake.lock</code>.
+        الأول هو الملف الذي نعدله عادة، والثاني هو ملف قفل تلقائي يثبت النسخ
+        الدقيقة حتى كل شخص يدخل نفس بيئة التطوير.
+      </p>
+      <p>
+        هذا المشروع يستخدم Nix بشكل <strong>hybrid</strong>: Nix يوفر أدوات البناء
+        وبعض المكتبات، لكن ROS 2 Jazzy وGazebo Harmonic يأتون من تثبيت النظام
+        على الجهاز، وليس من Nix.
+      </p>
+    </header>
+
+    <nav class="toc" aria-label="جدول المحتويات">
+      <a href="#quick-answer">الفكرة السريعة</a>
+      <a href="#how-to-use">كيف أستخدمها؟</a>
+      <a href="#flake-nix">شرح flake.nix</a>
+      <a href="#flake-lock">شرح flake.lock</a>
+      <a href="#flow">ماذا يحدث عند nix develop؟</a>
+      <a href="#edit-rules">متى أعدل كل ملف؟</a>
+      <a href="#troubleshooting">أخطاء شائعة</a>
+      <a href="#summary">ملخص سريع</a>
+    </nav>
+
+    <section id="quick-answer">
+      <h2>1. الفكرة السريعة</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>الملف</th>
+            <th>وظيفته</th>
+            <th>هل أعدله يدوياً؟</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>flake.nix</code></td>
+            <td>
+              يصف بيئة التطوير: من أين نأخذ packages، ما هي الأدوات المطلوبة،
+              ما هي متغيرات البيئة، وماذا يحدث عند دخول shell.
+            </td>
+            <td>نعم، عندما تريد إضافة أداة أو تعديل shell.</td>
+          </tr>
+          <tr>
+            <td><code>flake.lock</code></td>
+            <td>
+              يثبت النسخ الدقيقة للـ inputs، حالياً <code>nixpkgs</code>. هذا يجعل
+              البيئة قابلة للتكرار عند كل شخص.
+            </td>
+            <td>لا تعدله باليد. Nix يحدثه بأوامر update/lock.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        <p>
+          تخيل <code>flake.nix</code> كأنه recipe. أما <code>flake.lock</code> فهو
+          receipt فيه رقم commit والـ hash الدقيقين للمواد التي استُخدمت.
+        </p>
+      </div>
+    </section>
+
+    <section id="how-to-use">
+      <h2>2. كيف أستخدمها؟</h2>
+      <p>
+        من جذر الريبو الذي يحتوي <code>flake.nix</code>:
+      </p>
+      <pre><code>cd /home/tiago/mfja_3rd_floor_ros2_ws/src/mfja_3rd_floor_gz
+nix develop</code></pre>
+
+      <p>
+        بعد الدخول، الـ shell يعمل setup للبيئة ويطبع رسالة. للبناء، الملف نفسه
+        يقترح البناء من جذر workspace:
+      </p>
+      <pre><code>cd ../..
+colcon build --symlink-install --base-paths src/mfja_3rd_floor_gz</code></pre>
+
+      <div class="warning">
+        <p>
+          هذه البيئة لا تثبت ROS 2 تلقائياً. يجب أن يكون
+          <code>/opt/ros/jazzy/setup.bash</code> موجوداً على الجهاز. إذا غير موجود،
+          ستدخل shell لكن سيظهر تحذير أن ROS 2 Jazzy غير مثبت.
+        </p>
+      </div>
+    </section>
+
+    <section id="flake-nix">
+      <h2>3. شرح <code>flake.nix</code></h2>
+
+      <h3>الوصف</h3>
+      <pre><code>description = "Hybrid development shell for the MFJA 3rd floor ROS 2 Jazzy / Gazebo Harmonic simulation";</code></pre>
+      <p>
+        نص تعريفي فقط. لا يغير السلوك. يوضح أن الهدف shell تطوير هجينة لـ ROS 2
+        Jazzy وGazebo Harmonic.
+      </p>
+
+      <h3>inputs</h3>
+      <pre><code>inputs = {
+  nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+};</code></pre>
+      <p>
+        هذا يقول لـ Nix: استخدم <code>nixpkgs</code> من GitHub branch
+        <code>nixos-25.11</code>. لكن النسخة الدقيقة لا تؤخذ من هنا وحده، بل من
+        <code>flake.lock</code>.
+      </p>
+
+      <h3>outputs</h3>
+      <pre><code>outputs = { nixpkgs, ... }:
+  let
+    ...
+  in
+  {
+    devShells = ...
+  };</code></pre>
+      <p>
+        هذا هو الجزء الذي ينتج الأشياء التي يمكن لـ Nix استخدامها. في مشروعنا
+        الناتج الأساسي هو <code>devShells</code>، أي بيئة تطوير تدخلها بـ
+        <code>nix develop</code>.
+      </p>
+
+      <h3>supportedSystems</h3>
+      <pre><code>supportedSystems = [
+  "x86_64-linux"
+  "aarch64-linux"
+];</code></pre>
+      <p>
+        يحدد المعماريات المدعومة:
+      </p>
+      <ul>
+        <li><code>x86_64-linux</code>: أجهزة Linux العادية 64-bit.</li>
+        <li><code>aarch64-linux</code>: ARM 64-bit، مثل بعض الأجهزة أو boards.</li>
+      </ul>
+
+      <h3>forAllSystems</h3>
+      <pre><code>forAllSystems = nixpkgs.lib.genAttrs supportedSystems;</code></pre>
+      <p>
+        helper من Nix ينشئ نفس dev shell لكل نظام موجود في <code>supportedSystems</code>.
+        بدل تكرار الكود مرتين، نكتبه مرة واحدة.
+      </p>
+
+      <h3>pkgs</h3>
+      <pre><code>pkgs = import nixpkgs {
+  inherit system;
+};</code></pre>
+      <p>
+        هنا يتم تحميل package set الخاص بالنظام الحالي. يعني إذا جهازك
+        <code>x86_64-linux</code>، سيجلب packages المناسبة لهذه المعمارية.
+      </p>
+
+      <h3>pythonEnv</h3>
+      <pre><code>pythonEnv = pkgs.python312.withPackages (ps: with ps; [
+  catkin-pkg
+  empy
+  lark
+  numpy
+  pyyaml
+  setuptools
+]);</code></pre>
+      <p>
+        ينشئ Python 3.12 مع packages يحتاجها build أو scripts:
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>الحزمة</th>
+            <th>وظيفتها العامة</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>catkin-pkg</code></td><td>أدوات Python لفهم metadata الخاصة بحزم ROS/catkin.</td></tr>
+          <tr><td><code>empy</code></td><td>قوالب code generation مستخدمة كثيراً في ROS.</td></tr>
+          <tr><td><code>lark</code></td><td>Parser library، قد تحتاجها أدوات build أو scripts.</td></tr>
+          <tr><td><code>numpy</code></td><td>عمليات عددية ومصفوفات.</td></tr>
+          <tr><td><code>pyyaml</code></td><td>قراءة وكتابة YAML.</td></tr>
+          <tr><td><code>setuptools</code></td><td>تغليف وتثبيت packages Python.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>spdlogRos</h3>
+      <pre><code>spdlogRos = (pkgs.spdlog.override {
+  fmt = pkgs.fmt_9;
+}).overrideAttrs (...)</code></pre>
+      <p>
+        هذا يجهز نسخة <code>spdlog</code> مناسبة لبيئة ROS. المهم هنا:
+      </p>
+      <ul>
+        <li>يستخدم <code>fmt_9</code> بدل fmt الافتراضي.</li>
+        <li>يثبت نسخة <code>spdlog</code> على <code>1.12.0</code>.</li>
+        <li>يجلب المصدر من GitHub من tag <code>v1.12.0</code>.</li>
+        <li>يعطل الاختبارات بـ <code>doCheck = false</code> لتخفيف build داخل shell.</li>
+      </ul>
+
+      <h3>tinyxml2Ros</h3>
+      <pre><code>tinyxml2Ros = pkgs.tinyxml-2.overrideAttrs (...)</code></pre>
+      <p>
+        يثبت <code>tinyxml2</code> على نسخة <code>10.0.0</code>. ROS وبعض أدواته
+        قد تحتاج ABI أو نسخة متوقعة من هذه المكتبة.
+      </p>
+
+      <h3>rosRuntimeLibs</h3>
+      <pre><code>rosRuntimeLibs = pkgs.lib.makeLibraryPath [
+  pkgs.fmt_9
+  pkgs.lttng-ust.out
+  pkgs.openssl
+  spdlogRos
+  pkgs.stdenv.cc.cc.lib
+  tinyxml2Ros
+];</code></pre>
+      <p>
+        هذا يصنع string لمسارات المكتبات. لاحقاً يوضع في
+        <code>LD_LIBRARY_PATH</code> حتى البرامج التي تعمل داخل shell تجد هذه
+        المكتبات وقت التشغيل.
+      </p>
+
+      <h3>colconWrapper</h3>
+      <pre><code>colconWrapper = pkgs.writeShellScriptBin "colcon" ''
+  if [ -x /usr/bin/colcon ]; then
+    exec /usr/bin/colcon "$@"
+  fi
+
+  echo "colcon is not installed on the host." >&2
+  ...
+'';</code></pre>
+      <p>
+        هذا لا يثبت <code>colcon</code> من Nix. هو wrapper باسم
+        <code>colcon</code>:
+      </p>
+      <ul>
+        <li>إذا وجد <code>/usr/bin/colcon</code>، يستخدمه مباشرة.</li>
+        <li>إذا لم يجده، يطبع رسالة تقول ثبته بـ apt.</li>
+      </ul>
+      <p>
+        السبب: البيئة هجينة وتريد استخدام ROS/colcon من النظام.
+      </p>
+
+      <h3>mkShell packages</h3>
+      <pre><code>packages = [
+  pkgs.bashInteractive
+  pkgs.cmake
+  colconWrapper
+  pkgs.gcc
+  pkgs.fmt_9
+  pkgs.git
+  pkgs.gnumake
+  pkgs.lttng-ust.out
+  pkgs.ninja
+  pkgs.openssl
+  pkgs.pkg-config
+  spdlogRos
+  pkgs.stdenv.cc.cc.lib
+  tinyxml2Ros
+  pythonEnv
+];</code></pre>
+      <p>
+        هذه هي الأدوات والمكتبات التي تظهر داخل shell. أهمها:
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>العنصر</th>
+            <th>لماذا موجود؟</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>cmake</code>, <code>gnumake</code>, <code>ninja</code></td><td>أدوات build.</td></tr>
+          <tr><td><code>gcc</code></td><td>مترجم C/C++.</td></tr>
+          <tr><td><code>git</code></td><td>للتعامل مع repo وdependencies.</td></tr>
+          <tr><td><code>pkg-config</code></td><td>ليجد build system مسارات المكتبات.</td></tr>
+          <tr><td><code>fmt_9</code>, <code>spdlogRos</code>, <code>tinyxml2Ros</code></td><td>مكتبات C++ يحتاجها ROS/build runtime.</td></tr>
+          <tr><td><code>pythonEnv</code></td><td>Python مع packages المطلوبة.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>shellHook</h3>
+      <pre><code>shellHook = ''
+  export ROS_DISTRO=jazzy
+  export MFJA_NIX_MODE=hybrid
+  export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}"
+  export LD_LIBRARY_PATH="${rosRuntimeLibs}${LD_LIBRARY_PATH:+:}${LD_LIBRARY_PATH:-}"
+
+  if [ -f /opt/ros/jazzy/setup.bash ]; then
+    source /opt/ros/jazzy/setup.bash
+    ...
+  fi
+'';</code></pre>
+      <p>
+        هذا الكود يعمل تلقائياً عند دخول <code>nix develop</code>.
+      </p>
+      <ul>
+        <li><code>ROS_DISTRO=jazzy</code>: يحدد ROS distro.</li>
+        <li><code>MFJA_NIX_MODE=hybrid</code>: علامة داخلية تفيد أنك داخل shell هجينة.</li>
+        <li><code>RMW_IMPLEMENTATION</code>: إذا غير محدد، يستخدم <code>rmw_fastrtps_cpp</code>.</li>
+        <li><code>LD_LIBRARY_PATH</code>: يضيف مكتبات Nix runtime.</li>
+        <li><code>source /opt/ros/jazzy/setup.bash</code>: يدخل ROS 2 Jazzy من النظام.</li>
+      </ul>
+    </section>
+
+    <section id="flake-lock">
+      <h2>4. شرح <code>flake.lock</code></h2>
+      <p>
+        هذا ملف JSON يولده Nix. وظيفته تثبيت inputs حتى لا تتغير كل مرة تشغل
+        <code>nix develop</code>.
+      </p>
+
+      <pre><code>{
+  "nodes": {
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1779102034,
+        "narHash": "sha256-vZJ...",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "687f05a9184cad4eaf905c48b63649e3a86f5433",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-25.11",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    }
+  }
+}</code></pre>
+
+      <table>
+        <thead>
+          <tr>
+            <th>الحقل</th>
+            <th>معناه</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>nodes</code></td>
+            <td>كل dependency في flake. حالياً عندنا <code>nixpkgs</code> و <code>root</code>.</td>
+          </tr>
+          <tr>
+            <td><code>locked.rev</code></td>
+            <td>رقم commit الدقيق من nixpkgs الذي سيستخدمه المشروع.</td>
+          </tr>
+          <tr>
+            <td><code>locked.narHash</code></td>
+            <td>hash يستخدمه Nix للتأكد أن المحتوى الذي نزل هو نفسه المتوقع.</td>
+          </tr>
+          <tr>
+            <td><code>locked.lastModified</code></td>
+            <td>وقت آخر تعديل للـ input بصيغة Unix timestamp.</td>
+          </tr>
+          <tr>
+            <td><code>original.ref</code></td>
+            <td>الفرع أو المرجع الذي طلبناه في <code>flake.nix</code>، هنا <code>nixos-25.11</code>.</td>
+          </tr>
+          <tr>
+            <td><code>root.inputs</code></td>
+            <td>يقول إن flake الرئيسي يعتمد على node اسمها <code>nixpkgs</code>.</td>
+          </tr>
+          <tr>
+            <td><code>version</code></td>
+            <td>نسخة schema الخاصة بملف lock. ليست نسخة المشروع.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="flow">
+      <h2>5. ماذا يحدث عند <code>nix develop</code>؟</h2>
+      <div class="flow">
+        <div>
+          <strong>1. قراءة flake.nix</strong>
+          <span>Nix يعرف أن المطلوب devShells.default.</span>
+        </div>
+        <div>
+          <strong>2. قراءة flake.lock</strong>
+          <span>يثبت nixpkgs على commit محدد.</span>
+        </div>
+        <div>
+          <strong>3. بناء shell</strong>
+          <span>يجلب cmake, gcc, pythonEnv, spdlog, tinyxml2...</span>
+        </div>
+        <div>
+          <strong>4. shellHook</strong>
+          <span>يضبط ROS_DISTRO وLD_LIBRARY_PATH ويعمل source لـ ROS.</span>
+        </div>
+        <div>
+          <strong>5. أنت تبني</strong>
+          <span>تشغل colcon من workspace root.</span>
+        </div>
+      </div>
+
+      <div class="ok">
+        <p>
+          النتيجة: كل شخص عنده Nix وROS 2 Jazzy مثبتين على النظام يحصل على نفس
+          أدوات build تقريباً ونفس nixpkgs commit.
+        </p>
+      </div>
+    </section>
+
+    <section id="edit-rules">
+      <h2>6. متى أعدل كل ملف؟</h2>
+      <h3>عدل <code>flake.nix</code> إذا:</h3>
+      <ul>
+        <li>تريد إضافة أداة مثل <code>clang-format</code> أو <code>gdb</code>.</li>
+        <li>تريد إضافة Python package إلى <code>pythonEnv</code>.</li>
+        <li>تريد تعديل متغير بيئة داخل <code>shellHook</code>.</li>
+        <li>تريد تغيير نسخة مكتبة مثل <code>spdlog</code> أو <code>tinyxml2</code>.</li>
+      </ul>
+
+      <h3>لا تعدل <code>flake.lock</code> يدوياً</h3>
+      <p>
+        إذا أردت تحديث nixpkgs، استخدم:
+      </p>
+      <pre><code>nix flake update</code></pre>
+      <p>
+        أو لتحديث input محدد:
+      </p>
+      <pre><code>nix flake lock --update-input nixpkgs</code></pre>
+
+      <div class="warning">
+        <p>
+          تحديث <code>flake.lock</code> قد يغير نسخ packages، لذلك بعده شغل build
+          وتأكد أن ROS workspace ما زال يبني.
+        </p>
+      </div>
+    </section>
+
+    <section id="troubleshooting">
+      <h2>7. أخطاء شائعة</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>المشكلة</th>
+            <th>السبب المحتمل</th>
+            <th>الحل</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>nix: command not found</code></td>
+            <td>Nix غير مثبت على الجهاز.</td>
+            <td>ثبت Nix أولاً.</td>
+          </tr>
+          <tr>
+            <td>رسالة عن experimental features</td>
+            <td>flakes غير مفعلة في إعدادات Nix.</td>
+            <td class="ltr"><code>nix --extra-experimental-features "nix-command flakes" develop</code></td>
+          </tr>
+          <tr>
+            <td>تحذير أن <code>/opt/ros/jazzy/setup.bash</code> غير موجود</td>
+            <td>ROS 2 Jazzy غير مثبت من apt.</td>
+            <td>ثبت ROS 2 Jazzy وROS-Gazebo packages على النظام.</td>
+          </tr>
+          <tr>
+            <td><code>colcon is not installed on the host</code></td>
+            <td>الـ wrapper لم يجد <code>/usr/bin/colcon</code>.</td>
+            <td class="ltr"><code>sudo apt install python3-colcon-common-extensions</code></td>
+          </tr>
+          <tr>
+            <td>أخطاء shared libraries وقت التشغيل</td>
+            <td>مكتبة غير موجودة في <code>LD_LIBRARY_PATH</code> أو mismatch بين host وNix.</td>
+            <td>ادخل من <code>nix develop</code> وتأكد أن <code>LD_LIBRARY_PATH</code> محدث.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="summary">
+      <h2>8. ملخص سريع</h2>
+      <ul>
+        <li><code>flake.nix</code> هو الملف الذي يصف بيئة التطوير.</li>
+        <li><code>flake.lock</code> يثبت نسخة <code>nixpkgs</code> الدقيقة.</li>
+        <li>هذه البيئة هجينة: Nix للأدوات، ROS/Gazebo من apt على الجهاز.</li>
+        <li><code>nix develop</code> يدخل shell ويعمل source لـ <code>/opt/ros/jazzy/setup.bash</code> إذا موجود.</li>
+        <li><code>colcon</code> داخل shell هو wrapper يستخدم <code>/usr/bin/colcon</code>.</li>
+        <li>أضف الأدوات إلى <code>packages</code>، وأضف Python packages إلى <code>pythonEnv</code>.</li>
+        <li>لا تعدل <code>flake.lock</code> باليد. حدثه بأوامر Nix.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

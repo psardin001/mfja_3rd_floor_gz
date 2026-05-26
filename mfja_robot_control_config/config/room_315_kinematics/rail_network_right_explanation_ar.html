@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>شرح rail_network_right.yaml</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #607086;
+      --line: #d9e0ea;
+      --accent: #0b6bcb;
+      --accent-soft: #e8f2ff;
+      --warn-bg: #fff7e8;
+      --warn-line: #ffd596;
+      --code: #0f172a;
+      --code-bg: #eef2f7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.85;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+    }
+
+    h1, h2, h3 {
+      line-height: 1.35;
+      margin: 0 0 12px;
+    }
+
+    h1 {
+      font-size: 2rem;
+    }
+
+    h2 {
+      margin-top: 34px;
+      padding-top: 4px;
+      color: #102a4c;
+      font-size: 1.45rem;
+    }
+
+    h3 {
+      margin-top: 24px;
+      color: #233956;
+      font-size: 1.15rem;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    code, .mono {
+      direction: ltr;
+      unicode-bidi: embed;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      background: var(--code-bg);
+      color: var(--code);
+      border: 1px solid #dce4ef;
+      border-radius: 6px;
+      padding: 0.12rem 0.35rem;
+      white-space: nowrap;
+    }
+
+    pre {
+      direction: ltr;
+      text-align: left;
+      overflow: auto;
+      background: #111827;
+      color: #f8fafc;
+      border-radius: 8px;
+      padding: 16px;
+      line-height: 1.5;
+      border: 1px solid #0b1220;
+    }
+
+    pre code {
+      background: transparent;
+      color: inherit;
+      border: 0;
+      padding: 0;
+      white-space: pre;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin: 16px 0;
+    }
+
+    .note {
+      background: var(--accent-soft);
+      border: 1px solid #bcd9ff;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 16px 0;
+    }
+
+    .warning {
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-line);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 16px 0;
+    }
+
+    .toc {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px;
+      margin: 18px 0 28px;
+    }
+
+    .toc a {
+      display: block;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-decoration: none;
+      color: var(--accent);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 14px 0 24px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+      text-align: right;
+    }
+
+    th {
+      background: #eef3f9;
+      color: #19324f;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    td.num, th.num {
+      direction: ltr;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    ul, ol {
+      margin-top: 6px;
+      padding-inline-start: 24px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>شرح تفصيلي لملف <code>rail_network_right.yaml</code></h1>
+      <p>
+        هذا الملف يعرّف topology السكة اليمنى في Room 315: المقاطع، العقد،
+        السويتشات، وقواعد الانتقال من segment إلى segment. هو ليس ملف الحساسات
+        ولا ملف الـ slots. الحساسات والـ stoppers والـ slots موجودة في
+        <code>rail_devices_right.yaml</code>.
+      </p>
+      <p>
+        فكرته الأساسية: الشاتل يتحرك دائماً باتجاه واحد داخل كل segment، من بداية
+        ملف CSV إلى آخره. عند نهاية segment، الكود ينظر إلى <code>routing_table</code>
+        وحالة السويتش ليقرر أين يذهب.
+      </p>
+    </header>
+
+    <nav class="toc" aria-label="جدول المحتويات">
+      <a href="#big-picture">الفكرة العامة</a>
+      <a href="#code-path">كيف يقرأه الكود</a>
+      <a href="#top-fields">الحقول العليا</a>
+      <a href="#nodes">قسم nodes</a>
+      <a href="#segments">قسم segments</a>
+      <a href="#switches">قسم switches</a>
+      <a href="#routing">routing_table و FALLING</a>
+      <a href="#motion">كيف يتحرك الشاتل</a>
+      <a href="#editing">كيف تعدله بأمان</a>
+      <a href="#examples">أمثلة عملية</a>
+    </nav>
+
+    <section id="big-picture">
+      <h2>1. الفكرة العامة</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>ملف الشبكة</h3>
+          <p>
+            <code>rail_network_right.yaml</code> يحدد شكل المسار المنطقي:
+            أي segment يبدأ من أي node، وأي segment يأتي بعده.
+          </p>
+        </div>
+        <div class="card">
+          <h3>ملف الأجهزة</h3>
+          <p>
+            <code>rail_devices_right.yaml</code> يضع الأجهزة فوق الشبكة:
+            <code>slots</code>, <code>position_sensors</code>,
+            <code>approach_sensors</code>, و <code>stoppers</code>.
+          </p>
+        </div>
+        <div class="card">
+          <h3>ملفات CSV</h3>
+          <p>
+            كل segment له ملف CSV فيه نقاط هندسية. الكود يحسب pose/yaw من نقاط
+            الـ CSV، وليس من جدول <code>nodes</code> مباشرة.
+          </p>
+        </div>
+      </div>
+
+      <div class="note">
+        <p>
+          إذا أردت إضافة حساس أو slot أو stopper، لا تعدل هذا الملف. عدل
+          <code>rail_devices_right.yaml</code>. تعدل هذا الملف فقط عندما تريد تغيير
+          topology السكة نفسها: segment جديد، switch جديد، أو قاعدة routing جديدة.
+        </p>
+      </div>
+    </section>
+
+    <section id="code-path">
+      <h2>2. كيف يقرأه الكود؟</h2>
+      <p>
+        الملف يقرأه <code>RailNetwork.from_yaml()</code> داخل
+        <code>room_315_kinematic_shuttle.py</code>. المسار العملي كالتالي:
+      </p>
+      <ol>
+        <li>يفتح YAML ويقرأه كـ mapping.</li>
+        <li>يقرأ <code>segments</code>، ولكل segment يفتح ملف <code>csv</code> ويصنع <code>SegmentGeometry</code>.</li>
+        <li>يحفظ <code>routing_table</code> ليستخدمها عند نهاية كل segment.</li>
+        <li>يحفظ <code>switches</code> ليعرف أسماء السويتشات وحالاتها الافتراضية.</li>
+        <li>يحفظ <code>switch_state_space.values</code> حتى يقبل حالات <code>E</code> و <code>I</code> فقط.</li>
+      </ol>
+      <p>
+        عند الحركة، <code>KinematicShuttleCore.step()</code> يحرك الشاتل داخل الـ segment
+        الحالي. إذا وصل إلى نهاية الـ segment، يستدعي
+        <code>resolve_successor()</code>. إذا لم يجد successor صالحاً، يدخل الشاتل في
+        mode اسمه <code>FALLING</code>.
+      </p>
+    </section>
+
+    <section id="top-fields">
+      <h2>3. الحقول العليا في الملف</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>الحقل</th>
+            <th>المعنى</th>
+            <th>ملاحظات</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>schema_version: 2</code></td>
+            <td>إصدار شكل ملف الشبكة.</td>
+            <td>يبقى كما هو إلا إذا تغير شكل YAML نفسه.</td>
+          </tr>
+          <tr>
+            <td><code>network_id</code></td>
+            <td>اسم منطقي للشبكة.</td>
+            <td>للتعريف والقراءة، وليس اسم topic.</td>
+          </tr>
+          <tr>
+            <td><code>source_csv_dir</code></td>
+            <td>مسار مرجعي لمجلد CSV الخام.</td>
+            <td>كل segment يستخدم <code>csv</code> خاصاً به. الكود يحل المسار من قيمة <code>segments.*.csv</code>.</td>
+          </tr>
+          <tr>
+            <td><code>motion_policy</code></td>
+            <td>يوثق أن الحركة forward-only.</td>
+            <td>القاعدة العملية تظهر في routing والـ CSV: لا يوجد reverse traversal.</td>
+          </tr>
+          <tr>
+            <td><code>switch_state_space</code></td>
+            <td>الحالات المقبولة للسويتشات.</td>
+            <td><code>E</code> تعني <code>EXTERIOR</code> و <code>I</code> تعني <code>INTERIOR</code>.</td>
+          </tr>
+          <tr>
+            <td><code>stopper_state_space</code></td>
+            <td>حالات الـ stoppers.</td>
+            <td>موجود للتوثيق؛ مواقع الـ stoppers في ملف devices.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="nodes">
+      <h2>4. قسم <code>nodes</code></h2>
+      <p>
+        الـ node هي نقطة اتصال منطقية بين أطراف segments. الاسم عادة يتكون من اسم
+        station مثل <code>A3</code> ثم suffix:
+      </p>
+      <ul>
+        <li><code>_C</code>: نقطة جسم السويتش أو center/control node.</li>
+        <li><code>_E</code>: نقطة branch E / EXTERIOR.</li>
+        <li><code>_I</code>: نقطة branch I / INTERIOR.</li>
+      </ul>
+      <p>
+        كل node يحتوي <code>xyz</code> و <code>attached_segment_ends</code>. في الكود
+        الحالي، الحركة نفسها تأتي من CSV، لكن هذه العقد مهمة لفهم topology والتأكد
+        أن بداية ونهاية كل segment منطقية.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>node</th>
+            <th>الوظيفة</th>
+            <th>segments المرتبطة</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>A3_C</code></td><td>سويتش A3: دخول من <code>A23</code> وخروج إلى E/I.</td><td><code>A23 end</code>, <code>A3E start</code>, <code>A3I start</code></td></tr>
+          <tr><td><code>A3_E</code></td><td>نهاية فرع A3E وبداية <code>A34E</code>.</td><td><code>A3E end</code>, <code>A34E start</code></td></tr>
+          <tr><td><code>A3_I</code></td><td>نهاية فرع A3I وبداية <code>A34I</code>.</td><td><code>A3I end</code>, <code>A34I start</code></td></tr>
+          <tr><td><code>A4_E</code></td><td>نهاية <code>A34E</code> وبداية connector <code>A4E</code>.</td><td><code>A34E end</code>, <code>A4E start</code></td></tr>
+          <tr><td><code>A4_I</code></td><td>نهاية <code>A34I</code> وبداية connector <code>A4I</code>.</td><td><code>A34I end</code>, <code>A4I start</code></td></tr>
+          <tr><td><code>A4_C</code></td><td>تجميع A4 ثم خروج إلى <code>A14</code>.</td><td><code>A4E end</code>, <code>A4I end</code>, <code>A14 start</code></td></tr>
+          <tr><td><code>A1_C</code></td><td>سويتش A1: دخول من <code>A14</code> وخروج إلى E/I.</td><td><code>A14 end</code>, <code>A1E start</code>, <code>A1I start</code></td></tr>
+          <tr><td><code>A1_E</code></td><td>نهاية فرع A1E وبداية <code>A12E</code>.</td><td><code>A1E end</code>, <code>A12E start</code></td></tr>
+          <tr><td><code>A1_I</code></td><td>نهاية فرع A1I وبداية <code>A12I</code>.</td><td><code>A1I end</code>, <code>A12I start</code></td></tr>
+          <tr><td><code>A2_E</code></td><td>نهاية <code>A12E</code> وبداية connector <code>A2E</code>.</td><td><code>A12E end</code>, <code>A2E start</code></td></tr>
+          <tr><td><code>A2_I</code></td><td>نهاية <code>A12I</code> وبداية connector <code>A2I</code>.</td><td><code>A12I end</code>, <code>A2I start</code></td></tr>
+          <tr><td><code>A2_C</code></td><td>تجميع A2 ثم خروج إلى <code>A23</code>.</td><td><code>A2E end</code>, <code>A2I end</code>, <code>A23 start</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="segments">
+      <h2>5. قسم <code>segments</code></h2>
+      <p>
+        هذا أهم قسم هندسي في الملف. كل segment يربط <code>start_node</code> مع
+        <code>end_node</code> ويأخذ مساره الهندسي من ملف CSV. داخل الحركة:
+      </p>
+      <pre><code>s = 0.0                 # بداية segment
+s = segment.length      # نهاية segment</code></pre>
+      <p>
+        لذلك أي <code>s_ratio</code> في ملف الأجهزة يتحول إلى:
+      </p>
+      <pre><code>s = s_ratio * segment.length</code></pre>
+
+      <table>
+        <thead>
+          <tr>
+            <th>segment</th>
+            <th>من</th>
+            <th>إلى</th>
+            <th>CSV</th>
+            <th>الدور</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>A23</code></td><td><code>A2_C</code></td><td><code>A3_C</code></td><td><code>A14.csv</code></td><td>المسار السفلي/الواصل نحو A3.</td></tr>
+          <tr><td><code>A3E</code></td><td><code>A3_C</code></td><td><code>A3_E</code></td><td><code>A1E.csv</code></td><td>فرع E/EXTERIOR الخارج من A3.</td></tr>
+          <tr><td><code>A3I</code></td><td><code>A3_C</code></td><td><code>A3_I</code></td><td><code>A1I.csv</code></td><td>فرع I/INTERIOR الخارج من A3.</td></tr>
+          <tr><td><code>A34E</code></td><td><code>A3_E</code></td><td><code>A4_E</code></td><td><code>A12E.csv</code></td><td>المسار الخارجي بين A3 و A4.</td></tr>
+          <tr><td><code>A34I</code></td><td><code>A3_I</code></td><td><code>A4_I</code></td><td><code>A12I.csv</code></td><td>المسار الداخلي بين A3 و A4.</td></tr>
+          <tr><td><code>A4E</code></td><td><code>A4_E</code></td><td><code>A4_C</code></td><td><code>A2E.csv</code></td><td>connector E/EXTERIOR قبل A4.</td></tr>
+          <tr><td><code>A4I</code></td><td><code>A4_I</code></td><td><code>A4_C</code></td><td><code>A2I.csv</code></td><td>connector I/INTERIOR قبل A4.</td></tr>
+          <tr><td><code>A14</code></td><td><code>A4_C</code></td><td><code>A1_C</code></td><td><code>A23.csv</code></td><td>المسار الواصل من A4 إلى A1.</td></tr>
+          <tr><td><code>A1E</code></td><td><code>A1_C</code></td><td><code>A1_E</code></td><td><code>A3E.csv</code></td><td>فرع E/EXTERIOR الخارج من A1.</td></tr>
+          <tr><td><code>A1I</code></td><td><code>A1_C</code></td><td><code>A1_I</code></td><td><code>A3I.csv</code></td><td>فرع I/INTERIOR الخارج من A1.</td></tr>
+          <tr><td><code>A12E</code></td><td><code>A1_E</code></td><td><code>A2_E</code></td><td><code>A34E.csv</code></td><td>المسار الخارجي بين A1 و A2.</td></tr>
+          <tr><td><code>A12I</code></td><td><code>A1_I</code></td><td><code>A2_I</code></td><td><code>A34I.csv</code></td><td>المسار الداخلي بين A1 و A2.</td></tr>
+          <tr><td><code>A2E</code></td><td><code>A2_E</code></td><td><code>A2_C</code></td><td><code>A4E.csv</code></td><td>connector E/EXTERIOR قبل A2.</td></tr>
+          <tr><td><code>A2I</code></td><td><code>A2_I</code></td><td><code>A2_C</code></td><td><code>A4I.csv</code></td><td>connector I/INTERIOR قبل A2.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="warning">
+        <p>
+          لا تفترض أن اسم ملف CSV يجب أن يطابق اسم segment. في هذا الملف بعض segments
+          تستخدم CSV باسم مختلف لأن الهندسة الخام معاد استخدامها تحت تسمية منطقية
+          مناسبة للسكة اليمنى. الاسم الذي تستخدمه في ملفات الأجهزة هو اسم
+          <code>segment</code>، وليس اسم CSV.
+        </p>
+      </div>
+    </section>
+
+    <section id="switches">
+      <h2>6. قسم <code>switches</code></h2>
+      <p>
+        هذا القسم يصف دور كل switch. عندنا نوعان:
+      </p>
+      <ul>
+        <li><code>diverging</code>: الشاتل يدخل من segment واحد، والسويتش يختار أي branch يخرج إليه.</li>
+        <li><code>converging_gate</code>: الشاتل يأتي من واحد من مسارين، والسويتش يعمل كحارس: إذا الحالة لا تطابق المسار القادم، يدخل الشاتل <code>FALLING</code>.</li>
+      </ul>
+
+      <table>
+        <thead>
+          <tr>
+            <th>switch</th>
+            <th>kind</th>
+            <th>الحالة E</th>
+            <th>الحالة I</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>A3</code></td><td><code>diverging</code></td><td><code>A23 -> A3E</code></td><td><code>A23 -> A3I</code></td></tr>
+          <tr><td><code>A4</code></td><td><code>converging_gate</code></td><td><code>A34E -> A4E -> A14</code></td><td><code>A34I -> A4I -> A14</code></td></tr>
+          <tr><td><code>A1</code></td><td><code>diverging</code></td><td><code>A14 -> A1E</code></td><td><code>A14 -> A1I</code></td></tr>
+          <tr><td><code>A2</code></td><td><code>converging_gate</code></td><td><code>A12E -> A2E -> A23</code></td><td><code>A12I -> A2I -> A23</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="routing">
+      <h2>7. <code>routing_table</code> و <code>FALLING</code></h2>
+      <p>
+        <code>routing_table</code> هي الشيء الذي يستخدمه الكود فعلياً لاختيار successor
+        عند نهاية كل segment. يوجد ثلاثة أنماط:
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>type</th>
+            <th>المعنى</th>
+            <th>مثال</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>fixed</code></td>
+            <td>الانتقال دائماً إلى segment واحد.</td>
+            <td><code>A3E -> A34E</code></td>
+          </tr>
+          <tr>
+            <td><code>switch_select</code></td>
+            <td>السويتش يختار الفرع الخارج.</td>
+            <td><code>A23</code> يستخدم <code>A3</code>: E إلى <code>A3E</code>، I إلى <code>A3I</code>.</td>
+          </tr>
+          <tr>
+            <td><code>switch_guard</code></td>
+            <td>السويتش يجب أن يطابق المسار القادم. إذا لا يطابق، النتيجة <code>FALLING</code>.</td>
+            <td><code>A34E</code> عند A4 يحتاج E. إذا A4=I فالنتيجة <code>FALLING</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>جدول routing الحالي</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>من segment</th>
+            <th>نوع القاعدة</th>
+            <th>النتيجة</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>A23</code></td><td><code>switch_select A3</code></td><td>E: <code>A3E</code>، I: <code>A3I</code></td></tr>
+          <tr><td><code>A3E</code></td><td><code>fixed</code></td><td><code>A34E</code></td></tr>
+          <tr><td><code>A3I</code></td><td><code>fixed</code></td><td><code>A34I</code></td></tr>
+          <tr><td><code>A34E</code></td><td><code>switch_guard A4</code></td><td>E: <code>A4E</code>، I: <code>FALLING</code></td></tr>
+          <tr><td><code>A34I</code></td><td><code>switch_guard A4</code></td><td>E: <code>FALLING</code>، I: <code>A4I</code></td></tr>
+          <tr><td><code>A4E</code></td><td><code>fixed</code></td><td><code>A14</code></td></tr>
+          <tr><td><code>A4I</code></td><td><code>fixed</code></td><td><code>A14</code></td></tr>
+          <tr><td><code>A14</code></td><td><code>switch_select A1</code></td><td>E: <code>A1E</code>، I: <code>A1I</code></td></tr>
+          <tr><td><code>A1E</code></td><td><code>fixed</code></td><td><code>A12E</code></td></tr>
+          <tr><td><code>A1I</code></td><td><code>fixed</code></td><td><code>A12I</code></td></tr>
+          <tr><td><code>A12E</code></td><td><code>switch_guard A2</code></td><td>E: <code>A2E</code>، I: <code>FALLING</code></td></tr>
+          <tr><td><code>A12I</code></td><td><code>switch_guard A2</code></td><td>E: <code>FALLING</code>، I: <code>A2I</code></td></tr>
+          <tr><td><code>A2E</code></td><td><code>fixed</code></td><td><code>A23</code></td></tr>
+          <tr><td><code>A2I</code></td><td><code>fixed</code></td><td><code>A23</code></td></tr>
+        </tbody>
+      </table>
+
+      <div class="warning">
+        <p>
+          <code>fixed_transitions</code> يكرر جزءاً من الانتقالات الثابتة للقراءة
+          والتوثيق. القرار العملي في الحركة يأتي من <code>routing_table</code>.
+          إذا عدلت انتقالاً ثابتاً، عدل <code>routing_table</code> أولاً، واجعل
+          <code>fixed_transitions</code> مطابقاً حتى لا يضلل قارئ الملف.
+        </p>
+      </div>
+    </section>
+
+    <section id="motion">
+      <h2>8. كيف يتحرك الشاتل فعلياً؟</h2>
+      <ol>
+        <li>الشاتل يملك <code>current_segment</code> و <code>s</code>.</li>
+        <li>كل tick يزيد <code>s</code> حسب السرعة والزمن.</li>
+        <li>إذا بقي داخل نفس segment، لا ينظر إلى السويتشات.</li>
+        <li>إذا وصل إلى نهاية segment، يستدعي <code>resolve_successor()</code>.</li>
+        <li>إذا رجع successor صالح، ينتقل إليه ويبدأ عند <code>s = 0.0</code>.</li>
+        <li>إذا لا يوجد successor، أو successor غير معروف، يدخل mode <code>FALLING</code>.</li>
+      </ol>
+
+      <pre><code>A23 --[A3=E]--> A3E --> A34E --[A4=E]--> A4E --> A14
+A23 --[A3=I]--> A3I --> A34I --[A4=I]--> A4I --> A14
+
+A14 --[A1=E]--> A1E --> A12E --[A2=E]--> A2E --> A23
+A14 --[A1=I]--> A1I --> A12I --[A2=I]--> A2I --> A23</code></pre>
+    </section>
+
+    <section id="editing">
+      <h2>9. كيف تعدله بأمان؟</h2>
+      <h3>إذا أردت تحريك حساس أو stopper أو slot</h3>
+      <p>
+        لا تعدل هذا الملف. عدل <code>rail_devices_right.yaml</code> فقط، لأن هذه أجهزة
+        موضوعة فوق السكة وليست جزءاً من topology.
+      </p>
+
+      <h3>إذا أردت تعديل topology</h3>
+      <ol>
+        <li>أضف أو عدل ملف CSV في <code>raw_segments</code> إذا تغير الشكل الهندسي.</li>
+        <li>أضف segment جديد في <code>segments</code> مع <code>csv</code>, <code>start_node</code>, و <code>end_node</code>.</li>
+        <li>أضف أو عدل nodes في <code>nodes</code> لتوثيق أطراف segment.</li>
+        <li>إذا segment يدخل أو يخرج من switch، عدل <code>switches</code>.</li>
+        <li>عدل <code>routing_table</code> حتى يعرف الكود successor لكل segment ينتهي.</li>
+        <li>إذا عندك انتقال ثابت، حدّث <code>fixed_transitions</code> ليطابق <code>routing_table</code>.</li>
+        <li>شغل YAML parse ثم جرّب launch وتابع <code>/room_315/rails/right/shuttles/state</code>.</li>
+      </ol>
+
+      <div class="note">
+        <p>
+          إضافة segment بدون routing غالباً تجعل الشاتل يدخل <code>FALLING</code> عند
+          نهاية ذلك segment، لأن الكود لا يعرف إلى أين يكمل.
+        </p>
+      </div>
+    </section>
+
+    <section id="examples">
+      <h2>10. أمثلة عملية</h2>
+
+      <h3>مثال: لماذا يسقط الشاتل عند A4؟</h3>
+      <p>
+        إذا كان الشاتل على <code>A34E</code>، فهذا يعني أنه قادم على مسار E/EXTERIOR نحو A4.
+        في <code>routing_table</code>:
+      </p>
+      <pre><code>A34E:
+  type: switch_guard
+  switch: A4
+  by_state:
+    E: A4E
+    I: FALLING</code></pre>
+      <p>
+        إذا كانت حالة A4 هي <code>I</code> عند وصول الشاتل، فالنتيجة
+        <code>FALLING</code>. حتى يمر بأمان من <code>A34E</code> يجب أن تكون A4 على
+        <code>E</code>.
+      </p>
+
+      <h3>مثال: إضافة مسار خارجي جديد</h3>
+      <p>
+        لا يكفي إضافة segment في <code>segments</code>. يجب أيضاً أن تربطه في
+        <code>routing_table</code>، وتقرر هل الانتقال إليه ثابت أم مرتبط بسويتش.
+        إذا كان مرتبطاً بسويتش، يجب أن تكون <code>by_state</code> واضحة لكل حالة.
+      </p>
+
+      <h3>أوامر تحقق سريعة</h3>
+      <pre><code>python3 - <<'PY'
+from pathlib import Path
+import yaml
+path = Path('src/mfja_3rd_floor_gz/mfja_robot_control_config/config/room_315_kinematics/rail_network_right.yaml')
+yaml.safe_load(path.read_text())
+print('rail_network_right.yaml OK')
+PY</code></pre>
+    </section>
+  </main>
+</body>
+</html>

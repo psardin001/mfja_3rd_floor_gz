@@ -568,7 +568,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'initial_loop_mode',
             default_value='auto',
-            description='Startup loop mode: auto, PETIT_BOUCLE, or GRAND_BOUCLE.',
+            description='Startup loop mode: auto, INTERIOR, or EXTERIOR.',
         ),
         DeclareLaunchArgument(
             'pause_during_switch_update',

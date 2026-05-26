@@ -14,10 +14,10 @@ motion_policy:
   topology_source_of_truth: explicit_nodes_and_routing_tables
 switch_state_space:
   values:
-  - G
-  - S
-  note: 'Switch states match the segment suffixes. G selects the G branch, and S selects
-    the S branch. A later command layer may expose LEFT/RIGHT aliases if desired.
+  - E
+  - I
+  note: 'Switch states match the segment suffixes. E selects the EXTERIOR branch,
+    and I selects the INTERIOR branch. A later command layer may expose LEFT/RIGHT aliases if desired.
 
     '
 stopper_state_space:
@@ -37,27 +37,27 @@ nodes:
     attached_segment_ends:
     - segment: A23
       side: end
-    - segment: A3G
+    - segment: A3E
       side: start
-    - segment: A3S
+    - segment: A3I
       side: start
-  A3_G:
+  A3_E:
     xyz:
     - -12.411068709521
     - -4.377968538178
     - 0.839346
     attached_segment_ends:
-    - segment: A3G
+    - segment: A3E
       side: end
     - segment: A34E
       side: start
-  A3_S:
+  A3_I:
     xyz:
     - -12.630456355245
     - -4.294506357306
     - 0.839346
     attached_segment_ends:
-    - segment: A3S
+    - segment: A3I
       side: end
     - segment: A34I
       side: start
@@ -67,13 +67,13 @@ nodes:
     - -4.314956886276
     - 0.839346
     attached_segment_ends:
-    - segment: A4G
+    - segment: A4E
       side: end
-    - segment: A4S
+    - segment: A4I
       side: end
     - segment: A14
       side: start
-  A4_G:
+  A4_E:
     xyz:
     - -14.170829572493
     - -4.461813691179
@@ -81,9 +81,9 @@ nodes:
     attached_segment_ends:
     - segment: A34E
       side: end
-    - segment: A4G
+    - segment: A4E
       side: start
-  A4_S:
+  A4_I:
     xyz:
     - -14.043487622669
     - -4.317707880582
@@ -91,7 +91,7 @@ nodes:
     attached_segment_ends:
     - segment: A34I
       side: end
-    - segment: A4S
+    - segment: A4I
       side: start
   A1_C:
     xyz:
@@ -101,27 +101,27 @@ nodes:
     attached_segment_ends:
     - segment: A14
       side: end
-    - segment: A1G
+    - segment: A1E
       side: start
-    - segment: A1S
+    - segment: A1I
       side: start
-  A1_G:
+  A1_E:
     xyz:
     - -14.170018795842
     - -3.6964263697
     - 0.839346
     attached_segment_ends:
-    - segment: A1G
+    - segment: A1E
       side: end
     - segment: A12E
       side: start
-  A1_S:
+  A1_I:
     xyz:
     - -14.042453383596
     - -3.840708114815
     - 0.839346
     attached_segment_ends:
-    - segment: A1S
+    - segment: A1I
       side: end
     - segment: A12I
       side: start
@@ -131,13 +131,13 @@ nodes:
     - -3.949959016123
     - 0.839346
     attached_segment_ends:
-    - segment: A2G
+    - segment: A2E
       side: end
-    - segment: A2S
+    - segment: A2I
       side: end
     - segment: A23
       side: start
-  A2_G:
+  A2_E:
     xyz:
     - -12.417316165756
     - -3.779454642551
@@ -145,9 +145,9 @@ nodes:
     attached_segment_ends:
     - segment: A12E
       side: end
-    - segment: A2G
+    - segment: A2E
       side: start
-  A2_S:
+  A2_I:
     xyz:
     - -12.634666929685
     - -3.864864946894
@@ -155,58 +155,58 @@ nodes:
     attached_segment_ends:
     - segment: A12I
       side: end
-    - segment: A2S
+    - segment: A2I
       side: start
 segments:
-  A3G:
-    csv: raw_segments/A1G.csv
+  A3E:
+    csv: raw_segments/A1E.csv
     start_node: A3_C
-    end_node: A3_G
+    end_node: A3_E
     direction: forward
-  A3S:
-    csv: raw_segments/A1S.csv
+  A3I:
+    csv: raw_segments/A1I.csv
     start_node: A3_C
-    end_node: A3_S
+    end_node: A3_I
     direction: forward
-  A4G:
-    csv: raw_segments/A2G.csv
-    start_node: A4_G
+  A4E:
+    csv: raw_segments/A2E.csv
+    start_node: A4_E
     end_node: A4_C
     direction: forward
-  A4S:
-    csv: raw_segments/A2S.csv
-    start_node: A4_S
+  A4I:
+    csv: raw_segments/A2I.csv
+    start_node: A4_I
     end_node: A4_C
     direction: forward
-  A1G:
-    csv: raw_segments/A3G.csv
+  A1E:
+    csv: raw_segments/A3E.csv
     start_node: A1_C
-    end_node: A1_G
+    end_node: A1_E
     direction: forward
-  A1S:
-    csv: raw_segments/A3S.csv
+  A1I:
+    csv: raw_segments/A3I.csv
     start_node: A1_C
-    end_node: A1_S
+    end_node: A1_I
     direction: forward
-  A2G:
-    csv: raw_segments/A4G.csv
-    start_node: A2_G
+  A2E:
+    csv: raw_segments/A4E.csv
+    start_node: A2_E
     end_node: A2_C
     direction: forward
-  A2S:
-    csv: raw_segments/A4S.csv
-    start_node: A2_S
+  A2I:
+    csv: raw_segments/A4I.csv
+    start_node: A2_I
     end_node: A2_C
     direction: forward
   A34E:
     csv: raw_segments/A12E.csv
-    start_node: A3_G
-    end_node: A4_G
+    start_node: A3_E
+    end_node: A4_E
     direction: forward
   A34I:
     csv: raw_segments/A12I.csv
-    start_node: A3_S
-    end_node: A4_S
+    start_node: A3_I
+    end_node: A4_I
     direction: forward
   A23:
     csv: raw_segments/A14.csv
@@ -220,141 +220,141 @@ segments:
     direction: forward
   A12E:
     csv: raw_segments/A34E.csv
-    start_node: A1_G
-    end_node: A2_G
+    start_node: A1_E
+    end_node: A2_E
     direction: forward
   A12I:
     csv: raw_segments/A34I.csv
-    start_node: A1_S
-    end_node: A2_S
+    start_node: A1_I
+    end_node: A2_I
     direction: forward
 switches:
   A3:
     kind: diverging
     controlled_node: A3_C
     states:
-    - G
-    - S
+    - E
+    - I
     incoming_segments:
     - A23
     outgoing_by_state:
-      G: A3G
-      S: A3S
+      E: A3E
+      I: A3I
   A4:
     kind: converging_gate
     controlled_node: A4_C
     states:
-    - G
-    - S
+    - E
+    - I
     incoming_path_by_state:
-      G:
+      E:
         incoming_segment: A34E
-        connector_segment: A4G
-      S:
+        connector_segment: A4E
+      I:
         incoming_segment: A34I
-        connector_segment: A4S
+        connector_segment: A4I
     outgoing_segments:
     - A14
   A1:
     kind: diverging
     controlled_node: A1_C
     states:
-    - G
-    - S
+    - E
+    - I
     incoming_segments:
     - A14
     outgoing_by_state:
-      G: A1G
-      S: A1S
+      E: A1E
+      I: A1I
   A2:
     kind: converging_gate
     controlled_node: A2_C
     states:
-    - G
-    - S
+    - E
+    - I
     incoming_path_by_state:
-      G:
+      E:
         incoming_segment: A12E
-        connector_segment: A2G
-      S:
+        connector_segment: A2E
+      I:
         incoming_segment: A12I
-        connector_segment: A2S
+        connector_segment: A2I
     outgoing_segments:
     - A23
 fixed_transitions:
-  A3G: A34E
-  A3S: A34I
-  A4G: A14
-  A4S: A14
-  A1G: A12E
-  A1S: A12I
-  A2G: A23
-  A2S: A23
+  A3E: A34E
+  A3I: A34I
+  A4E: A14
+  A4I: A14
+  A1E: A12E
+  A1I: A12I
+  A2E: A23
+  A2I: A23
 routing_table:
   A23:
     type: switch_select
     switch: A3
     by_state:
-      G: A3G
-      S: A3S
+      E: A3E
+      I: A3I
     on_unknown_state: FALLING
-  A3G:
+  A3E:
     type: fixed
     next_segment: A34E
-  A3S:
+  A3I:
     type: fixed
     next_segment: A34I
   A34E:
     type: switch_guard
     switch: A4
     by_state:
-      G: A4G
-      S: FALLING
+      E: A4E
+      I: FALLING
     on_unknown_state: FALLING
   A34I:
     type: switch_guard
     switch: A4
     by_state:
-      G: FALLING
-      S: A4S
+      E: FALLING
+      I: A4I
     on_unknown_state: FALLING
-  A4G:
+  A4E:
     type: fixed
     next_segment: A14
-  A4S:
+  A4I:
     type: fixed
     next_segment: A14
   A14:
     type: switch_select
     switch: A1
     by_state:
-      G: A1G
-      S: A1S
+      E: A1E
+      I: A1I
     on_unknown_state: FALLING
-  A1G:
+  A1E:
     type: fixed
     next_segment: A12E
-  A1S:
+  A1I:
     type: fixed
     next_segment: A12I
   A12E:
     type: switch_guard
     switch: A2
     by_state:
-      G: A2G
-      S: FALLING
+      E: A2E
+      I: FALLING
     on_unknown_state: FALLING
   A12I:
     type: switch_guard
     switch: A2
     by_state:
-      G: FALLING
-      S: A2S
+      E: FALLING
+      I: A2I
     on_unknown_state: FALLING
-  A2G:
+  A2E:
     type: fixed
     next_segment: A23
-  A2S:
+  A2I:
     type: fixed
     next_segment: A23
 blocks: {}

@@ -263,21 +263,20 @@ class RailNetwork:
 
     def default_switch_states(self) -> Dict[str, str]:
         return {
-            switch_name: switch_config.get('states', ['G'])[0]
+            switch_name: switch_config.get('states', ['E'])[0]
             for switch_name, switch_config in self.switches.items()
         }
 
     def normalized_switch_state(self, raw_state: str) -> str:
         state = raw_state.strip().upper()
-        if state in {'E', 'EXTERIOR', 'GRAND', 'GRAND_BOUCLE', 'BIG', 'LARGE'}:
-            state = 'G'
-        elif state in {'I', 'INTERIOR', 'PETIT', 'PETIT_BOUCLE', 'SMALL', 'MINI'}:
-            state = 'S'
+        if state == 'EXTERIOR':
+            state = 'E'
+        elif state == 'INTERIOR':
+            state = 'I'
         if state not in self.valid_switch_states:
             raise ValueError(
                 f'Unknown switch state {raw_state!r}; expected one of '
-                f'{sorted(self.valid_switch_states)} or their aliases '
-                '(for example E / I / EXTERIOR / INTERIOR).'
+                f'{sorted(self.valid_switch_states)} or EXTERIOR / INTERIOR.'
             )
         return state
 
@@ -440,7 +439,7 @@ def _parse_switch_states(network: RailNetwork, raw_values: Sequence[str]) -> Dic
     for raw_value in raw_values:
         for token in raw_value.replace(',', ' ').split():
             if '=' not in token:
-                raise ValueError(f'Switch assignment must look like A1=G, got {token!r}')
+                raise ValueError(f'Switch assignment must look like A1=E, got {token!r}')
             switch_name, raw_state = token.split('=', 1)
             switch_name = switch_name.strip().upper()
             if switch_name not in network.switches:
@@ -492,7 +491,7 @@ def parse_args() -> argparse.Namespace:
         '--switch',
         action='append',
         default=[],
-        help='Switch assignment such as A1=G. Can be repeated or comma/space separated.',
+        help='Switch assignment such as A1=E. Can be repeated or comma/space separated.',
     )
     parser.add_argument(
         '--path-backend',

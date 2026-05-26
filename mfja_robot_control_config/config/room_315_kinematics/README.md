@@ -86,6 +86,14 @@ s = s_ratio * segment.length
 The node then resolves device pose from the existing
 `SegmentGeometry.sample(s)` method.
 
+For `position_sensors`, binary feedback is driven only by `segment`,
+`s_ratio`, and `radius_m`. Fields such as `switch` and `branch` are descriptive
+YAML labels kept for readability and compatibility; changing them does not move
+the detector. Older custom files may also contain `index_zone`, `start_slot`, or
+`aliases`, but those legacy labels do not move the detector either. To move a
+`DZI*` or `DA*` detector, edit its `segment` and `s_ratio`, or use the device
+position tool.
+
 To move a position sensor, stopper, or slot, edit only its `segment` and
 `s_ratio` in the matching rail device YAML. For example, moving `DA1R` slightly
 upstream means decreasing its `s_ratio` on `A14`. For stoppers that cover two
@@ -155,8 +163,8 @@ Colors:
 - position sensors: blue when inactive, green when active (`active=1`)
 - stoppers: amber when released (`state=0`), red when active (`state=1`)
 - shuttles: black normally, red in `FALLING` mode
-- switch bodies: green for state `0` / `INTERIOR` / `S`,
-  orange for state `1` / `EXTERIOR` / `G`
+- switch bodies: green for state `I` / `INTERIOR`,
+  orange for state `E` / `EXTERIOR`
 
 Position sensor markers sit slightly above the rail so a visible part remains
 above the shuttle body while a shuttle is crossing the sensor. Approach sensor
@@ -373,8 +381,8 @@ Expected right-rail position sensor families:
 
 - Indexing zone sensors: `DZI1R`, `DZI2R`, `DZI3R`, `DZI4R`.
 - Main switch sensors: `DA1R`, `DA2R`, `DA3R`, `DA4R`.
-- Exterior branch sensors: `DA1GR`, `DA2GR`, `DA3GR`, `DA4GR`.
-- Interior branch sensors: `DA1SR`, `DA2SR`, `DA3SR`, `DA4SR`.
+- Exterior branch sensors: `DA1ER`, `DA2ER`, `DA3ER`, `DA4ER`.
+- Interior branch sensors: `DA1IR`, `DA2IR`, `DA3IR`, `DA4IR`.
 
 ### Test All Right-Rail Approach Sensors
 
@@ -571,18 +579,18 @@ The public detector set is:
 - `DZI2R`, `DZI1R`, `DZI4R`, `DZI3R` for the right-rail indexing-zone
   detector positions near the four slot areas.
 - `DA1R`, `DA2R`, `DA3R`, `DA4R` on the single-track side of each switch.
-- `DA1GR`, `DA2GR`, `DA3GR`, `DA4GR` on the `EXTERIOR` branch.
-- `DA1SR`, `DA2SR`, `DA3SR`, `DA4SR` on the `INTERIOR` branch.
+- `DA1ER`, `DA2ER`, `DA3ER`, `DA4ER` on the `EXTERIOR` branch.
+- `DA1IR`, `DA2IR`, `DA3IR`, `DA4IR` on the `INTERIOR` branch.
 
 Practical use:
 
 - Spawn or reset on `slot 1`, `slot 2`, `slot 3`, and `slot 4` to check the
   nearby `DZI...R` indexing-zone detectors.
 - Send `ALL=EXTERIOR` on `/room_315/rails/right/switches/command` with
-  `mfja_rail_interfaces/msg/SwitchCommand` to observe the `...GR` branch
+  `mfja_rail_interfaces/msg/SwitchCommand` to observe the `...ER` branch
   detectors.
 - Send `ALL=INTERIOR` on `/room_315/rails/right/switches/command` with
-  `mfja_rail_interfaces/msg/SwitchCommand` to observe the `...SR` branch
+  `mfja_rail_interfaces/msg/SwitchCommand` to observe the `...IR` branch
   detectors.
 
 ## Start Slots

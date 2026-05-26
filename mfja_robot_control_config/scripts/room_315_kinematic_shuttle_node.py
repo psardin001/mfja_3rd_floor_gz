@@ -254,18 +254,18 @@ VISUAL_SELECTOR_SUFFIX_BY_SIDE = {
 PUBLIC_SWITCH_ORDER = ('A1', 'A2', 'A3', 'A4')
 STOPPER_PASS_STATE = '0'
 STOPPER_STOP_STATE = '1'
-SWITCH_INTERIOR_STATE = 'S'
-SWITCH_EXTERIOR_STATE = 'G'
+SWITCH_INTERIOR_STATE = 'I'
+SWITCH_EXTERIOR_STATE = 'E'
 
 LEFT_PUBLIC_SEGMENT_NAME_MAP = {
-    'A1G': 'A3G',
-    'A1S': 'A3S',
-    'A2G': 'A4G',
-    'A2S': 'A4S',
-    'A3G': 'A1G',
-    'A3S': 'A1S',
-    'A4G': 'A2G',
-    'A4S': 'A2S',
+    'A1E': 'A3E',
+    'A1I': 'A3I',
+    'A2E': 'A4E',
+    'A2I': 'A4I',
+    'A3E': 'A1E',
+    'A3I': 'A1I',
+    'A4E': 'A2E',
+    'A4I': 'A2I',
     'A12E': 'A34E',
     'A12I': 'A34I',
     'A14': 'A23',
@@ -328,18 +328,6 @@ def _normalize_rail_side(raw_value: str) -> str:
     )
 
 
-def _dedupe_aliases(values: tuple[str, ...]) -> tuple[str, ...]:
-    ordered_values: list[str] = []
-    seen_values: set[str] = set()
-    for raw_value in values:
-        value = str(raw_value).strip().upper()
-        if not value or value in seen_values:
-            continue
-        seen_values.add(value)
-        ordered_values.append(value)
-    return tuple(ordered_values)
-
-
 def _ordered_switch_states(switch_states: Dict[str, str]) -> Dict[str, str]:
     ordered: Dict[str, str] = {}
     for switch_name in PUBLIC_SWITCH_ORDER:
@@ -376,17 +364,12 @@ class PositionSensorPoint:
     radius_m: float
 
 
+# Runtime feedback depends only on physical detector geometry. Legacy
+# descriptive labels stay in metadata validation, not here.
 @dataclass(frozen=True)
 class PositionSensorConfig:
     name: str
-    sensor_purpose: str
     points: tuple[PositionSensorPoint, ...]
-    switch_name: str | None = None
-    branch_state: str | None = None
-    loop_side: str | None = None
-    index_zone: str | None = None
-    start_slot: str | None = None
-    aliases: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1704,13 +1687,39 @@ class Room315KinematicShuttleNode(Node):
             return None, None
 
         branch = str(raw_branch).strip().upper()
-        if branch in {'G', 'E', 'EXTERIOR', 'GRAND', 'GRANDE', 'BIG', 'LARGE'}:
-            return 'G', 'EXTERIOR'
-        if branch in {'S', 'I', 'INTERIOR', 'P', 'PETIT', 'PETITE', 'SMALL'}:
-            return 'S', 'INTERIOR'
+        if branch in {'E', 'EXTERIOR'}:
+            return SWITCH_EXTERIOR_STATE, 'EXTERIOR'
+        if branch in {'I', 'INTERIOR'}:
+            return SWITCH_INTERIOR_STATE, 'INTERIOR'
         raise ValueError(
-            f'Unknown position sensor branch {raw_branch!r}; use G/S or EXTERIOR/INTERIOR.'
+            f'Unknown position sensor branch {raw_branch!r}; use E/I or EXTERIOR/INTERIOR.'
         )
+
+    def _validate_position_sensor_metadata(
+        self,
+        sensor_name: str,
+        metadata: dict,
+        *,
+        start_slot,
+    ) -> None:
+        """Validate descriptive YAML labels without making them drive feedback."""
+        self._normalize_position_sensor_branch(metadata.get('branch'))
+
+        switch_name = metadata.get('switch')
+        if switch_name is not None:
+            _canonical_switch_name(str(switch_name).strip().upper())
+
+        index_zone = metadata.get('index_zone')
+        if index_zone is not None:
+            str(index_zone).strip()
+
+        if start_slot is not None:
+            self._normalize_start_slot(start_slot)
+
+        for alias in metadata.get('aliases', []):
+            public_alias = _canonical_sensor_name(alias)
+            if public_alias != sensor_name:
+                str(public_alias).strip()
 
     def _position_sensor_points_from_config(
         self,
@@ -1787,44 +1796,14 @@ class Room315KinematicShuttleNode(Node):
 
             internal_name = str(raw_name).strip().upper()
             name = _canonical_sensor_name(internal_name)
-            branch_state, normalized_loop_side = self._normalize_position_sensor_branch(
-                raw_config.get('branch')
+            self._validate_position_sensor_metadata(
+                name,
+                raw_config,
+                start_slot=raw_config.get('slot'),
             )
-            explicit_loop_side = raw_config.get('loop_side')
-            if explicit_loop_side is not None:
-                normalized_loop_side = str(explicit_loop_side).strip().upper()
-            switch_name = raw_config.get('switch')
-            index_zone = raw_config.get('index_zone')
-            start_slot = raw_config.get('slot')
-            configured_aliases = tuple(
-                str(alias).strip().upper()
-                for alias in raw_config.get('aliases', [])
-                if str(alias).strip()
-            )
-            public_aliases: list[str] = []
-            for alias in configured_aliases:
-                public_alias = _canonical_sensor_name(alias)
-                if public_alias != name:
-                    public_aliases.append(public_alias)
-            aliases = _dedupe_aliases(tuple(public_aliases))
             configs[name] = PositionSensorConfig(
                 name=name,
-                sensor_purpose=str(raw_config.get('purpose', 'rail_point')).strip().lower(),
                 points=self._position_sensor_points_from_config(name, raw_config),
-                switch_name=(
-                    _canonical_switch_name(str(switch_name).strip().upper())
-                    if switch_name is not None
-                    else None
-                ),
-                branch_state=branch_state,
-                loop_side=normalized_loop_side,
-                index_zone=str(index_zone).strip() if index_zone is not None else None,
-                start_slot=(
-                    self._normalize_start_slot(start_slot)
-                    if start_slot is not None
-                    else None
-                ),
-                aliases=aliases,
             )
         return configs
 
@@ -1838,25 +1817,11 @@ class Room315KinematicShuttleNode(Node):
 
             first_device = sensor_devices[0]
             metadata = first_device.metadata or {}
-            branch_state, normalized_loop_side = self._normalize_position_sensor_branch(
-                metadata.get('branch')
+            self._validate_position_sensor_metadata(
+                sensor_name,
+                metadata,
+                start_slot=metadata.get('start_slot', metadata.get('slot')),
             )
-            explicit_loop_side = metadata.get('loop_side')
-            if explicit_loop_side is not None:
-                normalized_loop_side = str(explicit_loop_side).strip().upper()
-            switch_name = metadata.get('switch')
-            index_zone = metadata.get('index_zone')
-            start_slot = metadata.get('start_slot', metadata.get('slot'))
-            configured_aliases = tuple(
-                str(alias).strip().upper()
-                for alias in metadata.get('aliases', [])
-                if str(alias).strip()
-            )
-            public_aliases: list[str] = []
-            for alias in configured_aliases:
-                public_alias = _canonical_sensor_name(alias)
-                if public_alias != sensor_name:
-                    public_aliases.append(public_alias)
 
             points = tuple(
                 PositionSensorPoint(
@@ -1868,22 +1833,7 @@ class Room315KinematicShuttleNode(Node):
             )
             configs[sensor_name] = PositionSensorConfig(
                 name=sensor_name,
-                sensor_purpose=str(metadata.get('purpose', 'rail_point')).strip().lower(),
                 points=points,
-                switch_name=(
-                    _canonical_switch_name(str(switch_name).strip().upper())
-                    if switch_name is not None
-                    else None
-                ),
-                branch_state=branch_state,
-                loop_side=normalized_loop_side,
-                index_zone=str(index_zone).strip() if index_zone is not None else None,
-                start_slot=(
-                    self._normalize_start_slot(start_slot)
-                    if start_slot is not None
-                    else None
-                ),
-                aliases=_dedupe_aliases(tuple(public_aliases)),
             )
         return configs
 
@@ -3714,28 +3664,9 @@ class Room315KinematicShuttleNode(Node):
 
     def _normalize_commanded_switch_state(self, raw_state: str) -> str:
         state = raw_state.strip().upper()
-        if state in {
-            '1',
-            'TRUE',
-            'G',
-            'E',
-            'GRAND',
-            'GRAND_BOUCLE',
-            'BIG',
-            'LARGE',
-            'EXTERIOR',
-        }:
+        if state in {'E', 'EXTERIOR'}:
             return SWITCH_EXTERIOR_STATE
-        if state in {
-            '0',
-            'FALSE',
-            'S',
-            'I',
-            'PETIT',
-            'PETIT_BOUCLE',
-            'SMALL',
-            'INTERIOR',
-        }:
+        if state in {'I', 'INTERIOR'}:
             return SWITCH_INTERIOR_STATE
         return self.network.normalized_switch_state(state)
 
@@ -3775,7 +3706,7 @@ class Room315KinematicShuttleNode(Node):
 
     @staticmethod
     def _visual_mode_for_state(state: str) -> str:
-        return 'GRAND_BOUCLE' if state in {'G', '1'} else 'PETIT_BOUCLE'
+        return 'EXTERIOR' if state == SWITCH_EXTERIOR_STATE else 'INTERIOR'
 
     def _apply_due_pending_state_updates(self) -> None:
         due_switch_updates = self._pop_due_discrete_state_updates(
@@ -4428,11 +4359,7 @@ class Room315KinematicShuttleNode(Node):
     def _public_switch_state_map(self, raw_states: Dict[str, str]) -> Dict[str, str]:
         ordered_states = _ordered_switch_states(raw_states)
         return {
-            name: (
-                '0' if state == SWITCH_INTERIOR_STATE
-                else '1' if state == SWITCH_EXTERIOR_STATE
-                else state
-            )
+            name: state
             for name, state in ordered_states.items()
         }
 

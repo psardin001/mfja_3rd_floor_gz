@@ -34,8 +34,8 @@ SWITCH_DEFINITIONS = (
         'side_fr': 'droit',
         'side_en': 'right',
         'side_short': 'r',
-        'petit_yaw': 2.08919,
-        'grand_yaw': -2.1,
+        'interior_yaw': 2.08919,
+        'exterior_yaw': -2.1,
     },
     {
         'entity_name': 'A2_droit_switch',
@@ -44,8 +44,8 @@ SWITCH_DEFINITIONS = (
         'side_fr': 'droit',
         'side_en': 'right',
         'side_short': 'r',
-        'petit_yaw': 2.60106,
-        'grand_yaw': 0.50666,
+        'interior_yaw': 2.60106,
+        'exterior_yaw': 0.50666,
     },
     {
         'entity_name': 'A3_droit_switch',
@@ -54,8 +54,8 @@ SWITCH_DEFINITIONS = (
         'side_fr': 'droit',
         'side_en': 'right',
         'side_short': 'r',
-        'petit_yaw': -1.5877,
-        'grand_yaw': 0.50666,
+        'interior_yaw': -1.5877,
+        'exterior_yaw': 0.50666,
     },
     {
         'entity_name': 'A4_droit_switch',
@@ -64,8 +64,8 @@ SWITCH_DEFINITIONS = (
         'side_fr': 'droit',
         'side_en': 'right',
         'side_short': 'r',
-        'petit_yaw': -1.0587,
-        'grand_yaw': 3.13,
+        'interior_yaw': -1.0587,
+        'exterior_yaw': 3.13,
     },
     {
         'entity_name': 'A1_gauche_switch',
@@ -74,8 +74,8 @@ SWITCH_DEFINITIONS = (
         'side_fr': 'gauche',
         'side_en': 'left',
         'side_short': 'l',
-        'petit_yaw': 1.55349,
-        'grand_yaw': -2.63653,
+        'interior_yaw': 1.55349,
+        'exterior_yaw': -2.63653,
     },
     {
         'entity_name': 'A2_gauche_switch',
@@ -84,8 +84,8 @@ SWITCH_DEFINITIONS = (
         'side_fr': 'gauche',
         'side_en': 'left',
         'side_short': 'l',
-        'petit_yaw': 2.08919,
-        'grand_yaw': -0.025,
+        'interior_yaw': 2.08919,
+        'exterior_yaw': -0.025,
     },
     {
         'entity_name': 'A3_gauche_switch',
@@ -94,8 +94,8 @@ SWITCH_DEFINITIONS = (
         'side_fr': 'gauche',
         'side_en': 'left',
         'side_short': 'l',
-        'petit_yaw': -1.0587,
-        'grand_yaw': 1.04,
+        'interior_yaw': -1.0587,
+        'exterior_yaw': 1.04,
     },
     {
         'entity_name': 'A4_gauche_switch',
@@ -104,18 +104,18 @@ SWITCH_DEFINITIONS = (
         'side_fr': 'gauche',
         'side_en': 'left',
         'side_short': 'l',
-        'petit_yaw': -0.540815,
-        'grand_yaw': -2.63653,
+        'interior_yaw': -0.540815,
+        'exterior_yaw': -2.63653,
     },
 )
 
 MODE_YAWS: Dict[str, Dict[str, float]] = {
-    'petit_boucle': {
-        definition['entity_name']: definition['petit_yaw']
+    'interior': {
+        definition['entity_name']: definition['interior_yaw']
         for definition in SWITCH_DEFINITIONS
     },
-    'grand_boucle': {
-        definition['entity_name']: definition['grand_yaw']
+    'exterior': {
+        definition['entity_name']: definition['exterior_yaw']
         for definition in SWITCH_DEFINITIONS
     },
 }
@@ -129,33 +129,22 @@ ENTITY_TO_SUMMARY_LABEL = {
 }
 
 MODE_ALIASES = {
-    'grand_boucle': 'grand_boucle',
-    'grand': 'grand_boucle',
-    'grande_boucle': 'grand_boucle',
-    'large': 'grand_boucle',
-    'big': 'grand_boucle',
-    'e': 'grand_boucle',
-    'exterior': 'grand_boucle',
-    '1': 'grand_boucle',
-    'petit_boucle': 'petit_boucle',
-    'petit': 'petit_boucle',
-    'small': 'petit_boucle',
-    'mini': 'petit_boucle',
-    'i': 'petit_boucle',
-    'interior': 'petit_boucle',
-    '0': 'petit_boucle',
+    'e': 'exterior',
+    'exterior': 'exterior',
+    'i': 'interior',
+    'interior': 'interior',
 }
 
 MIXED_MODE = 'mixed'
 SWITCH_VISUAL_PATH = 'blade_link::blade_visual'
 SWITCH_MODE_COLORS = {
-    'petit_boucle': {
+    'interior': {
         'ambient': (0.05, 0.85, 0.15, 1.0),
         'diffuse': (0.05, 0.85, 0.15, 1.0),
         'specular': (0.02, 0.20, 0.05, 1.0),
         'emissive': (0.00, 0.03, 0.00, 1.0),
     },
-    'grand_boucle': {
+    'exterior': {
         'ambient': (1.00, 0.62, 0.05, 1.0),
         'diffuse': (1.00, 0.62, 0.05, 1.0),
         'specular': (0.25, 0.12, 0.02, 1.0),
@@ -215,6 +204,10 @@ SWITCH_SELECTOR_ALIASES = _build_switch_selector_aliases()
 
 
 def _canonical_mode_label(mode: str) -> str:
+    if mode == 'exterior':
+        return 'EXTERIOR'
+    if mode == 'interior':
+        return 'INTERIOR'
     return mode.upper()
 
 
@@ -373,10 +366,8 @@ class ConveyorLoopModeController(Node):
         ):
             raise RuntimeError(
                 f'Unsupported initial loop mode "{args.initial_loop_mode}". '
-                'Use auto, INTERIOR, EXTERIOR, PETIT_BOUCLE, or GRAND_BOUCLE.'
+                'Use auto, INTERIOR, or EXTERIOR.'
             )
-        self.command_topic = args.command_topic
-        self.state_topic = args.state_topic
         self.switch_command_topic = args.switch_command_topic
         self.switch_state_topic = args.switch_state_topic
 
@@ -398,14 +389,10 @@ class ConveyorLoopModeController(Node):
         state_qos = QoSProfile(depth=1)
         state_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
         state_qos.reliability = ReliabilityPolicy.RELIABLE
-        self.state_publisher = self.create_publisher(String, self.state_topic, state_qos)
         self.switch_state_publisher = self.create_publisher(
             String,
             self.switch_state_topic,
             state_qos,
-        )
-        self.command_subscription = self.create_subscription(
-            String, self.command_topic, self._handle_command, 10
         )
         self.switch_command_subscription = self.create_subscription(
             String,
@@ -441,8 +428,7 @@ class ConveyorLoopModeController(Node):
         else:
             self.get_logger().info(
                 'Initial world layout does not resolve to a single global loop mode. '
-                f'Listening on {self.command_topic} and {self.switch_command_topic} '
-                'for explicit switch commands.'
+                f'Listening on {self.switch_command_topic} for explicit switch commands.'
             )
         self._publish_current_switch_state()
         self.get_logger().info(
@@ -458,17 +444,6 @@ class ConveyorLoopModeController(Node):
                 source='initial_loop_mode launch argument',
                 resume_after=not self.keep_paused_after_initial_loop,
             )
-
-    def _handle_command(self, msg: String):
-        requested_mode = _normalize_mode(msg.data)
-        if requested_mode is None:
-            self.get_logger().warning(
-                f'Unsupported loop mode command "{msg.data}". '
-                'Use INTERIOR, EXTERIOR, PETIT_BOUCLE, or GRAND_BOUCLE.'
-            )
-            return
-
-        self._apply_mode(requested_mode, source=f'topic command "{msg.data}"')
 
     def _handle_switch_command(self, msg: String):
         requested_switch_modes = self._parse_switch_command(msg.data)
@@ -537,7 +512,7 @@ class ConveyorLoopModeController(Node):
             if requested_mode is None:
                 self.get_logger().warning(
                     f'Unsupported switch target mode "{mode_text}" in "{entry}". '
-                    'Use INTERIOR, EXTERIOR, PETIT_BOUCLE, or GRAND_BOUCLE.'
+                    'Use INTERIOR or EXTERIOR.'
                 )
                 return None
 
@@ -1217,18 +1192,7 @@ class ConveyorLoopModeController(Node):
         self._publish_current_switch_state()
 
     def _publish_current_switch_state(self):
-        current_label = (
-            _canonical_mode_label(self.current_mode)
-            if self.current_mode is not None
-            else 'UNKNOWN'
-        )
-        self._publish_state_label(current_label)
         self._publish_switch_state_summary()
-
-    def _publish_state_label(self, label: str):
-        msg = String()
-        msg.data = label
-        self.state_publisher.publish(msg)
 
     def _publish_switch_state_summary(self):
         msg = String()
@@ -1245,8 +1209,8 @@ class ConveyorLoopModeController(Node):
 def main():
     parser = argparse.ArgumentParser(
         description=(
-            'Subscribe to ROS 2 conveyor loop-mode topics and switch all MFJA conveyor '
-            'rail blades between INTERIOR / PETIT_BOUCLE and EXTERIOR / GRAND_BOUCLE.'
+            'Subscribe to the visual switch command topic and move MFJA conveyor '
+            'rail blades between INTERIOR and EXTERIOR.'
         )
     )
     parser.add_argument(
@@ -1263,16 +1227,6 @@ def main():
         '--partition',
         default='',
         help='Gazebo transport partition to use for service calls.',
-    )
-    parser.add_argument(
-        '--command-topic',
-        default='/mfja/conveyor/loop_mode_cmd',
-        help='ROS 2 std_msgs/String topic used to request INTERIOR/EXTERIOR or PETIT_BOUCLE/GRAND_BOUCLE.',
-    )
-    parser.add_argument(
-        '--state-topic',
-        default='/mfja/conveyor/loop_mode',
-        help='ROS 2 std_msgs/String topic that republishes the last known applied mode.',
     )
     parser.add_argument(
         '--switch-command-topic',
@@ -1309,8 +1263,7 @@ def main():
         help=(
             'Loop mode to apply as soon as the controller starts. '
             'Use auto to keep the mode detected from the world file, '
-            'or INTERIOR / EXTERIOR (also PETIT_BOUCLE / GRAND_BOUCLE) '
-            'to force a startup mode.'
+            'or INTERIOR / EXTERIOR to force a startup mode.'
         ),
     )
     parser.add_argument(

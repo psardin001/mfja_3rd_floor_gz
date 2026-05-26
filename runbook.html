@@ -467,16 +467,16 @@ source install/setup.bash</code></pre>
               <td><code>DA1L</code>, <code>DA2L</code>, <code>DA3L</code>, <code>DA4L</code></td>
             </tr>
             <tr>
-              <td>Switch branch G detection</td>
+              <td>Switch branch E detection</td>
               <td><code>sensor</code></td>
-              <td><code>DA1GR</code>, <code>DA2GR</code>, <code>DA3GR</code>, <code>DA4GR</code></td>
-              <td><code>DA1GL</code>, <code>DA2GL</code>, <code>DA3GL</code>, <code>DA4GL</code></td>
+              <td><code>DA1ER</code>, <code>DA2ER</code>, <code>DA3ER</code>, <code>DA4ER</code></td>
+              <td><code>DA1EL</code>, <code>DA2EL</code>, <code>DA3EL</code>, <code>DA4EL</code></td>
             </tr>
             <tr>
-              <td>Switch branch S detection</td>
+              <td>Switch branch I detection</td>
               <td><code>sensor</code></td>
-              <td><code>DA1SR</code>, <code>DA2SR</code>, <code>DA3SR</code>, <code>DA4SR</code></td>
-              <td><code>DA1SL</code>, <code>DA2SL</code>, <code>DA3SL</code>, <code>DA4SL</code></td>
+              <td><code>DA1IR</code>, <code>DA2IR</code>, <code>DA3IR</code>, <code>DA4IR</code></td>
+              <td><code>DA1IL</code>, <code>DA2IL</code>, <code>DA3IL</code>, <code>DA4IL</code></td>
             </tr>
           </tbody>
         </table>
@@ -808,8 +808,15 @@ ros2 run mfja_robot_control_config room_315_device_position_tool.py \
           <code>DA*</code> detectors. Add <code>--write</code> only after the dry-run
           distance looks reasonable.
         </p>
+        <p>
+          For <code>DZI*</code> entries, sensor feedback follows the entry's
+          <code>segment</code>, <code>s_ratio</code>, and <code>radius_m</code>.
+          Older custom files may still contain descriptive <code>index_zone</code>
+          or <code>start_slot</code> labels, but those labels do not move the
+          detector.
+        </p>
         <div class="command">
-          <div class="command-bar"><span>Move DA2GL</span><button class="copy-btn" data-copy="cmd-device-position-move-sensor">Copy</button></div>
+          <div class="command-bar"><span>Move DA2EL</span><button class="copy-btn" data-copy="cmd-device-position-move-sensor">Copy</button></div>
           <pre><code id="cmd-device-position-move-sensor">cd "${MFJA_WS:-$HOME/test_mfja_ws}"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
@@ -820,7 +827,7 @@ ros2 run mfja_robot_control_config room_315_device_position_tool.py \
   --y -4.20 \
   --z 0.84 \
   --category position_sensors \
-  --name DA2GL \
+  --name DA2EL \
   --write</code></pre>
         </div>
 
