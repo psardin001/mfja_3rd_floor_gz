@@ -130,11 +130,6 @@ def generate_launch_description():
             description='Room 315 stopper motion delay in seconds.',
         ),
         DeclareLaunchArgument(
-            'room315_stopper_stop_before_m',
-            default_value='0.1',
-            description='Room 315 distance before a stopper where shuttles stop, in meters.',
-        ),
-        DeclareLaunchArgument(
             'room315_sensor_publish_rate_hz',
             default_value='10.0',
             description='Room 315 binary sensor feedback publish rate.',
@@ -179,9 +174,6 @@ def generate_launch_description():
                         ),
                         'stopper_motion_delay_s': LaunchConfiguration(
                             'room315_stopper_motion_delay_s'
-                        ),
-                        'stopper_stop_before_m': LaunchConfiguration(
-                            'room315_stopper_stop_before_m'
                         ),
                         'sensor_publish_rate_hz': LaunchConfiguration(
                             'room315_sensor_publish_rate_hz'
