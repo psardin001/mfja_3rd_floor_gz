@@ -1874,7 +1874,6 @@ ros2 run mfja_robot_control_config room_315_kinematic_shuttle.py \
 | `pose_offset_command_topic` | `/room_315/rails/right/shuttles/pose_offset_command` | Runtime pose calibration topic for the right rail. The left rail default is `/room_315/rails/left/shuttles/pose_offset_command`. |
 | `switch_motion_delay_s` | `0.3` | Delay before requested switch state becomes actual and the visible Gazebo switch model moves. |
 | `stopper_motion_delay_s` | `0.1` | Delay before requested stopper state becomes actual. |
-| `stopper_stop_before_m` | `0.1` | Fallback stop distance for legacy network-only stopper definitions. Device-YAML stoppers use linked `position_sensors.before_stopper_m`. |
 | `publish_visual_switch_commands` | `true` | Move the visible Gazebo switch models when delayed actual switch states are applied. |
 | `sync_from_visual_switch_states` | `true` | Sync route logic from the latest visual switch state. |
 

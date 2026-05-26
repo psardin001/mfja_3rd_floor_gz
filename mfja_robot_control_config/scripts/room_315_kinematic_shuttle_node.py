@@ -345,7 +345,7 @@ def _ordered_switch_states(switch_states: Dict[str, str]) -> Dict[str, str]:
 class StopPoint:
     segment: str
     stop_s: float
-    trigger_s: float | None = None
+    trigger_s: float
 
 
 @dataclass(frozen=True)
@@ -868,7 +868,6 @@ class Room315KinematicShuttleNode(Node):
         self.declare_parameter('publish_visual_switch_commands', True)
         self.declare_parameter('switch_motion_delay_s', 0.3)
         self.declare_parameter('stopper_motion_delay_s', 0.1)
-        self.declare_parameter('stopper_stop_before_m', 0.1)
         self.declare_parameter('enable_gazebo_pose_transform', True)
         self.declare_parameter('pose_transform_a', -0.893249246800)
         self.declare_parameter('pose_transform_b', 0.005839516878)
@@ -1110,10 +1109,6 @@ class Room315KinematicShuttleNode(Node):
         self.stopper_motion_delay_s = max(
             0.0,
             float(self.get_parameter('stopper_motion_delay_s').value),
-        )
-        self.stopper_stop_before_m = max(
-            0.0,
-            float(self.get_parameter('stopper_stop_before_m').value),
         )
         self.enable_gazebo_pose_transform = bool(
             self.get_parameter('enable_gazebo_pose_transform').value
@@ -1439,7 +1434,6 @@ class Room315KinematicShuttleNode(Node):
             f'visual_switch_state_topic={visual_switch_state_topic}, '
             f'switch_motion_delay_s={self.switch_motion_delay_s:.3f}, '
             f'stopper_motion_delay_s={self.stopper_motion_delay_s:.3f}, '
-            f'stopper_stop_before_m={self.stopper_stop_before_m:.3f}, '
             f'sensor_publish_rate_hz={sensor_publish_rate_hz:.3f}, '
             f'entity_prefix={self.entity_name_prefix}, '
             f'spawn_service={gazebo_spawn_service}, '
@@ -1578,72 +1572,7 @@ class Room315KinematicShuttleNode(Node):
         return allowed
 
     def _load_stopper_configs(self) -> Dict[str, StopperConfig]:
-        if self.rail_devices.stoppers:
-            return self._load_stopper_configs_from_devices()
-
-        configs: Dict[str, StopperConfig] = {}
-        raw_configs = self.network.config.get('stoppers', {}) or {}
-        for raw_name, raw_config in raw_configs.items():
-            internal_name = str(raw_name).strip().upper()
-            name = _canonical_switch_name(internal_name)
-            before_switch = _canonical_switch_name(
-                str(raw_config.get('before_switch', internal_name)).strip().upper()
-            )
-            default_state = self._normalize_stopper_state(
-                str(raw_config.get('default_state', STOPPER_PASS_STATE))
-            )
-            default_stop_offset_m = float(raw_config.get('stop_offset_m', 0.08))
-            stop_points: list[StopPoint] = []
-
-            raw_stop_points = raw_config.get('stop_points')
-            if raw_stop_points is None:
-                raw_stop_points = [
-                    {'segment': segment_name}
-                    for segment_name in raw_config.get('segments', [])
-                ]
-
-            for raw_stop_point in raw_stop_points:
-                segment_name = str(raw_stop_point['segment']).strip()
-                if segment_name not in self.network.segments:
-                    raise ValueError(
-                        f'Stopper {name} references unknown segment {segment_name!r}.'
-                    )
-
-                segment = self.network.segments[segment_name]
-                if 's' in raw_stop_point:
-                    stop_s = float(raw_stop_point['s'])
-                else:
-                    stop_offset_m = float(
-                        raw_stop_point.get('stop_offset_m', default_stop_offset_m)
-                    )
-                    stop_s = segment.length - stop_offset_m
-                stop_s = max(0.0, min(stop_s, segment.length))
-                trigger_offset_m = float(
-                    raw_stop_point.get(
-                        'trigger_before_stop_m',
-                        raw_config.get(
-                            'trigger_before_stop_m',
-                            self.stopper_stop_before_m,
-                        ),
-                    )
-                )
-                stop_points.append(
-                    StopPoint(
-                        segment=segment_name,
-                        stop_s=stop_s,
-                        trigger_s=max(0.0, stop_s - trigger_offset_m),
-                    )
-                )
-
-            if not stop_points:
-                raise ValueError(f'Stopper {name} must define at least one stop point.')
-            configs[name] = StopperConfig(
-                name=name,
-                before_switch=before_switch,
-                default_state=default_state,
-                stop_points=tuple(stop_points),
-            )
-        return configs
+        return self._load_stopper_configs_from_devices()
 
     def _linked_position_sensor_lookup(self) -> Dict[str, tuple[str, tuple[RailDevice, ...]]]:
         sensors_by_stopper: Dict[str, tuple[str, tuple[RailDevice, ...]]] = {}
@@ -3914,7 +3843,6 @@ class Room315KinematicShuttleNode(Node):
             'start_slot_occupancy_radius_m',
             'switch_motion_delay_s',
             'stopper_motion_delay_s',
-            'stopper_stop_before_m',
             'sensor_publish_rate_hz',
         }
         boolean_parameters = {
@@ -3936,7 +3864,6 @@ class Room315KinematicShuttleNode(Node):
                     elif parameter.name in {
                         'switch_motion_delay_s',
                         'stopper_motion_delay_s',
-                        'stopper_stop_before_m',
                     }:
                         value = float(parameter.value)
                         if value < 0.0:
@@ -4111,11 +4038,7 @@ class Room315KinematicShuttleNode(Node):
                 if physical_distance_m < -1e-6:
                     continue
 
-                target_s = (
-                    stop_point.trigger_s
-                    if stop_point.trigger_s is not None
-                    else max(0.0, stop_point.stop_s - self.stopper_stop_before_m)
-                )
+                target_s = stop_point.trigger_s
                 distance_m = target_s - state.s
                 if distance_m < -1e-6:
                     target_s = state.s

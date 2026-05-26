@@ -513,8 +513,7 @@ Switch and stopper motion delays are configurable:
 ros2 launch mfja_robot_control_config room_315_dual_kinematic_shuttles.launch.py \
   gazebo_world_name:=room_315_only \
   switch_motion_delay_s:=0.3 \
-  stopper_motion_delay_s:=0.1 \
-  stopper_stop_before_m:=0.1
+  stopper_motion_delay_s:=0.1
 ```
 
 The delay is measured on the node ROS clock, so with `use_sim_time:=true` it
@@ -525,13 +524,11 @@ At runtime, the same parameters can be changed on each shuttle node:
 ```bash
 ros2 param set /room_315/rails/right/room_315_kinematic_shuttle switch_motion_delay_s 0.5
 ros2 param set /room_315/rails/right/room_315_kinematic_shuttle stopper_motion_delay_s 0.2
-ros2 param set /room_315/rails/right/room_315_kinematic_shuttle stopper_stop_before_m 0.1
 ```
 
 With the current rail device YAML, a closed stopper stops the shuttle at the
 matching stopper-linked position sensor point, which is derived from
-`before_stopper_m`. `stopper_stop_before_m` remains as the fallback distance for
-legacy network-only stopper definitions.
+`before_stopper_m`.
 
 ## Stopper and Sensor Workflow
 
