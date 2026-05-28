@@ -1,56 +1,66 @@
 # MFJA 3rd Floor Gazebo — Room 315 Kinematic Shuttle
 
-This repository contains the Gazebo Harmonic / ROS 2 Jazzy simulation assets for the MFJA 3rd floor, with the focus on the Room 315 flexible rail system.
+This repository contains the Gazebo Harmonic / ROS 2 Jazzy simulation assets for the MFJA 3rd floor, focusing on the **Room 315 flexible rail system**.
 
-The current project state is a **kinematic-first shuttle simulation**. Shuttles move along arc-length paths generated from calibrated CSV rail geometry and an explicit rail graph, updating Gazebo model poses via the `/world/<world_name>/set_pose` bridge.
+## 📖 General Overview
 
----
+The current project state is a **kinematic-first shuttle simulation**. Instead of relying on complex contact dynamics and physics (like wheel friction), the shuttles move kinematically. They follow arc-length paths generated from a calibrated CSV rail geometry and an explicit rail graph. The system updates the Gazebo model poses directly via the `/world/<world_name>/set_pose` bridge.
 
-## 📖 Quick Links & Documentation
-
-To keep this main README concise, detailed guides have been moved to dedicated files:
-
-*   **[Detailed Feature & API Guide (DETAILED_GUIDE.md)](DETAILED_GUIDE.md)**:
-    *   Step-by-step feature guides (ON/OFF control, switches, stoppers, sensors)
-    *   Typed interfaces, ROS 2 topics, and service details
-    *   Multi-shuttle setup, collision avoidance, and troubleshooting
-*   **[Room 315 Kinematic Rail Network Specs](mfja_robot_control_config/config/room_315_kinematics/README.md)**: Low-level details about segment directions, device YAMLs, and sensor cookbook testing.
-*   **[HTML Runbook](runbook.html)**: A focused visualization and operational guide.
+This allows for reliable, highly controllable testing of routing logic, switch control, multiple shuttles, and station interactions without physical simulation instability.
 
 ---
 
-## 📂 Repository Layout
+## 🛠️ Installation Guide
 
-This git repository is organized as a **meta-repository**:
+The project requires **Ubuntu 24.04** and **ROS 2 Jazzy**. The repository acts as a meta-repository and must be built inside a colcon workspace.
 
-*   `mfja_3rd_floor_description/`: Gazebo worlds, models, meshes, and URDF/SDF assets.
-*   `mfja_rail_interfaces/`: Custom ROS 2 interfaces for commands, states, and sensors.
-*   `mfja_robot_control_config/`: Shuttle/switch scripts, bridge configurations, and rail kinematic settings.
-*   `mfja_3rd_floor_bringup/`: Centralized launch entry points for Room 315, full floor, and isolated robot configurations.
-
----
-
-## ⚡ Quick Start
-
-### 1. Build the Workspace
-
-From your colcon workspace root:
-
+### 1. Install Prerequisites
+Make sure ROS 2 Jazzy is installed, along with essential build tools:
 ```bash
-# Install dependencies
-rosdep install --from-paths src/mfja_3rd_floor_gz -y --ignore-src --rosdistro jazzy
+sudo apt update
+sudo apt install -y build-essential cmake git ninja-build pkg-config \
+  python3-colcon-common-extensions python3-rosdep python3-yaml \
+  ros-jazzy-desktop ros-jazzy-robot-state-publisher ros-jazzy-ros-gz
 
-# Build
-colcon build --symlink-install --base-paths src/mfja_3rd_floor_gz
-
-# Source
-source install/setup.bash
+# Initialize rosdep if you haven't already
+sudo rosdep init || true
+rosdep update
 ```
 
-### 2. Launch the Simulation (Room 315 Only)
+### 2. Clone the Repository
+Create a workspace and clone this meta-repository inside its `src/` folder:
+```bash
+export MFJA_WS=~/mfja_ws
+mkdir -p "$MFJA_WS/src"
+cd "$MFJA_WS/src"
+git clone https://github.com/aip-primeca-occitanie/mfja_3rd_floor_gz.git
+```
 
-Start Room 315 with one right-rail shuttle and one left-rail shuttle waiting for commands:
+### 3. Build and Source
+Install ROS dependencies, build the workspace, and source it:
+```bash
+cd "$MFJA_WS"
+source /opt/ros/jazzy/setup.bash
 
+# Install dependencies defined in package.xml files
+rosdep install --from-paths src/mfja_3rd_floor_gz -y --ignore-src --rosdistro jazzy
+
+# Build the workspace
+colcon build --symlink-install --base-paths src/mfja_3rd_floor_gz
+
+# Source the installed environment
+source install/setup.bash
+```
+*(Note: You must run `source install/setup.bash` in every new terminal you open.)*
+
+---
+
+## ⚡ Basic Commands & Quick Start
+
+Here are the essential commands you need to launch and interact with the simulation.
+
+### 1. Launching the Simulation
+You can launch just Room 315. The following command launches Gazebo with the rail system, UI markers, and prepares 1 shuttle on each rail (waiting for the `ON` command):
 ```bash
 ros2 launch mfja_3rd_floor_bringup room_315_only.launch.py \
   robots:=none \
@@ -62,26 +72,25 @@ ros2 launch mfja_3rd_floor_bringup room_315_only.launch.py \
   room315_shuttles_start_enabled:=false
 ```
 
-### 3. Basic Shuttle Control
-
-Turn on the right shuttle:
-
+### 2. Controlling Shuttles (ON/OFF/RESET)
+Turn on the right-rail shuttle so it starts moving along its path:
 ```bash
 ros2 topic pub --once /room_315/rails/right/shuttles/command \
   mfja_rail_interfaces/msg/ShuttleCommand \
   "{name: 'room315_right_shuttle_1', command: 'ON'}"
 ```
+*You can also send `OFF` to pause it, or `RESET` to return it to its start slot.*
 
-Control switches on the right rail:
-
+### 3. Controlling Switches
+Switches define the route. You can set them to `INTERIOR` or `EXTERIOR`. To switch all right-rail switches to the exterior branch:
 ```bash
 ros2 topic pub --once /room_315/rails/right/switches/command \
   mfja_rail_interfaces/msg/SwitchCommand \
   "{switches: [{name: 'ALL', state: 'EXTERIOR'}]}"
 ```
 
-Control stoppers on the right rail:
-
+### 4. Controlling Stoppers
+Stoppers block a shuttle from entering a switch. `1` means STOP/CLOSED, `0` means PASS/OPEN:
 ```bash
 ros2 topic pub --once /room_315/rails/right/stoppers/command \
   mfja_rail_interfaces/msg/StopperCommand \
@@ -90,4 +99,19 @@ ros2 topic pub --once /room_315/rails/right/stoppers/command \
 
 ---
 
-*For advanced scenarios, dataset collection/recording, Nix environments, collision parameters, and troubleshooting, please refer to **[DETAILED_GUIDE.md](DETAILED_GUIDE.md)**.*
+## 📂 Repository Layout
+
+*   `mfja_3rd_floor_description/`: Gazebo worlds, models, meshes, and URDF/SDF assets.
+*   `mfja_rail_interfaces/`: Custom ROS 2 interfaces for commands, states, and sensors.
+*   `mfja_robot_control_config/`: Shuttle/switch scripts, bridge configurations, and rail kinematic settings.
+*   `mfja_3rd_floor_bringup/`: Centralized launch entry points for Room 315, full floor, and isolated robot configurations.
+
+---
+
+## 📚 Detailed Documentation
+
+For a deep dive into advanced features, please refer to our dedicated documentation files:
+
+*   **[Detailed Feature & API Guide (DETAILED_GUIDE.md)](DETAILED_GUIDE.md)**: Includes step-by-step guides for adding shuttles dynamically, reading sensor feedback, collision avoidance, testing industrial robots, and troubleshooting.
+*   **[Room 315 Kinematic Rail Network Specs](mfja_robot_control_config/config/room_315_kinematics/README.md)**: Technical details about segment directions, device YAMLs, and sensor cookbook testing.
+*   **[HTML Runbook](runbook.html)**: A focused visualization and operational guide.
