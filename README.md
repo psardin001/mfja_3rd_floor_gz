@@ -15,7 +15,6 @@ To keep this main README concise, detailed guides have been moved to dedicated f
     *   Typed interfaces, ROS 2 topics, and service details
     *   Multi-shuttle setup, collision avoidance, and troubleshooting
 *   **[Room 315 Kinematic Rail Network Specs](mfja_robot_control_config/config/room_315_kinematics/README.md)**: Low-level details about segment directions, device YAMLs, and sensor cookbook testing.
-*   **[VLA Arabic Explanation Report](reports/vla_explanation_ar.html)**: Arabic documentation explaining SmolVLA/LeRobot training, dataset recording, and VLA HTTP binding mechanisms.
 *   **[HTML Runbook](runbook.html)**: A focused visualization and operational guide.
 
 ---
