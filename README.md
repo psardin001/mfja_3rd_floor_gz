@@ -6,7 +6,7 @@ This repository contains the Gazebo Harmonic / ROS 2 Jazzy simulation assets for
 
 The simulation environment provides a comprehensive digital twin of the MFJA 3rd floor, featuring multiple work cells, industrial robotic arms (KUKA, Stäubli, Yaskawa), and mobile robots (TIAGo). 
 
-A major focus of this repository is the **Room 315 flexible rail system**, which currently utilizes a highly reliable **kinematic-first shuttle simulation**. Instead of relying on complex physics interactions like wheel friction, shuttles move along arc-length paths generated from a calibrated explicit rail graph, ensuring smooth and predictable behavior for testing routing logic, multi-shuttle interactions, and switch controls.
+A major focus of this repository is the **Room 315 flexible rail system**, which currently utilizes a highly reliable **kinematic shuttle simulation**. Instead of relying on complex physics interactions like wheel friction, shuttles move along arc-length paths generated from a calibrated explicit rail graph, ensuring smooth and predictable behavior for testing routing logic, multi-shuttle interactions, and switch controls.
 
 Whether you are testing mobile robot navigation on the full floor, running pick-and-place tasks with a single robotic arm, or orchestrating a complex multi-shuttle logistics scenario in Room 315, this repository provides the necessary models and launch configurations.
 
@@ -102,11 +102,11 @@ ros2 topic pub --once /room_315/rails/right/shuttles/command \
   "{name: 'room315_right_shuttle_1', command: 'ON'}"
 ```
 
-**Control rail switches (e.g., switch all to exterior):**
+**Control rail switches (e.g., switch all to interior):**
 ```bash
 ros2 topic pub --once /room_315/rails/right/switches/command \
   mfja_rail_interfaces/msg/SwitchCommand \
-  "{switches: [{name: 'ALL', state: 'EXTERIOR'}]}"
+  "{switches: [{name: 'ALL', state: 'INTERIOR'}]}"
 ```
 
 ---
