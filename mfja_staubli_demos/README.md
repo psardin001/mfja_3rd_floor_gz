@@ -148,6 +148,8 @@ export HPP_EXEC_DIR=~/hpp-exec
 mfja_staubli_demos/scripts/room315_hpp_line.sh --goto-start
 ```
 
+Wait for the printed motion duration to finish before starting the line.
+
 Run the default line: straight up from one quarter to three quarters of the
 robot height, 0.5 m in front of the base, inside the glass:
 
