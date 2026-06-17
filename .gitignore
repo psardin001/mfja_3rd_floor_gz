@@ -6,6 +6,7 @@ log/
 .codex
 __pycache__/
 *.pyc
+*.egg-info/
 *.aux
 *.log
 *.out
