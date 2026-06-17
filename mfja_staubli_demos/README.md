@@ -100,8 +100,8 @@ export HPP_EXEC_DIR=~/hpp-exec
 ```
 
 If an `hpp-exec` container is already running, stop it before using this demo
-unless it was started by `scripts/room315_hpp_line.sh`; the wrapper must mount
-the MFJA source checkout into the container:
+unless it was started by `mfja_staubli_demos/scripts/room315_hpp_line.sh`; the
+wrapper must mount the MFJA source checkout into the container:
 
 ```bash
 docker rm -f hpp-exec
@@ -120,7 +120,7 @@ export HPP_EXEC_DIR=~/hpp-exec
 Run a planning-only smoke test before starting Gazebo:
 
 ```bash
-scripts/room315_hpp_line.sh --plan-only
+mfja_staubli_demos/scripts/room315_hpp_line.sh --plan-only
 ```
 
 Expected output includes a line like:
@@ -132,7 +132,7 @@ max straight-line deviation: 0.0000xx m
 Start the simulation:
 
 ```bash
-scripts/room315_demo.sh
+mfja_staubli_demos/scripts/room315_demo.sh
 ```
 
 In another terminal, from the same source checkout, move the robot from the
@@ -141,26 +141,26 @@ spawn pose to the working pose:
 ```bash
 export MFJA_WS=~/mfja_ws
 export HPP_EXEC_DIR=~/hpp-exec
-scripts/room315_hpp_line.sh --goto-start
+mfja_staubli_demos/scripts/room315_hpp_line.sh --goto-start
 ```
 
 Run the default line: straight up from one quarter to three quarters of the
 robot height, 0.5 m in front of the base, inside the glass:
 
 ```bash
-scripts/room315_hpp_line.sh
+mfja_staubli_demos/scripts/room315_hpp_line.sh
 ```
 
 Move back down:
 
 ```bash
-scripts/room315_hpp_line.sh --line 0 0 -0.6475
+mfja_staubli_demos/scripts/room315_hpp_line.sh --line 0 0 -0.6475
 ```
 
 Try another line in the Staubli base frame, in meters:
 
 ```bash
-scripts/room315_hpp_line.sh --line 0 0.2 0 --duration 8
+mfja_staubli_demos/scripts/room315_hpp_line.sh --line 0 0.2 0 --duration 8
 ```
 
 The line starts at the current tool position. After a line up, run the opposite
@@ -206,16 +206,24 @@ The process must see the same `ROS_DOMAIN_ID` as Gazebo.
 ## How It Works
 
 ```
-scripts/room315_demo.sh                  scripts/room315_hpp_line.sh
-        |                                        |
-room_315_staubli_cartesian_demo          hpp-exec container (pyhpp + rclpy,
-.launch.py: gz server, bridges,          host network, ROS_DOMAIN_ID=7,
-robot spawn, GUI as separate             /dev/shm shared for Fast DDS)
-process                                          |
-        |                                hpp/room315_hpp_line.py
-   ros_gz bridge  <-----------------------------+
+mfja_staubli_demos/scripts/room315_demo.sh
+        |
+room_315_staubli_cartesian_demo
+.launch.py: gz server, bridges,
+robot spawn, GUI as separate
+process
+        |
+   ros_gz bridge
         |
 gz JointTrajectory plugin moves the robot
+
+mfja_staubli_demos/scripts/room315_hpp_line.sh
+        |
+    hpp-exec container (pyhpp + rclpy,
+    host network, ROS_DOMAIN_ID=7,
+    /dev/shm shared for Fast DDS)
+        |
+mfja_staubli_demos/hpp/room315_hpp_line.py
 ```
 
 Each invocation of `room315_hpp_line.py`:
