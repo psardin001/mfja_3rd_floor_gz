@@ -5,7 +5,7 @@
 SCRIPT_DIR=$(cd -- "$(dirname -- "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
 MFJA_REPO=$(cd -- "$SCRIPT_DIR/../.." && pwd)
 HPP_EXEC_DIR=${HPP_EXEC_DIR:-$HOME/devel/nix-hpp/src/hpp-exec}
-CONTAINER_REPO=/home/user/devel/mfja_3rd_floor_gz
+CONTAINER_REPO=/home/user/mfja_3rd_floor_gz
 
 if [[ ! -x "$HPP_EXEC_DIR/run.sh" ]]; then
   echo "hpp-exec run.sh not found; set HPP_EXEC_DIR=/path/to/hpp-exec." >&2
