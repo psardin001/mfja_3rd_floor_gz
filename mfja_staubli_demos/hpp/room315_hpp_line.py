@@ -135,9 +135,6 @@ def main():
     data = model.createData()
     line = np.array(args.line)
 
-    # Each run plans fresh from the measured robot configuration: the
-    # trajectory starts exactly where the robot is, so the controller never
-    # receives a step input, and no transit motion is needed.
     node = None
     if args.plan_only:
         q_start = np.array(args.q_start)
@@ -169,8 +166,6 @@ def main():
                     f"motion to the start configuration is blocked: {report}"
                 )
         else:
-            # Recovery from a collided state (e.g. resting against the cell):
-            # the path cannot be validated, so retreat slowly instead.
             print(f"warning: recovering from invalid configuration ({report})")
             _, path, _ = problem.directPath(q_start, q_target, False)
         configs = sample_path(path, 25)
