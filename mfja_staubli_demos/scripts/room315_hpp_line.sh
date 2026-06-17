@@ -4,8 +4,18 @@
 # the live robot. Arguments are forwarded to hpp/room315_hpp_line.py.
 SCRIPT_DIR=$(cd -- "$(dirname -- "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
 MFJA_REPO=$(cd -- "$SCRIPT_DIR/../.." && pwd)
-HPP_EXEC_DIR=${HPP_EXEC_DIR:-$HOME/devel/nix-hpp/src/hpp-exec}
 CONTAINER_REPO=/home/user/mfja_3rd_floor_gz
+
+LOCAL_ENV="$SCRIPT_DIR/room315_local_env.sh"
+if [[ -f "$LOCAL_ENV" ]]; then
+  source "$LOCAL_ENV"
+fi
+
+if [[ -z "${HPP_EXEC_DIR:-}" ]]; then
+  echo "HPP_EXEC_DIR is not set; point it to your hpp-exec checkout." >&2
+  echo "Example: export HPP_EXEC_DIR=\$HOME/hpp-exec" >&2
+  exit 1
+fi
 
 if [[ ! -x "$HPP_EXEC_DIR/run.sh" ]]; then
   echo "hpp-exec run.sh not found; set HPP_EXEC_DIR=/path/to/hpp-exec." >&2

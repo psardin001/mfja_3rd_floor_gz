@@ -77,27 +77,36 @@ export MFJA_SETUP=/path/to/mfja_ws/install/setup.bash
 
 ## Install HPP
 
-The recommended path is the `hpp-exec` Docker container. Build it once:
+The recommended path is the `hpp-exec` Docker container. MFJA and Gazebo run on
+the host; HPP planning runs in this container.
+
+Start the container once:
 
 ```bash
 cd ~/hpp-exec
 ./run.sh
 ```
 
-Inside the container, build HPP the first time:
+Inside the container, build the HPP Python stack the first time:
 
 ```bash
 cd ~/devel/src
-make all
+make hpp-python.install
 exit
 ```
 
-Tell the MFJA wrapper where `hpp-exec` lives if it is not in the default
-`~/devel/nix-hpp/src/hpp-exec` location:
+`make all` also builds `hpp-gepetto-viewer`; it is useful for HPP visualization
+work, but the Staubli Gazebo demo does not need it.
+
+Tell the MFJA wrapper where your `hpp-exec` checkout lives:
 
 ```bash
 export HPP_EXEC_DIR=~/hpp-exec
 ```
+
+For a persistent machine-local setting, create
+`mfja_staubli_demos/scripts/room315_local_env.sh` with the same export. That
+file is ignored by Git.
 
 If an `hpp-exec` container is already running, stop it before using this demo
 unless it was started by `mfja_staubli_demos/scripts/room315_hpp_line.sh`; the
@@ -254,10 +263,14 @@ that is only meant to recover from a bad state.
 
 ## Troubleshooting
 
-- `hpp-exec run.sh not found`: set `HPP_EXEC_DIR=/path/to/hpp-exec`.
+- `HPP_EXEC_DIR is not set`: export `HPP_EXEC_DIR=/path/to/hpp-exec` or create
+  `mfja_staubli_demos/scripts/room315_local_env.sh`.
+- `hpp-exec run.sh not found`: check that `HPP_EXEC_DIR` points to an
+  `hpp-exec` checkout with `run.sh`.
 - `MFJA workspace setup not found`: set `MFJA_WS` or `MFJA_SETUP`.
 - `No module named pyhpp`: build HPP inside the `hpp-exec` container with
-  `cd ~/devel/src && make all`, or source your local HPP environment.
+  `cd ~/devel/src && make hpp-python.install`, or source your local HPP
+  environment.
 - `No module named hpp_exec` or missing `read_current_configuration`: use an
   `hpp-exec` checkout that contains that helper.
 - No ROS communication between the planner and Gazebo: make sure both sides use
