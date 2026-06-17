@@ -17,12 +17,15 @@ from launch.actions import (
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
     gz_partition = LaunchConfiguration("gz_partition")
+    model_path = PathJoinSubstitution(
+        [FindPackageShare("mfja_3rd_floor_description"), "models"]
+    )
     return LaunchDescription(
         [
             DeclareLaunchArgument(
@@ -41,6 +44,22 @@ def generate_launch_description():
                 description="Render engine for the Gazebo GUI client.",
             ),
             SetEnvironmentVariable("GZ_PARTITION", gz_partition),
+            SetEnvironmentVariable(
+                "GZ_SIM_MODEL_PATH",
+                [
+                    model_path,
+                    os.pathsep,
+                    EnvironmentVariable("GZ_SIM_MODEL_PATH", default_value=""),
+                ],
+            ),
+            SetEnvironmentVariable(
+                "GZ_SIM_RESOURCE_PATH",
+                [
+                    model_path,
+                    os.pathsep,
+                    EnvironmentVariable("GZ_SIM_RESOURCE_PATH", default_value=""),
+                ],
+            ),
             # Scoped so the include's gui:=false does not overwrite this
             # file's own gui configuration (launch configurations are global).
             GroupAction(
