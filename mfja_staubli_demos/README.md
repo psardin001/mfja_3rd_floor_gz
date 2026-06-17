@@ -40,12 +40,6 @@ Planning side:
 
 - `hpp-exec` with `pyhpp`, `rclpy`, and the
   `hpp_exec.read_current_configuration` helper.
-- Until that helper is available in the upstream `hpp-exec` branch you use,
-  clone Paul Sardin's fork:
-
-  ```bash
-  git clone -b devel https://github.com/psardin001/hpp-exec.git ~/hpp-exec
-  ```
 
 ## Install MFJA
 
@@ -80,9 +74,10 @@ export MFJA_SETUP=/path/to/mfja_ws/install/setup.bash
 The recommended path is the `hpp-exec` Docker container. MFJA and Gazebo run on
 the host; HPP planning runs in this container.
 
-Start the container once:
+Clone `hpp-exec` from the HPP organization and start the container once:
 
 ```bash
+git clone -b devel https://github.com/humanoid-path-planner/hpp-exec.git ~/hpp-exec
 cd ~/hpp-exec
 ./run.sh
 ```
