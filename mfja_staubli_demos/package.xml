@@ -9,7 +9,6 @@
 
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
-  <exec_depend>hpp-exec</exec_depend>
   <exec_depend>mfja_3rd_floor_bringup</exec_depend>
   <exec_depend>mfja_3rd_floor_description</exec_depend>
   <exec_depend>mfja_robot_control_config</exec_depend>
