@@ -17,6 +17,10 @@ set -eo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
 MFJA_REPO=$(cd -- "$SCRIPT_DIR/../.." && pwd)
+LOCAL_ENV="$SCRIPT_DIR/room315_local_env.sh"
+if [[ -f "$LOCAL_ENV" ]]; then
+  source "$LOCAL_ENV"
+fi
 ROS_SETUP=${ROS_SETUP:-/opt/ros/jazzy/setup.bash}
 if [[ -z "${MFJA_SETUP:-}" ]]; then
   for setup in \

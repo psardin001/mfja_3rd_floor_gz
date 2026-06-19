@@ -42,12 +42,12 @@ Planning side:
 ## Install MFJA
 
 Choose one directory for the demo. The commands below use
-`~/mfja_staubli_demo`, but any absolute path works:
+`~/mfja_staubli_demo`, but any absolute path works.
 
 ```bash
-export MFJA_DEMO_HOME="$HOME/mfja_staubli_demo"
-export MFJA_WS="$MFJA_DEMO_HOME/mfja_ws"
-export HPP_EXEC_DIR="$MFJA_DEMO_HOME/hpp-exec"
+DEMO_HOME="$HOME/mfja_staubli_demo"
+MFJA_WS="$DEMO_HOME/mfja_ws"
+HPP_EXEC_DIR="$DEMO_HOME/hpp-exec"
 ```
 
 Clone the MFJA repository into a colcon workspace and build it:
@@ -82,25 +82,23 @@ cd "$HPP_EXEC_DIR"
 ./run.sh bash -lc 'cd ~/devel/src && make hpp-python.install'
 ```
 
-For a persistent machine-local setting, create
-`mfja_staubli_demos/scripts/room315_local_env.sh` after cloning MFJA:
+Create the machine-local environment file.
 
 ```bash
 cd "$MFJA_WS/src/mfja_3rd_floor_gz"
-printf 'export HPP_EXEC_DIR=%q\n' "$HPP_EXEC_DIR" \
-  > mfja_staubli_demos/scripts/room315_local_env.sh
+{
+  printf 'export HPP_EXEC_DIR=%q\n' "$HPP_EXEC_DIR"
+  printf 'export MFJA_SETUP=%q\n' "$MFJA_WS/install/setup.bash"
+} > mfja_staubli_demos/scripts/room315_local_env.sh
 ```
 
 ## First Run
 
-In every new terminal, restore the same paths and open the MFJA source
-checkout:
+In a new terminal, open the MFJA source checkout. The default install path is
+shown below; use your chosen demo directory if you changed it:
 
 ```bash
-export MFJA_DEMO_HOME="$HOME/mfja_staubli_demo"
-export MFJA_WS="$MFJA_DEMO_HOME/mfja_ws"
-export HPP_EXEC_DIR="$MFJA_DEMO_HOME/hpp-exec"
-cd "$MFJA_WS/src/mfja_3rd_floor_gz"
+cd "$HOME/mfja_staubli_demo/mfja_ws/src/mfja_3rd_floor_gz"
 ```
 
 Run a planning-only smoke test before starting Gazebo:
@@ -125,10 +123,7 @@ In another terminal, from the same source checkout, move the robot from the
 spawn pose to the working pose:
 
 ```bash
-export MFJA_DEMO_HOME="$HOME/mfja_staubli_demo"
-export MFJA_WS="$MFJA_DEMO_HOME/mfja_ws"
-export HPP_EXEC_DIR="$MFJA_DEMO_HOME/hpp-exec"
-cd "$MFJA_WS/src/mfja_3rd_floor_gz"
+cd "$HOME/mfja_staubli_demo/mfja_ws/src/mfja_3rd_floor_gz"
 mfja_staubli_demos/scripts/room315_hpp_line.sh --goto-start
 ```
 
@@ -244,11 +239,13 @@ that is only meant to recover from a bad state.
 
 ## Troubleshooting
 
-- `HPP_EXEC_DIR is not set`: export `HPP_EXEC_DIR=/path/to/hpp-exec` or create
-  `mfja_staubli_demos/scripts/room315_local_env.sh`.
+- `HPP_EXEC_DIR is not set`: create or update
+  `mfja_staubli_demos/scripts/room315_local_env.sh`, or export
+  `HPP_EXEC_DIR=/path/to/hpp-exec`.
 - `hpp-exec run.sh not found`: check that `HPP_EXEC_DIR` points to an
   `hpp-exec` checkout with `run.sh`.
-- `MFJA workspace setup not found`: set `MFJA_WS` or `MFJA_SETUP`.
+- `MFJA workspace setup not found`: create or update
+  `mfja_staubli_demos/scripts/room315_local_env.sh`, or set `MFJA_SETUP`.
 - `No module named pyhpp`: build HPP inside the `hpp-exec` container with
   `cd ~/devel/src && make hpp-python.install`, or source your local HPP
   environment.
