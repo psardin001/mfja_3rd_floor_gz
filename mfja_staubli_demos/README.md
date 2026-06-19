@@ -6,9 +6,7 @@ HPP (Humanoid Path Planner) and executed in the MFJA Gazebo simulation.
 Every run plans fresh: the current robot configuration is read from
 `/staubli1/joint_states`, the goal is projected with HPP constraints, and HPP
 computes a constrained, continuously collision-checked path against the Room
-315 cell meshes, including the glass. Nothing is precomputed; if a motion would
-touch the cell, planning fails with a collision report instead of moving the
-robot.
+315 cell meshes, including the glass. Nothing is precomputed.
 
 ## Layout
 
@@ -66,20 +64,6 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-The scripts are meant to be run from a source checkout, not only from the
-installed package. The HPP planner resolves the robot, SRDF, and cell meshes
-through `package://` URLs, and the Docker wrapper mounts the source checkout
-inside the container.
-
-If you already cloned the repository somewhere else, set the variables to that
-layout instead. For example:
-
-```bash
-export MFJA_DEMO_HOME="/absolute/path/to/mfja_fresh_test"
-export MFJA_WS="$MFJA_DEMO_HOME/mfja_ws"
-export HPP_EXEC_DIR="$MFJA_DEMO_HOME/hpp-exec"
-```
-
 ## Install HPP
 
 The recommended path is the `hpp-exec` Docker container. MFJA and Gazebo run on
@@ -98,9 +82,6 @@ cd "$HPP_EXEC_DIR"
 ./run.sh bash -lc 'cd ~/devel/src && make hpp-python.install'
 ```
 
-`make all` also builds `hpp-gepetto-viewer`; it is useful for HPP visualization
-work, but the Staubli Gazebo demo does not need it.
-
 For a persistent machine-local setting, create
 `mfja_staubli_demos/scripts/room315_local_env.sh` after cloning MFJA:
 
@@ -108,16 +89,6 @@ For a persistent machine-local setting, create
 cd "$MFJA_WS/src/mfja_3rd_floor_gz"
 printf 'export HPP_EXEC_DIR=%q\n' "$HPP_EXEC_DIR" \
   > mfja_staubli_demos/scripts/room315_local_env.sh
-```
-
-That file is ignored by Git.
-
-If an `hpp-exec` container is already running, stop it before using this demo
-unless it was started by `mfja_staubli_demos/scripts/room315_hpp_line.sh`; the
-wrapper must mount the MFJA source checkout into the container:
-
-```bash
-docker rm -f hpp-exec
 ```
 
 ## First Run
