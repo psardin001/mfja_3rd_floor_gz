@@ -43,14 +43,25 @@ Planning side:
 
 ## Install MFJA
 
+Choose one directory for the demo. The commands below use
+`~/mfja_staubli_demo`, but any absolute path works:
+
+```bash
+export MFJA_DEMO_HOME="$HOME/mfja_staubli_demo"
+export MFJA_WS="$MFJA_DEMO_HOME/mfja_ws"
+export HPP_EXEC_DIR="$MFJA_DEMO_HOME/hpp-exec"
+```
+
 Clone the MFJA repository into a colcon workspace and build it:
 
 ```bash
-mkdir -p ~/mfja_ws/src
-cd ~/mfja_ws/src
+mkdir -p "$MFJA_WS/src"
+cd "$MFJA_WS/src"
 git clone https://github.com/psardin001/mfja_3rd_floor_gz.git
-cd ~/mfja_ws
+
+cd "$MFJA_WS"
 source /opt/ros/jazzy/setup.bash
+rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install
 source install/setup.bash
 ```
@@ -60,13 +71,13 @@ installed package. The HPP planner resolves the robot, SRDF, and cell meshes
 through `package://` URLs, and the Docker wrapper mounts the source checkout
 inside the container.
 
-If your workspace is not `~/mfja_ws`, export one of these before running the
-scripts:
+If you already cloned the repository somewhere else, set the variables to that
+layout instead. For example:
 
 ```bash
-export MFJA_WS=/path/to/mfja_ws
-# or
-export MFJA_SETUP=/path/to/mfja_ws/install/setup.bash
+export MFJA_DEMO_HOME="/absolute/path/to/mfja_fresh_test"
+export MFJA_WS="$MFJA_DEMO_HOME/mfja_ws"
+export HPP_EXEC_DIR="$MFJA_DEMO_HOME/hpp-exec"
 ```
 
 ## Install HPP
@@ -74,34 +85,32 @@ export MFJA_SETUP=/path/to/mfja_ws/install/setup.bash
 The recommended path is the `hpp-exec` Docker container. MFJA and Gazebo run on
 the host; HPP planning runs in this container.
 
-Clone `hpp-exec` from the HPP organization and start the container once:
+Clone `hpp-exec` from the HPP organization:
 
 ```bash
-git clone -b devel https://github.com/humanoid-path-planner/hpp-exec.git ~/hpp-exec
-cd ~/hpp-exec
-./run.sh
+git clone -b devel https://github.com/humanoid-path-planner/hpp-exec.git "$HPP_EXEC_DIR"
 ```
 
-Inside the container, build the HPP Python stack the first time:
+Build the HPP Python stack inside the container the first time:
 
 ```bash
-cd ~/devel/src
-make hpp-python.install
-exit
+cd "$HPP_EXEC_DIR"
+./run.sh bash -lc 'cd ~/devel/src && make hpp-python.install'
 ```
 
 `make all` also builds `hpp-gepetto-viewer`; it is useful for HPP visualization
 work, but the Staubli Gazebo demo does not need it.
 
-Tell the MFJA wrapper where your `hpp-exec` checkout lives:
+For a persistent machine-local setting, create
+`mfja_staubli_demos/scripts/room315_local_env.sh` after cloning MFJA:
 
 ```bash
-export HPP_EXEC_DIR=~/hpp-exec
+cd "$MFJA_WS/src/mfja_3rd_floor_gz"
+printf 'export HPP_EXEC_DIR=%q\n' "$HPP_EXEC_DIR" \
+  > mfja_staubli_demos/scripts/room315_local_env.sh
 ```
 
-For a persistent machine-local setting, create
-`mfja_staubli_demos/scripts/room315_local_env.sh` with the same export. That
-file is ignored by Git.
+That file is ignored by Git.
 
 If an `hpp-exec` container is already running, stop it before using this demo
 unless it was started by `mfja_staubli_demos/scripts/room315_hpp_line.sh`; the
@@ -113,12 +122,14 @@ docker rm -f hpp-exec
 
 ## First Run
 
-Open a terminal in the MFJA source checkout:
+In every new terminal, restore the same paths and open the MFJA source
+checkout:
 
 ```bash
-cd ~/mfja_ws/src/mfja_3rd_floor_gz
-export MFJA_WS=~/mfja_ws
-export HPP_EXEC_DIR=~/hpp-exec
+export MFJA_DEMO_HOME="$HOME/mfja_staubli_demo"
+export MFJA_WS="$MFJA_DEMO_HOME/mfja_ws"
+export HPP_EXEC_DIR="$MFJA_DEMO_HOME/hpp-exec"
+cd "$MFJA_WS/src/mfja_3rd_floor_gz"
 ```
 
 Run a planning-only smoke test before starting Gazebo:
@@ -143,8 +154,10 @@ In another terminal, from the same source checkout, move the robot from the
 spawn pose to the working pose:
 
 ```bash
-export MFJA_WS=~/mfja_ws
-export HPP_EXEC_DIR=~/hpp-exec
+export MFJA_DEMO_HOME="$HOME/mfja_staubli_demo"
+export MFJA_WS="$MFJA_DEMO_HOME/mfja_ws"
+export HPP_EXEC_DIR="$MFJA_DEMO_HOME/hpp-exec"
+cd "$MFJA_WS/src/mfja_3rd_floor_gz"
 mfja_staubli_demos/scripts/room315_hpp_line.sh --goto-start
 ```
 
