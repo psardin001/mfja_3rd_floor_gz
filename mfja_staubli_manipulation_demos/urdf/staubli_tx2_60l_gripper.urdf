@@ -1,13 +1,16 @@
 <?xml version="1.0"?>
-<robot name="staubli_tx2_60l_suction">
+<robot name="staubli_tx2_60l_gripper">
   <material name="staubli_yellow">
     <color rgba="0.97 0.74 0.17 1.0"/>
   </material>
   <material name="staubli_grey">
     <color rgba="0.50 0.50 0.50 1.0"/>
   </material>
-  <material name="suction_black">
+  <material name="gripper_dark">
     <color rgba="0.02 0.02 0.025 1.0"/>
+  </material>
+  <material name="gripper_pad">
+    <color rgba="0.01 0.01 0.012 1.0"/>
   </material>
 
   <link name="base_link">
@@ -111,37 +114,52 @@
   <link name="flange"/>
   <link name="base"/>
   <link name="tool0"/>
-  <link name="suction_mount">
+  <link name="gripper_base">
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="0.018" length="0.04"/>
+        <box size="0.09 0.17 0.03"/>
       </geometry>
       <material name="staubli_grey"/>
     </visual>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="0.018" length="0.04"/>
+        <box size="0.09 0.17 0.03"/>
       </geometry>
     </collision>
   </link>
-  <link name="suction_cup">
+  <link name="gripper_left_finger">
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="0.035" length="0.025"/>
+        <box size="0.024 0.012 0.09"/>
       </geometry>
-      <material name="suction_black"/>
+      <material name="gripper_pad"/>
     </visual>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="0.035" length="0.025"/>
+        <box size="0.024 0.012 0.09"/>
       </geometry>
     </collision>
   </link>
-  <link name="suction_tcp"/>
+  <link name="gripper_right_finger">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.024 0.012 0.09"/>
+      </geometry>
+      <material name="gripper_pad"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.024 0.012 0.09"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="gripper_tcp"/>
 
   <joint name="joint_1" type="revolute">
     <origin xyz="0 0 0.375" rpy="0 0 0"/>
@@ -209,21 +227,27 @@
     <child link="tool0"/>
   </joint>
 
-  <joint name="tool0_suction_mount" type="fixed">
+  <joint name="tool0_gripper_base" type="fixed">
     <origin xyz="0 0 0.035" rpy="0 0 0"/>
     <parent link="tool0"/>
-    <child link="suction_mount"/>
+    <child link="gripper_base"/>
   </joint>
 
-  <joint name="suction_mount_cup" type="fixed">
-    <origin xyz="0 0 0.04" rpy="0 0 0"/>
-    <parent link="suction_mount"/>
-    <child link="suction_cup"/>
+  <joint name="gripper_base_left_finger" type="fixed">
+    <origin xyz="0 0.075 0.045" rpy="0 0 0"/>
+    <parent link="gripper_base"/>
+    <child link="gripper_left_finger"/>
   </joint>
 
-  <joint name="suction_cup_tcp" type="fixed">
-    <origin xyz="0 0 0.02" rpy="0 0 0"/>
-    <parent link="suction_cup"/>
-    <child link="suction_tcp"/>
+  <joint name="gripper_base_right_finger" type="fixed">
+    <origin xyz="0 -0.075 0.045" rpy="0 0 0"/>
+    <parent link="gripper_base"/>
+    <child link="gripper_right_finger"/>
+  </joint>
+
+  <joint name="gripper_base_tcp" type="fixed">
+    <origin xyz="0 0 0.060" rpy="0 0 0"/>
+    <parent link="gripper_base"/>
+    <child link="gripper_tcp"/>
   </joint>
 </robot>

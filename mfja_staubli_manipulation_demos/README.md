@@ -1,131 +1,129 @@
 # mfja_staubli_manipulation_demos
 
-First scaffold for a Room 315 manipulation problem with:
+Room 315 Staubli manipulation demos for moving a small payload between the
+right-rail shuttles and the Staubli table.
 
-- the Staubli TX2-60L,
-- a fixed suction TCP mounted on the Staubli wrist,
-- one stopped right-rail shuttle near the robot,
-- a small payload box with an HPP handle and bottom contact surface,
-- a shuttle deck HPP contact surface,
-- a Staubli-table HPP drop-zone contact surface.
-
-The initial scenario is deliberately quasi-static: the shuttle delivers the box
-and waits at `slot_3`; HPP plans with the shuttle pose as a fixed support.
+The package contains one shared HPP problem and small target-specific execution
+outputs. Keep planning geometry, contact surfaces, and manipulation graph common
+between Gazebo and the real robot; switch only the launch/output layer.
 
 ## Layout
 
-```text
-mfja_staubli_manipulation_demos/
-├── config/
-│   └── robots_room315_suction.yaml
-├── hpp/
-│   ├── room315_shuttle_manipulation.py
-│   ├── room315_payload_box.urdf/.srdf
-│   ├── room315_shuttle_deck.urdf/.srdf
-│   ├── room315_staubli_table_drop_zone.urdf/.srdf
-│   ├── room315_cell.urdf/.srdf
-│   └── staubli_tx2_60l_manipulation.srdf
-├── launch/
-│   └── room_315_staubli_shuttle_manipulation_demo.launch.py
-├── models/
-│   └── staubli_tx2_60l_suction/model.sdf
-├── scripts/
-    ├── room315_demo.sh
-    ├── room315_env.sh
-    └── room315_hpp_manipulation.sh
-└── urdf/
-    └── staubli_tx2_60l_suction.urdf
-```
+- `launch/room_315_staubli_shuttle_manipulation_demo.launch.py`: Gazebo Room 315
+  scene with `staubli1` and the right shuttle rail.
+- `hpp/room315_shuttle_manipulation.py`: HPP planning, phase sampling, and
+  execution output adapters.
+- `hpp/*.urdf`, `hpp/*.srdf`: HPP robot/object/environment models and semantic
+  surfaces.
+- `models/staubli_tx2_60l_gripper`, `urdf/staubli_tx2_60l_gripper.urdf`: Gazebo
+  and ROS description for the Staubli with the passive open gripper geometry.
+- `scripts/room315_demo.sh`: launch the Gazebo scene.
+- `scripts/room315_hpp_manipulation.sh`: run the HPP problem in `hpp-exec`.
+- `scripts/room315_moving_shuttle_demo.sh`: orchestrate the two-shuttle sequence.
 
-## Run The Scene
+## Gazebo
 
-Build or source the MFJA workspace, then launch:
+Launch the scene:
 
 ```bash
 mfja_staubli_manipulation_demos/scripts/room315_demo.sh
 ```
 
-The launch starts Room 315 with only `staubli1`, enables the right shuttle rail,
-creates one stopped shuttle at `slot_3`, and leaves the left rail disabled.
+For the moving-shuttle setup, start the pickup shuttle away from the robot:
 
-## HPP Scene Smoke Test
+```bash
+mfja_staubli_manipulation_demos/scripts/room315_demo.sh gui:=false right_start_slot:=1
+```
 
-Use the hpp-exec wrapper:
+Run the default two-shuttle sequence:
+
+```bash
+HPP_EXEC_DIR=/home/psardin/devel/nix-hpp/src/hpp-exec \
+  mfja_staubli_manipulation_demos/scripts/room315_moving_shuttle_demo.sh --replace-box
+```
+
+The moving-shuttle helper prepares the rail route, starts the Staubli
+preposition trajectory, then immediately starts the pickup shuttle. The HPP
+execution waits until both the shuttle has arrived and the Staubli is at the HPP
+start.
+
+Gazebo execution uses:
+
+- arm output: `/staubli1/joint_trajectory`
+- gripper output: `/staubli1/gripper_joint_trajectory` in the moving-shuttle
+  helper; direct HPP execution can enable it with
+  `--gripper-output joint-trajectory`
+- payload output: Gazebo spawn/set-pose/remove services
+
+The fixed gripper geometry must leave room around the payload during the
+approach. Closing belongs to the semantic grasp action; do not hide a bad
+approach by disabling payload/gripper collisions.
+
+The Gazebo grasp is intentionally kinematic. The fingers open and close for
+visual and timing feedback, while the payload is attached by following the HPP
+object pose during the grasp-transfer phase instead of relying on unstable
+contact physics. The visible Gazebo payload is visual-only; HPP remains the
+collision source of truth for the box, gripper, shuttle, and table.
+
+## HPP Checks
+
+Build the HPP scene:
 
 ```bash
 mfja_staubli_manipulation_demos/scripts/room315_hpp_manipulation.sh --build-only
 ```
 
-Plan the first pick-from-shuttle, place-on-table manipulation:
+Preview the main plans:
 
 ```bash
-mfja_staubli_manipulation_demos/scripts/room315_hpp_manipulation.sh --plan-only
+mfja_staubli_manipulation_demos/scripts/room315_hpp_manipulation.sh --plan-only \
+  --direction shuttle-to-table
+
+mfja_staubli_manipulation_demos/scripts/room315_hpp_manipulation.sh --plan-only \
+  --direction shuttle-to-shuttle \
+  --shuttle-pose -15.310 -5.536 0.839346 0 0 -0.002 \
+  --destination-shuttle-pose -14.770 -5.536 0.839346 0 0 -0.0014
 ```
 
-`--plan-only` also previews the sampled execution phases. The executor follows
-the same idea as HPP tutorial 7: approach to pregrasp, run the semantic grasp
-action, transfer toward the table, run the semantic release action, then
-retreat.
-
-Execute the plan in the running Room 315 Gazebo scene:
+Execute one HPP cycle in the running Gazebo scene:
 
 ```bash
-mfja_staubli_manipulation_demos/scripts/room315_hpp_manipulation.sh --execute
+mfja_staubli_manipulation_demos/scripts/room315_hpp_manipulation.sh --execute \
+  --replace-box \
+  --gripper-output joint-trajectory
 ```
 
-The execution uses the semantic HPP gripper `staubli/tool0_gripper`, now tied to
-the fixed `suction_tcp` link on the visible Staubli suction tool. At the semantic
-grasp/release boundaries it publishes:
+## Real Robot
+
+Use the same HPP problem and phase sampling, but disable Gazebo-only outputs and
+select the real gripper output:
 
 ```bash
-/staubli1/suction_gripper/command  # std_msgs/msg/Bool, true=close, false=open
+mfja_staubli_manipulation_demos/scripts/room315_hpp_manipulation.sh --execute \
+  --payload-output none \
+  --gripper-output joint-trajectory \
+  --gripper-trajectory-topic /staubli1/gripper_joint_trajectory \
+  --gripper-joints gripper_finger_joint
 ```
 
-There is no detachable Gazebo payload joint yet; the visible box is spawned and
-moved kinematically from the HPP object freeflyer pose through Gazebo
-`/world/room_315_only/create`, `/set_pose`, and `/remove`.
-The Gazebo box model is static, so it should not drift under physics. It is
-held fixed on the shuttle during the approach phase, follows the HPP object pose
-during the semantic grasp-transfer phase, and is fixed on the table during the
-release-retreat phase.
-
-By default the executor does not remove an existing box first, which avoids a
-noisy Gazebo warning on a fresh scene. If a previous run left a box behind, use:
+For a digital open/close gripper:
 
 ```bash
-mfja_staubli_manipulation_demos/scripts/room315_hpp_manipulation.sh --execute --replace-box
+mfja_staubli_manipulation_demos/scripts/room315_hpp_manipulation.sh --execute \
+  --payload-output none \
+  --gripper-output bool \
+  --gripper-command-topic /staubli1/gripper/command
 ```
 
-The initial move to the HPP start pose is intentionally slow and includes a
-short hold before the motion starts. Manipulation is then published as three
-coarse phase trajectories on `/staubli1/joint_trajectory`, because the Room 315
-Gazebo launch exposes a trajectory topic rather than the
-`FollowJointTrajectory` action used by tutorial 7's `execute_segments()`.
-The executor waits on `/staubli1/joint_states` after each phase to recover the
-same "segment completed before next action" behavior.
+Before sending motion to hardware, run `--plan-only`, check the real current
+joint seed with `--q-start` when needed, and confirm the measured gripper TCP,
+finger geometry, opening width, speeds, and clearances.
 
-## Real Robot Notes
+## Current Surfaces
 
-The HPP problem already includes the payload and suction tool in the collision
-model, with a small security margin to the Room 315 cell. The current execution
-layer is still Gazebo-specific: the payload follows by repeated `set_pose`
-calls, not by a physical attachment state. Before running on the real Staubli,
-map `/staubli1/suction_gripper/command` to the real vacuum output, keep
-`--plan-only` as the planning check, and send only the arm trajectory through
-the real robot controller after validating speeds and clearances.
-
-## Contact Surfaces
-
-The payload box has:
-
-- `box/top_handle`
-- `box/bottom_surface`
-
-The environment has:
-
-- `shuttle/top_surface`
-- `staubli_table/drop_zone`
-
-`staubli_table/drop_zone` is a small patch on the real Staubli table top, away
-from the robot base. It gives HPP a placement surface without turning the whole
-robot support table into a new collision obstacle on the first pass.
+- gripper: `staubli/tool0_gripper`
+- payload handle: `box/top_handle`
+- payload support contact: `box/bottom_surface`
+- payload size: `0.07 x 0.05 x 0.06 m`
+- supports: `shuttle/top_surface`, `drop_shuttle/top_surface`,
+  `staubli_table/drop_zone`

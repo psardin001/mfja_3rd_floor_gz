@@ -9,10 +9,16 @@ from launch.actions import (
     GroupAction,
     IncludeLaunchDescription,
     SetEnvironmentVariable,
+    TimerAction,
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import (
+    EnvironmentVariable,
+    LaunchConfiguration,
+    PathJoinSubstitution,
+)
+from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -28,7 +34,7 @@ def generate_launch_description():
         [
             FindPackageShare("mfja_staubli_manipulation_demos"),
             "config",
-            "robots_room315_suction.yaml",
+            "robots_room315_gripper.yaml",
         ]
     )
 
@@ -56,7 +62,7 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "shuttle_speed",
-                default_value="0.2",
+                default_value="0.3",
                 description="Right-rail shuttle speed in meters per second.",
             ),
             SetEnvironmentVariable("GZ_PARTITION", gz_partition),
@@ -116,25 +122,41 @@ def generate_launch_description():
                 scoped=True,
                 forwarding=True,
             ),
-            ExecuteProcess(
-                cmd=[
-                    "gz",
-                    "sim",
-                    "-g",
-                    "--gui-config",
-                    PathJoinSubstitution(
-                        [
-                            FindPackageShare("mfja_robot_control_config"),
-                            "config",
-                            "mfja_default.gui.config",
-                        ]
-                    ),
-                    "--render-engine-gui",
-                    LaunchConfiguration("gui_render_engine"),
-                    "--force-version",
-                    "8",
+            Node(
+                package="ros_gz_bridge",
+                executable="parameter_bridge",
+                name="staubli1_gripper_bridge",
+                output="screen",
+                arguments=[
+                    "/staubli1/gripper_joint_trajectory"
+                    "@trajectory_msgs/msg/JointTrajectory"
+                    "]gz.msgs.JointTrajectory"
                 ],
-                condition=IfCondition(LaunchConfiguration("gui")),
+            ),
+            TimerAction(
+                period=5.0,
+                actions=[
+                    ExecuteProcess(
+                        cmd=[
+                            "gz",
+                            "sim",
+                            "-g",
+                            "--gui-config",
+                            PathJoinSubstitution(
+                                [
+                                    FindPackageShare("mfja_robot_control_config"),
+                                    "config",
+                                    "mfja_default.gui.config",
+                                ]
+                            ),
+                            "--render-engine-gui",
+                            LaunchConfiguration("gui_render_engine"),
+                            "--force-version",
+                            "8",
+                        ],
+                        condition=IfCondition(LaunchConfiguration("gui")),
+                    ),
+                ],
             ),
         ]
     )

@@ -15,8 +15,12 @@ setup(
         (f"share/{package_name}/launch", glob("launch/*.launch.py")),
         (f"share/{package_name}/hpp", [path for path in glob("hpp/*") if isfile(path)]),
         (
-            f"share/{package_name}/models/staubli_tx2_60l_suction",
-            glob("models/staubli_tx2_60l_suction/*"),
+            f"share/{package_name}/scripts",
+            [path for path in glob("scripts/*") if isfile(path)],
+        ),
+        (
+            f"share/{package_name}/models/staubli_tx2_60l_gripper",
+            glob("models/staubli_tx2_60l_gripper/*"),
         ),
         (f"share/{package_name}/urdf", glob("urdf/*.urdf")),
     ],

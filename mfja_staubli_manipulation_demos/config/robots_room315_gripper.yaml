@@ -1,6 +1,6 @@
 robots:
   - name: staubli1
-    model: staubli_tx2_60l_suction
+    model: staubli_tx2_60l_gripper
     asset_package: mfja_staubli_manipulation_demos
     x_pose: -15.1622
     y_pose: -6.0

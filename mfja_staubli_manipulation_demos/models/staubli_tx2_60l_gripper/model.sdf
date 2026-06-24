@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <sdf version="1.9">
-  <model name="staubli_tx2_60l_suction">
+  <model name="staubli_tx2_60l_gripper">
     <self_collide>false</self_collide>
     <allow_auto_disable>false</allow_auto_disable>
 
@@ -250,8 +250,8 @@
     <link name="tool0">
       <pose relative_to="flange_tool0">0 0 0 0 0 0</pose>
     </link>
-    <link name="suction_mount">
-      <pose relative_to="tool0_suction_mount">0 0 0 0 0 0</pose>
+    <link name="gripper_base">
+      <pose relative_to="tool0_gripper_base">0 0 0 0 0 0</pose>
       <inertial>
         <mass>0.12</mass>
         <inertia>
@@ -263,29 +263,27 @@
           <iyz>0</iyz>
         </inertia>
       </inertial>
-      <visual name="suction_mount_visual">
+      <visual name="gripper_base_visual">
         <geometry>
-          <cylinder>
-            <radius>0.018</radius>
-            <length>0.04</length>
-          </cylinder>
+          <box>
+            <size>0.09 0.17 0.03</size>
+          </box>
         </geometry>
         <material>
           <ambient>0.50 0.50 0.50 1</ambient>
           <diffuse>0.50 0.50 0.50 1</diffuse>
         </material>
       </visual>
-      <collision name="suction_mount_collision">
+      <collision name="gripper_base_collision">
         <geometry>
-          <cylinder>
-            <radius>0.018</radius>
-            <length>0.04</length>
-          </cylinder>
+          <box>
+            <size>0.09 0.17 0.03</size>
+          </box>
         </geometry>
       </collision>
     </link>
-    <link name="suction_cup">
-      <pose relative_to="suction_mount_cup">0 0 0 0 0 0</pose>
+    <link name="gripper_left_finger">
+      <pose relative_to="gripper_left_finger_joint">0 0 0 0 0 0</pose>
       <inertial>
         <mass>0.08</mass>
         <inertia>
@@ -297,29 +295,59 @@
           <iyz>0</iyz>
         </inertia>
       </inertial>
-      <visual name="suction_cup_visual">
+      <visual name="gripper_left_finger_visual">
         <geometry>
-          <cylinder>
-            <radius>0.035</radius>
-            <length>0.025</length>
-          </cylinder>
+          <box>
+            <size>0.024 0.012 0.09</size>
+          </box>
         </geometry>
         <material>
-          <ambient>0.02 0.02 0.025 1</ambient>
-          <diffuse>0.02 0.02 0.025 1</diffuse>
+          <ambient>0.01 0.01 0.012 1</ambient>
+          <diffuse>0.01 0.01 0.012 1</diffuse>
         </material>
       </visual>
-      <collision name="suction_cup_collision">
+      <collision name="gripper_left_finger_collision">
         <geometry>
-          <cylinder>
-            <radius>0.035</radius>
-            <length>0.025</length>
-          </cylinder>
+          <box>
+            <size>0.024 0.012 0.09</size>
+          </box>
         </geometry>
       </collision>
     </link>
-    <link name="suction_tcp">
-      <pose relative_to="suction_cup_tcp">0 0 0 0 0 0</pose>
+    <link name="gripper_right_finger">
+      <pose relative_to="gripper_right_finger_joint">0 0 0 0 0 0</pose>
+      <inertial>
+        <mass>0.08</mass>
+        <inertia>
+          <ixx>0.00003</ixx>
+          <iyy>0.00003</iyy>
+          <izz>0.00003</izz>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyz>0</iyz>
+        </inertia>
+      </inertial>
+      <visual name="gripper_right_finger_visual">
+        <geometry>
+          <box>
+            <size>0.024 0.012 0.09</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.01 0.01 0.012 1</ambient>
+          <diffuse>0.01 0.01 0.012 1</diffuse>
+        </material>
+      </visual>
+      <collision name="gripper_right_finger_collision">
+        <geometry>
+          <box>
+            <size>0.024 0.012 0.09</size>
+          </box>
+        </geometry>
+      </collision>
+    </link>
+    <link name="gripper_tcp">
+      <pose relative_to="gripper_base_tcp">0 0 0 0 0 0</pose>
     </link>
 
     <joint name="world_joint" type="fixed">
@@ -459,22 +487,54 @@
       <pose relative_to="flange">0 0 0 0 1.57079632679 0</pose>
     </joint>
 
-    <joint name="tool0_suction_mount" type="fixed">
+    <joint name="tool0_gripper_base" type="fixed">
       <parent>tool0</parent>
-      <child>suction_mount</child>
+      <child>gripper_base</child>
       <pose relative_to="tool0">0 0 0.035 0 0 0</pose>
     </joint>
 
-    <joint name="suction_mount_cup" type="fixed">
-      <parent>suction_mount</parent>
-      <child>suction_cup</child>
-      <pose relative_to="suction_mount">0 0 0.04 0 0 0</pose>
+    <joint name="gripper_left_finger_joint" type="prismatic">
+      <parent>gripper_base</parent>
+      <child>gripper_left_finger</child>
+      <pose relative_to="gripper_base">0 0.047 0.045 0 0 0</pose>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit>
+          <lower>0.0</lower>
+          <upper>0.028</upper>
+          <effort>20.0</effort>
+          <velocity>0.05</velocity>
+        </limit>
+        <dynamics>
+          <damping>0.2</damping>
+          <friction>0.02</friction>
+        </dynamics>
+      </axis>
     </joint>
 
-    <joint name="suction_cup_tcp" type="fixed">
-      <parent>suction_cup</parent>
-      <child>suction_tcp</child>
-      <pose relative_to="suction_cup">0 0 0.02 0 0 0</pose>
+    <joint name="gripper_right_finger_joint" type="prismatic">
+      <parent>gripper_base</parent>
+      <child>gripper_right_finger</child>
+      <pose relative_to="gripper_base">0 -0.047 0.045 0 0 0</pose>
+      <axis>
+        <xyz>0 -1 0</xyz>
+        <limit>
+          <lower>0.0</lower>
+          <upper>0.028</upper>
+          <effort>20.0</effort>
+          <velocity>0.05</velocity>
+        </limit>
+        <dynamics>
+          <damping>0.2</damping>
+          <friction>0.02</friction>
+        </dynamics>
+      </axis>
+    </joint>
+
+    <joint name="gripper_base_tcp" type="fixed">
+      <parent>gripper_base</parent>
+      <child>gripper_tcp</child>
+      <pose relative_to="gripper_base">0 0 0.060 0 0 0</pose>
     </joint>
 
     <plugin
@@ -486,6 +546,8 @@
       <joint_name>joint_4</joint_name>
       <joint_name>joint_5</joint_name>
       <joint_name>joint_6</joint_name>
+      <joint_name>gripper_left_finger_joint</joint_name>
+      <joint_name>gripper_right_finger_joint</joint_name>
     </plugin>
 
     <plugin
@@ -553,6 +615,28 @@
       <position_i_max>10.0</position_i_max>
       <position_cmd_min>-60.0</position_cmd_min>
       <position_cmd_max>60.0</position_cmd_max>
+    </plugin>
+
+    <plugin
+      filename="gz-sim-joint-trajectory-controller-system"
+      name="gz::sim::systems::JointTrajectoryController">
+      <topic>/staubli1/gripper_joint_trajectory</topic>
+
+      <joint_name>gripper_left_finger_joint</joint_name>
+      <initial_position>0.028</initial_position>
+      <position_p_gain>180.0</position_p_gain>
+      <position_i_gain>0.0</position_i_gain>
+      <position_d_gain>8.0</position_d_gain>
+      <position_cmd_min>-25.0</position_cmd_min>
+      <position_cmd_max>25.0</position_cmd_max>
+
+      <joint_name>gripper_right_finger_joint</joint_name>
+      <initial_position>0.028</initial_position>
+      <position_p_gain>180.0</position_p_gain>
+      <position_i_gain>0.0</position_i_gain>
+      <position_d_gain>8.0</position_d_gain>
+      <position_cmd_min>-25.0</position_cmd_min>
+      <position_cmd_max>25.0</position_cmd_max>
     </plugin>
   </model>
 </sdf>

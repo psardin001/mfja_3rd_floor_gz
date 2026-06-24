@@ -6,7 +6,8 @@
 if [[ -z "${ROOM315_CLEAN_ENV:-}" ]]; then
   clean_env=(ROOM315_CLEAN_ENV=1 PATH=/usr/local/bin:/usr/bin:/bin)
   for var in HOME USER LOGNAME TERM LANG DISPLAY XAUTHORITY WAYLAND_DISPLAY \
-    XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS MFJA_SETUP MFJA_WS "${!ROS_@}"; do
+    XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS MFJA_SETUP MFJA_WS HPP_EXEC_DIR \
+    "${!ROS_@}"; do
     if [[ -n "${!var:-}" ]]; then
       clean_env+=("$var=${!var}")
     fi
