@@ -15,13 +15,22 @@ import rclpy
 from builtin_interfaces.msg import Duration
 from geometry_msgs.msg import Pose
 from geometry_msgs.msg import PoseStamped
-from mfja_rail_interfaces.msg import NamedState
-from mfja_rail_interfaces.msg import SensorFeedback
-from mfja_rail_interfaces.msg import ShuttleCommand
-from mfja_rail_interfaces.msg import ShuttleState
-from mfja_rail_interfaces.msg import StopperCommand
-from mfja_rail_interfaces.msg import SwitchCommand
-from mfja_rail_interfaces.srv import AddShuttle
+try:
+    from mfja_rail_interfaces.msg import NamedState
+    from mfja_rail_interfaces.msg import SensorFeedback
+    from mfja_rail_interfaces.msg import ShuttleCommand
+    from mfja_rail_interfaces.msg import ShuttleState
+    from mfja_rail_interfaces.msg import StopperCommand
+    from mfja_rail_interfaces.msg import SwitchCommand
+    from mfja_rail_interfaces.srv import AddShuttle
+except ModuleNotFoundError as exc:
+    if exc.name != "mfja_rail_interfaces":
+        raise
+    raise SystemExit(
+        "mfja_rail_interfaces is not importable. Run this demo through "
+        "scripts/room315_moving_shuttle_demo.sh, or source the MFJA colcon "
+        "workspace first, for example: source ~/devel/mfja_ws/install/setup.bash"
+    ) from exc
 from rclpy.node import Node
 from ros_gz_interfaces.msg import Entity
 from ros_gz_interfaces.srv import DeleteEntity
@@ -815,10 +824,22 @@ def hpp_cycle_command(
             ]
         )
     command.extend(["--gripper-output", args.gripper_output])
+    if args.trajectory_topic:
+        command.extend(["--trajectory-topic", args.trajectory_topic])
+    if args.joint_state_topic:
+        command.extend(["--joint-state-topic", args.joint_state_topic])
     if args.gripper_command_topic:
         command.extend(["--gripper-command-topic", args.gripper_command_topic])
     if args.gripper_trajectory_topic:
         command.extend(["--gripper-trajectory-topic", args.gripper_trajectory_topic])
+    if args.gripper_output == "staubli-io":
+        command.extend(["--staubli-io-service", args.staubli_io_service])
+        command.extend(["--staubli-io-pin", str(args.staubli_io_pin)])
+        command.extend(["--staubli-io-timeout", f"{args.staubli_io_timeout:.3f}"])
+        if args.staubli_io_module_id is not None:
+            command.extend(["--staubli-io-module-id", str(args.staubli_io_module_id)])
+        if args.staubli_io_inverted:
+            command.append("--staubli-io-inverted")
     if replace_box:
         command.append("--replace-box")
     return command
@@ -948,11 +969,16 @@ def parse_args(argv):
     parser.add_argument("--box-entity-name", default="room315_payload_box")
     parser.add_argument(
         "--gripper-output",
-        choices=["none", "bool", "joint-trajectory"],
+        choices=["none", "bool", "joint-trajectory", "staubli-io"],
         default="joint-trajectory",
     )
     parser.add_argument("--gripper-command-topic", default=None)
     parser.add_argument("--gripper-trajectory-topic", default=None)
+    parser.add_argument("--staubli-io-service", default="/io_interface/write_single_io")
+    parser.add_argument("--staubli-io-pin", type=int, default=None)
+    parser.add_argument("--staubli-io-module-id", type=int, default=None)
+    parser.add_argument("--staubli-io-inverted", action="store_true")
+    parser.add_argument("--staubli-io-timeout", type=float, default=5.0)
     parser.add_argument("--trajectory-topic", default=None)
     parser.add_argument("--joint-state-topic", default=None)
     parser.add_argument(
@@ -1046,7 +1072,10 @@ def parse_args(argv):
     parser.add_argument("--pose-stable-s", type=float, default=0.3)
     parser.add_argument("--pose-stable-position-tolerance", type=float, default=0.002)
     parser.add_argument("--pose-stable-yaw-tolerance", type=float, default=0.01)
-    return parser.parse_known_args(argv)
+    args, hpp_args = parser.parse_known_args(argv)
+    if args.gripper_output == "staubli-io" and args.staubli_io_pin is None:
+        parser.error("--staubli-io-pin is required with --gripper-output staubli-io")
+    return args, hpp_args
 
 
 def main(argv=None):
