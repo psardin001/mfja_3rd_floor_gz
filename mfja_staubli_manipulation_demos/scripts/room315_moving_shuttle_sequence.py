@@ -341,8 +341,11 @@ class MovingShuttleCoordinator(Node):
             if publisher.get_subscription_count() == 0
         ]
         if missing:
-            self.get_logger().warning(
-                "no subscriber discovered yet on: " + ", ".join(missing)
+            raise RuntimeError(
+                "no subscriber discovered on: "
+                + ", ".join(missing)
+                + ". Start scripts/room315_demo.sh first, or increase "
+                "--publisher-timeout if ROS discovery is slow."
             )
 
     def falling_state(self, shuttle_name):
@@ -958,6 +961,7 @@ def use_preplanned_or_run(
 
 def parse_args(argv):
     script_dir = Path(__file__).resolve().parent
+    raw_args = list(argv)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--hpp-script",
@@ -1072,7 +1076,15 @@ def parse_args(argv):
     parser.add_argument("--pose-stable-s", type=float, default=0.3)
     parser.add_argument("--pose-stable-position-tolerance", type=float, default=0.002)
     parser.add_argument("--pose-stable-yaw-tolerance", type=float, default=0.01)
-    args, hpp_args = parser.parse_known_args(argv)
+    args, hpp_args = parser.parse_known_args(raw_args)
+    gripper_output_given = any(
+        token == "--gripper-output" or token.startswith("--gripper-output=")
+        for token in raw_args
+    )
+    if not gripper_output_given and args.staubli_io_pin is not None:
+        args.gripper_output = "staubli-io"
+    if not gripper_output_given and args.gripper_command_topic is not None:
+        args.gripper_output = "bool"
     if args.gripper_output == "staubli-io" and args.staubli_io_pin is None:
         parser.error("--staubli-io-pin is required with --gripper-output staubli-io")
     return args, hpp_args

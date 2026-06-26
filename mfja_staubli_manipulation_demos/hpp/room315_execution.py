@@ -15,6 +15,7 @@ from trajectory_msgs.msg import JointTrajectory
 from trajectory_msgs.msg import JointTrajectoryPoint
 
 from room315_problem import (
+    BOX_ENTITY_NAME,
     JOINT_NAMES,
     PAYLOAD_BOX_SDF,
     box_rank,
@@ -79,6 +80,7 @@ class BoolCommandGripperOutput:
         )
         self.settle_s = args.gripper_settle_s
         self.publisher = node.create_publisher(Bool, self.topic, 10)
+        wait_for_subscriber(node, self.publisher, self.topic, args.subscriber_timeout)
 
     def command(self, closed):
         message = Bool()
@@ -289,7 +291,10 @@ def spawn_payload(node, spawn_client, entity_name, pose):
     request = SpawnEntity.Request()
     request.entity_factory.name = entity_name
     request.entity_factory.allow_renaming = False
-    request.entity_factory.sdf = PAYLOAD_BOX_SDF
+    request.entity_factory.sdf = PAYLOAD_BOX_SDF.replace(
+        f'model name="{BOX_ENTITY_NAME}"',
+        f'model name="{entity_name}"',
+    )
     request.entity_factory.pose = pose
     request.entity_factory.relative_to = "world"
     try:

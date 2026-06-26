@@ -230,6 +230,8 @@ def parse_args():
         args.gripper_output = "staubli-io"
     if args.gripper_output == "none" and args.gripper_command_topic is not None:
         args.gripper_output = "bool"
+    if args.gripper_output == "none" and args.gripper_trajectory_topic is not None:
+        args.gripper_output = "joint-trajectory"
     if args.gripper_output == "staubli-io" and args.staubli_io_pin is None:
         parser.error("--staubli-io-pin is required with --gripper-output staubli-io")
     if args.direction == "shuttle-to-shuttle" and args.destination_shuttle_pose is None:

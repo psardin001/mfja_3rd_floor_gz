@@ -73,8 +73,8 @@ Gazebo and ROS robot description:
 - `models/staubli_tx2_60l_gripper/model.sdf`: actual Gazebo robot model, arm
   controller plugin, gripper controller plugin, and joint-state plugin.
 - `models/staubli_tx2_60l_gripper/model.config`: Gazebo model metadata.
-- `urdf/staubli_tx2_60l_gripper.urdf`: ROS/HPP robot description with the
-  gripper links and joints.
+- `urdf/staubli_tx2_60l_gripper.urdf`: ROS/HPP robot description with fixed,
+  conservative gripper links used for planning.
 
 ## Launch Flow
 
@@ -88,6 +88,8 @@ Call flow:
 
 1. `room315_demo.sh`
    - sources `scripts/room315_env.sh`;
+   - defaults to `ROS_DOMAIN_ID=7` unless the caller already set another
+     domain;
    - checks for an existing `gz sim ... room_315` process;
    - runs `ros2 launch mfja_staubli_manipulation_demos
      room_315_staubli_shuttle_manipulation_demo.launch.py "$@"`.
@@ -306,7 +308,8 @@ It does the following:
 3. Requires `HPP_EXEC_DIR` and checks that `$HPP_EXEC_DIR/run.sh` exists.
 4. Mounts the MFJA repo read-only into the container at
    `/home/user/mfja_3rd_floor_gz`.
-5. Runs `hpp-exec/run.sh --domain-id "${ROS_DOMAIN_ID:-7}"`.
+5. Runs `hpp-exec/run.sh --domain-id "${ROS_DOMAIN_ID:-7}"`; the host demo
+   scripts use the same default domain.
 6. Inside the container:
    - sources `/home/user/devel/config.sh`;
    - sets `LD_LIBRARY_PATH`, `PYTHONPATH`, and `ROS_PACKAGE_PATH`;
@@ -458,8 +461,9 @@ The Gazebo payload is intentionally not a physical grasp proof. In this demo:
 
 - HPP owns collision checking and contact semantics.
 - Gazebo shows the gripper opening/closing and the payload motion.
-- Gazebo uses the real gripper stroke, but the gripper body and fingers stay as
-  placeholder geometry until the real CAD/mounting is available.
+- HPP uses fixed conservative gripper geometry. Gazebo uses the real gripper
+  stroke, but the gripper body and fingers stay as placeholder geometry until
+  the real CAD/mounting is available.
 - The visible Gazebo payload is kinematically moved through `/set_pose`.
 - The actual transfer pose comes from the HPP object configuration.
 

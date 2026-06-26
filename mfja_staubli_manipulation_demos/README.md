@@ -11,6 +11,17 @@ For the full call order, ROS interfaces, Gazebo controllers, and file-by-file
 explanation, see
 [`docs/room315_pick_place_walkthrough.md`](docs/room315_pick_place_walkthrough.md).
 
+The commands below are written from the repository root:
+
+```bash
+cd "$MFJA_WS/src/mfja_3rd_floor_gz"
+source "$MFJA_WS/install/setup.bash"
+```
+
+The demo scripts default to `ROS_DOMAIN_ID=7` and pass the same domain to
+`hpp-exec`. Set `ROS_DOMAIN_ID` before running the scripts if your classroom
+setup uses another domain.
+
 ## Layout
 
 - `launch/room_315_staubli_shuttle_manipulation_demo.launch.py`: Gazebo Room 315
@@ -25,7 +36,7 @@ explanation, see
 - `hpp/*.urdf`, `hpp/*.srdf`: HPP robot/object/environment models and semantic
   surfaces.
 - `models/staubli_tx2_60l_gripper`, `urdf/staubli_tx2_60l_gripper.urdf`: Gazebo
-  and ROS description for the Staubli with placeholder gripper geometry.
+  and ROS/HPP descriptions for the Staubli with placeholder gripper geometry.
 - `scripts/room315_demo.sh`: launch the Gazebo scene.
 - `scripts/room315_hpp_manipulation.sh`: run the HPP problem in `hpp-exec`.
 - `scripts/room315_moving_shuttle_demo.sh`: orchestrate the two-shuttle sequence.
@@ -67,9 +78,9 @@ Gazebo execution uses:
   2.5 mm per-jaw stroke (`0.028` open, `0.0255` closed)
 - payload output: Gazebo spawn/set-pose/remove services
 
-The fixed gripper geometry must leave room around the payload during the
-approach. Closing belongs to the semantic grasp action; do not hide a bad
-approach by disabling payload/gripper collisions.
+HPP keeps the gripper geometry fixed and conservative; Gazebo animates small
+finger joints for visual timing. Closing belongs to the semantic grasp action;
+do not hide a bad approach by disabling payload/gripper collisions.
 
 The Gazebo grasp is intentionally kinematic. The fingers open and close for
 visual and timing feedback, while the payload is attached by following the HPP
@@ -127,7 +138,7 @@ For the full moving-shuttle sequence, pass the same gripper options and forward
 real-robot-only HPP options such as `--payload-output none`:
 
 ```bash
-mfja_staubli_manipulation_demos/scripts/room315_moving_shuttle_sequence.py \
+mfja_staubli_manipulation_demos/scripts/room315_moving_shuttle_demo.sh \
   --gripper-output staubli-io \
   --staubli-io-pin PIN_TO_CONFIRM \
   --payload-output none
