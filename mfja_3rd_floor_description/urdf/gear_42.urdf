@@ -1,17 +1,43 @@
 <?xml version="1.0"?>
 <robot name="gear_42">
   <link name="base_link">
+    <!-- visual model -->
     <visual>
-      <origin xyz="0 0 0.004"/>
+      <origin xyz="0 0 0.006"/>
       <geometry>
-        <cylinder radius="0.021" length="0.008"/>
+        <cylinder radius="0.021" length="0.012"/>
       </geometry>
     </visual>
     <visual>
-      <origin xyz="0 0 0.0205"/>
+      <origin xyz="0 0 0.028"/>
       <geometry>
-        <cylinder radius="0.0075" length="0.025"/>
+        <cylinder radius="0.0075" length="0.014"/>
       </geometry>
     </visual>
+    <visual>
+      <origin xyz="0 0 0.018"/>
+      <geometry>
+        <cylinder radius="0.005" length="0.016"/>
+      </geometry>
+    </visual>
+    <!-- collision model -->
+    <collision>
+      <origin xyz="0 0 0.006"/>
+      <geometry>
+        <cylinder radius="0.021" length="0.012"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 0 0.028"/>
+      <geometry>
+        <cylinder radius="0.0075" length="0.014"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 0 0.018"/>
+      <geometry>
+        <cylinder radius="0.005" length="0.016"/>
+      </geometry>
+    </collision>
   </link>
 </robot>

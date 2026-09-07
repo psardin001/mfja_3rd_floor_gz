@@ -1,17 +1,67 @@
 <?xml version="1.0"?>
 <robot name="gear_plate">
   <link name="base_link">
+    <!-- visual model -->
     <visual>
-      <origin xyz="0 0 0.0075"/>
+      <origin xyz="0 0.095 0.015"/>
       <geometry>
-        <box size=".3 .2 0.0075"/>
+        <box size=".3 .01 0.03"/>
       </geometry>
     </visual>
-    <!--collision>
+    <visual>
+      <origin xyz="0 -0.095 0.015"/>
       <geometry>
-        <origin xyz="0 0 0.0075"/>
-        <box size=".3 .2 0.015"/>
+        <box size=".3 .01 0.03"/>
       </geometry>
-    </collision-->
+    </visual>
+    <visual>
+      <origin xyz="0.145 0 0.015"/>
+      <geometry>
+        <box size=".01 .18 0.03"/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-0.145 0 0.015"/>
+      <geometry>
+        <box size=".01 .18 0.03"/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0.0105"/>
+      <geometry>
+        <box size=".28 .18 0.021"/>
+      </geometry>
+    </visual>
+    <!-- collision model -->
+    <collision>
+      <origin xyz="0 0.095 0.015"/>
+      <geometry>
+        <box size=".3 .01 0.03"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 -0.095 0.015"/>
+      <geometry>
+        <box size=".3 .01 0.03"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.145 0 0.015"/>
+      <geometry>
+        <box size=".01 .18 0.03"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.145 0 0.015"/>
+      <geometry>
+        <box size=".01 .18 0.03"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 0 0.0105"/>
+      <geometry>
+        <box size=".28 .18 0.021"/>
+      </geometry>
+    </collision>
   </link>
 </robot>

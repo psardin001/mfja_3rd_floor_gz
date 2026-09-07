@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <robot name="gear_support">
   <link name="base_link">
+    <!-- visual model -->
     <visual>
       <origin xyz="0 0 0.005"/>
       <geometry>
@@ -19,5 +20,24 @@
         <box size=".004 .019 .162"/>
       </geometry>
     </visual>
+    <!-- collision model -->
+    <collision>
+      <origin xyz="0 0 0.005"/>
+      <geometry>
+        <box size=".174 .085 .01"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 .0155 0.091"/>
+      <geometry>
+        <box size=".004 .019 .162"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 -.0155 0.091"/>
+      <geometry>
+        <box size=".004 .019 .162"/>
+      </geometry>
+    </collision>
   </link>
 </robot>
