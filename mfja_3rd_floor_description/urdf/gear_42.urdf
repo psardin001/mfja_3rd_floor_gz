@@ -3,21 +3,10 @@
   <link name="base_link">
     <!-- visual model -->
     <visual>
-      <origin xyz="0 0 0.006"/>
+      <origin rpy="0 0 0.7853981633974483"/>
       <geometry>
-        <cylinder radius="0.021" length="0.012"/>
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="0 0 0.028"/>
-      <geometry>
-        <cylinder radius="0.0075" length="0.014"/>
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="0 0 0.018"/>
-      <geometry>
-        <cylinder radius="0.005" length="0.016"/>
+        <mesh filename="package://mfja_3rd_floor_description/models/gears/meshes/gear_42.stl"
+              scale="0.001 0.001 0.001"/>
       </geometry>
     </visual>
     <!-- collision model -->
