@@ -71,6 +71,36 @@
     <child link="room315_staubli_table_1" />
     <origin xyz="-14.734 -6.0179 0.5" rpy="-1.57 0 1.57" />
   </joint>
+  <link name="room312_two_beams_above_staubli">
+    <visual>
+      <origin xyz="-15.349 -5.313 2.297"/>
+      <geometry>
+        <box size="0.06 1.00 0.06"/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-15.005 -5.313 2.297"/>
+      <geometry>
+        <box size="0.06 1.00 0.06"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="-15.349 -5.313 2.297"/>
+      <geometry>
+        <box size="0.06 1.00 0.06"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-15.005 -5.313 2.297"/>
+      <geometry>
+        <box size="0.06 1.00 0.06"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="room312_two_beams_above_staubli_joint" type="fixed">
+    <parent link="world"/>
+    <child link="room312_two_beams_above_staubli"/>
+  </joint>
   <link name="room315_yaskawa_table_1">
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
