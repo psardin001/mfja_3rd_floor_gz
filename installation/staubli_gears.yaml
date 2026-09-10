@@ -1,0 +1,21 @@
+robot_state_interface:
+  ros__parameters:
+    joint_names: [joint_1, joint_2, joint_3, joint_4, joint_5, joint_6]
+
+joint_trajectory_interface:
+  ros__parameters:
+    joint_names: [joint_1, joint_2, joint_3, joint_4, joint_5, joint_6]
+    default_velocity_ratio: 0.005
+    # VAL3 mdesc.vel uses nominal joint speeds, in rad/s, as its 100% reference.
+    # These values also cap accepted trajectory velocities in this driver.
+    joint_velocity_limits:
+      - 5.253441048502932
+      - 5.253441048502932
+      - 7.906341511534313
+      - 7.52236907609556
+      - 5.8643062867009474
+      - 12.828170002158322
+
+joint_trajectory_action:
+  ros__parameters:
+    joint_names: [joint_1, joint_2, joint_3, joint_4, joint_5, joint_6]
