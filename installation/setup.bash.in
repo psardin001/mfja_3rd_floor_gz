@@ -1,0 +1,16 @@
+# Source this file in each terminal used for the gears tutorial.
+export GEARS_ROOT=@WORKSPACE@
+export MFJA_ROOT=@MFJA_ROOT@
+source /opt/ros/jazzy/setup.bash
+source "$GEARS_ROOT/.venv/bin/activate"
+export PYTHONNOUSERSITE=1
+export PATH="$GEARS_ROOT/hpp/install/bin:$PATH"
+export CMAKE_PREFIX_PATH="$GEARS_ROOT/hpp/install:/opt/ros/jazzy:${CMAKE_PREFIX_PATH:-}"
+export LD_LIBRARY_PATH="$GEARS_ROOT/hpp/install/lib:${LD_LIBRARY_PATH:-}"
+export PKG_CONFIG_PATH="$GEARS_ROOT/hpp/install/lib/pkgconfig:/opt/ros/jazzy/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+export PYTHONPATH="$GEARS_ROOT/hpp/install/lib/python3.12/site-packages:${PYTHONPATH:-}"
+export HPP_EXEC_DIR="$GEARS_ROOT/hpp/src/hpp-exec"
+export HPP_TUTORIAL_DIR="$GEARS_ROOT/hpp/src/hpp_tutorial"
+if [[ -f "$GEARS_ROOT/ros/install/local_setup.bash" ]]; then
+  source "$GEARS_ROOT/ros/install/local_setup.bash"
+fi

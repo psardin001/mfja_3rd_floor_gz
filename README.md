@@ -1,10 +1,15 @@
 # MFJA 3rd Floor
 
 This repository contains the ROS 2 and Gazebo models for the MFJA third floor.
-Its simplest Staubli example plans one table pick-and-place with HPP and uses
-the same plan in Viser, Gazebo, or through the direct VAL3 robot driver.
+The HPP gears tutorials use these models with Viser and the Stäubli VAL3 driver.
 
 ## Installation
+
+For `hpp_tutorial/mfja/one_gear.py`, `two_gears.py` and real-robot execution,
+follow [INSTALL.md](INSTALL.md). It installs pinned HPP sources and the required
+MFJA/ROS packages on Ubuntu 24.04.
+
+## Legacy pick-and-place installation
 
 These instructions install the Staubli pick-and-place on Ubuntu 24.04 with
 ROS 2 Jazzy and Gazebo Harmonic.
