@@ -19,6 +19,10 @@ sudo bash installation/dependencies.sh
 Builds use one job. Logs are in `~/mfja-gears/logs/`.
 To resume an interrupted installation, repeat the last command.
 
+The installer checks pinned revisions and preserves existing checkouts. To
+install a newer recipe, use a new installation directory or update the source
+checkouts explicitly after preserving local changes.
+
 In each terminal:
 
 ```bash
@@ -66,6 +70,19 @@ export ROS_DOMAIN_ID=7
 read -r -p "Controller IP: " ROBOT_IP
 ros2 launch mfja_staubli_manipulation_demos room_315_staubli_hardware.launch.py \
   robot_ip:="$ROBOT_IP" joint_config:="$MFJA_ROOT/installation/staubli_gears.yaml"
+```
+
+## Tutorial 10
+
+With the driver running, follow the
+[tutorial 10 instructions](https://github.com/psardin001/hpp_tutorial/blob/7e8b00a27ea869f0737d6f0a90a64da1402bb0cf/tutorial_10/README.md)
+to send arm position trajectories and then add the gripper actions:
+
+```bash
+source "$HOME/mfja-gears/setup.bash"
+export ROS_DOMAIN_ID=7
+cd "$HPP_TUTORIAL_DIR/tutorial_10"
+python -i init.py
 ```
 
 ## Execute one gear

@@ -18,6 +18,18 @@ from staubli_msgs.srv import WriteSingleIO
 sys.path.insert(0, str(Path(os.environ["HPP_TUTORIAL_DIR"]) / "mfja"))
 from environment import initial_configuration, load_scene
 
+for name in (
+    "README.md",
+    "init.py",
+    "environment.py",
+    "tools.py",
+    "staubli_io.py",
+    "one_gear.py",
+    "two_gears.py",
+):
+    path = Path(os.environ["HPP_TUTORIAL_DIR"]) / "tutorial_10" / name
+    assert path.is_file(), f"Missing tutorial 10 file or broken link: {path}"
+
 assert sys.version_info[:2] == (3, 12)
 assert "positions_only" in inspect.signature(hpp_exec.execute_segments).parameters
 assert "wait_for_completion" in inspect.signature(hpp_exec.execute_segments).parameters

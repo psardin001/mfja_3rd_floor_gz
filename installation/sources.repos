@@ -66,4 +66,4 @@ repositories:
   hpp_tutorial:
     type: git
     url: https://github.com/psardin001/hpp_tutorial.git
-    version: e12a61f52727f4f01c7bd47af0817da7045a4c6e
+    version: 7e8b00a27ea869f0737d6f0a90a64da1402bb0cf
